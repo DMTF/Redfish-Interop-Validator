@@ -1,0 +1,106 @@
+
+# Copyright Notice:
+# Copyright 2017 Distributed Management Task Force, Inc. All rights reserved.
+# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Usecase-Checkers/LICENSE.md
+#
+# Unit tests for RedfishInteropValidator.py
+#
+
+from unittest import TestCase
+
+import RedfishInteropValidator as riv
+
+class ValidatorTest(TestCase):
+
+    # can we test writeable, find_prop, conditional
+    # propRequirements? 
+
+    def test_no_test(self):
+        self.assertTrue(True, 'Huh?')
+
+    def test_requirement(self):
+        entries = ['Mandatory', 'Recommended', 'Mandatory', 'Recommended']
+        vals = ['Ok', 'DNE', 'DNE', 'Ok']
+        boolist = [True, True, False, True]
+        for e, v, b in zip(entries, vals, boolist):
+            self.assertTrue(riv.validateRequirement(e, v) == b, str(e + ' ' + v))
+
+    def test_mincount(self):
+        x = 'x'
+        entries = [1, 2, 3, 4]
+        vals = [[x, x, x], [x], [x, x, x, x], [x, x, x, x]]
+        annotations = [3, 1, 4, 4]
+        boolist = [True, False, True, True]
+        for e, v, a, b in zip(entries, vals, annotations, boolist):
+            self.assertTrue(riv.validateMinCount(v, e, a) == b)
+
+    def test_supportedvals(self):
+        x, y, z = 'x', 'y', 'z'
+        entries = [[x, y], [x], [x, y, z]]
+        vals = [[x, y], [x, y], [x, y]]
+        boolist = [True, True, False]
+        for e, v, b in zip(entries, vals, boolist):
+            self.assertTrue(riv.validateSupportedValues(e, v) == b)
+       
+    def test_comparison_1(self):
+        x, y, z = 'x', 'y', 'z'
+        comp = ['AnyOf', 'AllOf', 'AllOf']
+        entries = [[x, y], [x], [x, y, z]]
+        vals = [[x, y], [x, y], [x, y, y]]
+        boolist = [True, True, False]
+        for c, e, v, b in zip(comp, entries, vals, boolist):
+            self.assertTrue(riv.checkComparison(v, c, e) == b)
+        
+    def test_members(self):
+        members = [1, 2, 3]
+        entry = {'MinCount': 2}
+        annotation = 3
+        self.assertTrue(riv.validateMembers(members, entry, annotation))
+    
+    def test_minversion(self):
+        entries = ['1.0.1', '1.0.1', '1.2.0']
+        vals = ['#ComputerSystem.1.0.1.ComputerSystem', '#ComputerSystem.v1_1_1.ComputerSystem', '#ComputerSystem.v1_1_1.ComputerSystem']
+        boolist = [True, True, False]
+        for e, v, b in zip(entries, vals, boolist):
+            self.assertTrue(riv.validateMinVersion(v, e) == b)
+
+    def test_action(self):
+        interopdict = {
+                    "ResetType@Redfish.AllowableValues": ["On", "ForceOff"],
+                    "target": "/redfish/v1/Chassis/System.Embedded.1/Actions/Chassis.Reset"}
+        vals = [interopdict,
+                'DNE', 'DNE', interopdict, {}]
+        entries = [{
+                    "Requirement": "Mandatory",
+                    "Parameters": {
+                        "ResetType": {
+                            "AllowableValues": ["On", "ForceOff"],
+                            "Requirement": "Mandatory"
+                        }
+                    }
+                }, {
+                    "Requirement": "Mandatory",
+                }, {
+                    "Requirement": "Recommended",
+                }, {
+                    "Requirement": "Recommended",
+                    "Parameters": {
+                        "ResetType": {
+                            "AllowableValues": ["ForceOff", "PowerCycle"],
+                            "Requirement": "Mandatory"
+                        }
+                    }
+                }, {
+                    "Requirement": "Recommended",
+                    "Parameters": {
+                        "ResetType": {
+                            "AllowableValues": ["ForceOff", "PowerCycle"],
+                            "Requirement": "Mandatory"
+                        }
+                    }
+                }]
+        boolist = ['pass', 'failRequirementAction', 'pass', 'failActionMinSupportValues', 'failActionRequirementParam']
+        for e, v, b in zip(entries, vals, boolist):
+            self.assertTrue(b in riv.validateActionRequirement(None, e, (v, None), '#Chassis.Reset'),
+                    "Failed on {}".format((e, v, b))) 
+
