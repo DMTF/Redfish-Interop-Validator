@@ -213,7 +213,7 @@ def validateMinVersion(fulltype, entry):
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
         rsvLogger.error('\tNonCompliant')
-    return msgInterop('MinVersion', entry, versionNew, fulltype, paramPass),\
+    return msgInterop('MinVersion', '{} ({})'.format(entry, versionNew), '<=', fulltype, paramPass),\
         paramPass
 
 
@@ -364,7 +364,7 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
         counts["failActionRequirement"] += 1 if not success else 0
     propDoesNotExist = (decodeditem == 'DNE')
     if propDoesNotExist:
-        return counts
+        return msgs, counts
     # problem: if dne, skip
     if "Parameters" in entry:
         innerDict = entry["Parameters"]
@@ -646,7 +646,7 @@ def main(argv):
     argget.add_argument('--service', action='store_true', help='only use uris within the service')
     argget.add_argument('--suffix', type=str, default='_v1.xml', help='suffix of local schema files (for version differences)')
     argget.add_argument('profile', type=str, default='sample.json', help='suffix of local schema files (for version differences)')
-    argget.add_argument('schema', type=str, default='RedfishProfile.v1_0_0.json', help='suffix of local schema files (for version differences)')
+    argget.add_argument('--schema', type=str, default=None, help='suffix of local schema files (for version differences)')
     
     args = argget.parse_args()    
     rsvLogger = rst.getLogger()
@@ -680,14 +680,16 @@ def main(argv):
     rsvLogger.info('System Info: ' + sysDescription)
     rsvLogger.info("RedfishServiceValidator Config details: %s", str(
         (ConfigURI, 'user:' + str(User), SchemaLocation, 'CheckCert' if chkCert else 'no CheckCert', 'localOnly' if localOnly else 'Attempt for Online Schema')))
+    rsvLogger.info("Profile: {},  Schema: {}".format(args.profile, str(args.schema)))
     rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))
 
     profile = schema = None
     with open(args.profile) as f:
         profile = json.loads(f.read())
-        with open(args.schema) as f:
-            schema = json.loads(f.read())
-            checkProfileCompliance(profile, schema)
+        if args.schema is not None:
+            with open(args.schema) as f:
+                schema = json.loads(f.read())
+                checkProfileCompliance(profile, schema)
 
     # Start main
     status_code = 1
@@ -729,6 +731,7 @@ def main(argv):
                 Local Only Schema:' + str(localOnly) + ' ###  Local Schema Location :' + SchemaLocation + '</th></tr>\
                 <tr><th>Start time: ' + (startTick).strftime('%x - %X') + '</th></tr>\
                 <tr><th>Run time: ' + str(nowTick-startTick).rsplit('.', 1)[0] + '</th></tr>\
+                <tr><th>' + 'Profile: {},  Schema: {}'.format(args.profile, args.schema) + '</th></tr>\
                 <tr><th></th></tr>'
     htmlStr = ''
 
@@ -757,7 +760,7 @@ def main(argv):
                     style='class="fail log"' if 'fail' in countType or 'exception' in countType else 'class=log')
         htmlStr += '</td></tr>'
         htmlStr += '</table></td></tr>'
-        htmlStr += '<tr><td class="results" id=\'resNum{}\'><table><tr><td><table><tr><th style="width:15%"> Name</th> <th> Value</th> <th>Type</th> <th>Exists?</th> <th style="width:10%">Success</th> <tr>'.format(cnt)
+        htmlStr += '<tr><td class="results" id=\'resNum{}\'><table><tr><td><table><tr><th style="width:15%"> Name</th> <th>Entry Value</th> <th>must be</th> <th>Service Value</th> <th style="width:10%">Success</th> <tr>'.format(cnt)
         if results[item][3] is not None:
             for i in results[item][3]:
                 htmlStr += '<tr>'

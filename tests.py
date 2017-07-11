@@ -23,7 +23,7 @@ class ValidatorTest(TestCase):
         vals = ['Ok', 'DNE', 'DNE', 'Ok']
         boolist = [True, True, False, True]
         for e, v, b in zip(entries, vals, boolist):
-            self.assertTrue(riv.validateRequirement(e, v) == b, str(e + ' ' + v))
+            self.assertTrue(riv.validateRequirement(e, v)[1] == b, str(e + ' ' + v))
 
     def test_mincount(self):
         x = 'x'
@@ -32,7 +32,7 @@ class ValidatorTest(TestCase):
         annotations = [3, 1, 4, 4]
         boolist = [True, False, True, True]
         for e, v, a, b in zip(entries, vals, annotations, boolist):
-            self.assertTrue(riv.validateMinCount(v, e, a) == b)
+            self.assertTrue(riv.validateMinCount(v, e, a)[1] == b)
 
     def test_supportedvals(self):
         x, y, z = 'x', 'y', 'z'
@@ -40,7 +40,7 @@ class ValidatorTest(TestCase):
         vals = [[x, y], [x, y], [x, y]]
         boolist = [True, True, False]
         for e, v, b in zip(entries, vals, boolist):
-            self.assertTrue(riv.validateSupportedValues(e, v) == b)
+            self.assertTrue(riv.validateSupportedValues(e, v)[1] == b)
        
     def test_comparison_1(self):
         x, y, z = 'x', 'y', 'z'
@@ -49,20 +49,20 @@ class ValidatorTest(TestCase):
         vals = [[x, y], [x, y], [x, y, y]]
         boolist = [True, True, False]
         for c, e, v, b in zip(comp, entries, vals, boolist):
-            self.assertTrue(riv.checkComparison(v, c, e) == b)
+            self.assertTrue(riv.checkComparison(v, c, e)[1] == b)
         
     def test_members(self):
         members = [1, 2, 3]
         entry = {'MinCount': 2}
         annotation = 3
-        self.assertTrue(riv.validateMembers(members, entry, annotation))
+        self.assertTrue(riv.validateMembers(members, entry, annotation)[1])
     
     def test_minversion(self):
         entries = ['1.0.1', '1.0.1', '1.2.0']
         vals = ['#ComputerSystem.1.0.1.ComputerSystem', '#ComputerSystem.v1_1_1.ComputerSystem', '#ComputerSystem.v1_1_1.ComputerSystem']
         boolist = [True, True, False]
         for e, v, b in zip(entries, vals, boolist):
-            self.assertTrue(riv.validateMinVersion(v, e) == b)
+            self.assertTrue(riv.validateMinVersion(v, e)[1] == b)
 
     def test_action(self):
         interopdict = {
@@ -99,8 +99,8 @@ class ValidatorTest(TestCase):
                         }
                     }
                 }]
-        boolist = ['pass', 'failRequirementAction', 'pass', 'failActionMinSupportValues', 'failActionRequirementParam']
+        boolist = ['pass', 'failActionRequirement', 'pass', 'failActionMinSupportValues', 'failActionRequirementParam']
         for e, v, b in zip(entries, vals, boolist):
-            self.assertTrue(b in riv.validateActionRequirement(None, e, (v, None), '#Chassis.Reset'),
+            self.assertTrue(riv.validateActionRequirement(None, e, (v, None), '#Chassis.Reset')[1].get(b, 0) > 0,
                     "Failed on {}".format((e, v, b))) 
 
