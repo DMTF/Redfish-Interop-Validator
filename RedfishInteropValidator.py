@@ -751,6 +751,8 @@ def main(argv):
         innerCounts = results[item][2]
         finalCounts.update(innerCounts)
         for countType in sorted(innerCounts.keys()):
+            if 'fail' in countType or 'exception' in countType:
+                rsvLogger.error('{} {} errors in {}'.format(innerCounts[countType], countType, results[item][0].split(' ')[0]))
             if innerCounts.get(countType) == 0:
                 continue
             innerCounts[countType] += 0
@@ -775,7 +777,7 @@ def main(argv):
             htmlStr += '<tr><td class="fail log">' + str(results[item][4].getvalue()).replace('\n', '<br />') + '</td></tr>'
             results[item][4].close()
         htmlStr += '<tr><td>---</td></tr></table></td></tr>'
-   
+
     htmlStr += '</table></body></html>'
 
     htmlStrTotal = '<tr><td><div>Final counts: '
