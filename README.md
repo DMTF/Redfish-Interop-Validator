@@ -2,9 +2,10 @@ Copyright 2017 Distributed Management Task Force, Inc. All rights reserved.
 # Redfish Interop Validator - Version 0.91
 
 ## About
-The Redfish Interop Validator is a python3 tool that will validate a service based on a profile given to the tool.
+The Redfish Interop Validator is a python3 tool that will validate a service based on an Interoperability profile given to the tool.  The purpose of the tool is to guarantee that a specific service is compatible with vendor systems or system tools based on a vendor's specification in a profile.
 
 ## Introduction
+This tool is designed to accept a profile conformant to the schematics specified by the DMTF Redfish Profile schema, and run against any valid Redfish service for a given device.  It is not biased to any specific hardware, only dependent on the current Redfish specification.
 
 ## Pre-requisites
 The Redfish Interop Validator is based on Python 3 and the client system is required to have the Python framework installed before the tool can be installed and executed on the system. Additionally, the following packages are required to be installed and accessible from the python environment:
@@ -33,12 +34,15 @@ UseSSL = <<On / Off>>
 CertificateCheck = <<On / Off>>
 * 3.	Other  attributes under the “[Options]” section have schema specific implementations as described below
 LocalOnlyMode - Only test properties against Schema placed in the root of MetadataFilePath.
-InteropMode - Only test properties against Resources/Schema that exist on the Service
+ServiceMode - Only test properties against Resources/Schema that exist on the Service
 MetadataFilePath – This attribute points to the location of the DMTF schema file location, populated by xml files
 Session_UserName & Session_Password – These attributes are used to create a session in addition to the default UserName/Password combination available under [SystemInformation] section. Leave these attributes blank if only Administrator credentials are to be used for session specific tests.
 * 4.	Once the above details are updated for the system under test, the Redfish Interop Validator can be triggered from a command prompt by typing the below command:
 
-python3 RedfishInteropValidator.py -c config/config.ini
+python3 RedfishInteropValidator.py <profile> -c config/config.ini
+
+Where profile is the Interop Profile in question.  There is additionally a --schema option, which would allow to specify a schema to validate the profile itself against, to validate that it is in fact a properly formatted profile to Redfish specification.  
+
 
 Alternatively, all of these options are available through the command line.  A configuration file overrides every option specified in the command line, such that -c should not be specified.  In order to review these options, please run the command:
 
@@ -46,14 +50,14 @@ python3 RedfishInteropValidator.py -h
 
 In order to run without a configuration file, the option --ip must be specified.
 
-python3 RedfishInteropValidator.py --ip host:port [...]
+python3 RedfishInteropValidator.py <profile> --ip host:port [...]
 
 ## Execution flow
-* 1.	Redfish Interop Validator starts with the Service root Resource Schema by querying the service with the service root URI and getting all the device information, the resources supported and their links. Once the response of the Service root query is verified against its schema, the tool traverses through all the collections and Navigation properties returned by the service.
+* 1.	Redfish Interop Validator starts with the Service root Resource Schema by querying the service with the service root URI and getting all the device information, the resources supported and their links. Once the response of the Service root query is verified against a given profile (given the profile contains specifications for ServiceRoot), the tool traverses through all the collections and Navigation properties returned by the service.
 * 2.	For each navigation property/Collection of resource returned, it does following operations:
 ** i.	Reads all the Navigation/collection of resources from the respective resource collection schema file.
 ** ii.	Reads the schema file related to the particular resource, collects all the information about individual properties from the resource schema file and stores them into a dictionary
-** iii.	Queries the service with the individual resource uri and validates all the properties returned against the properties collected from the schema file using a GET method making sure all the Mandatory properties are supported
+** iii.	Queries the service with the individual resource uri and validates all Resource returned by the service that are included in the profile specified to the tool.
 * 3.	Step 2 repeats till all the URIs and resources are covered.
  
 ## Conformance Logs – Summary and Detailed Conformance Report
