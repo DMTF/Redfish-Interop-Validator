@@ -53,7 +53,7 @@ def validateRequirement(entry, decodeditem):
     Validates Requirement entry
     """
     propDoesNotExist = (decodeditem == 'DNE')
-    rsvLogger.info('Requirement \n\t' + str(entry) + ' ' + str(propDoesNotExist))
+    rsvLogger.info('ReadRequirement \n\t' + str(entry) + ' ' + str(propDoesNotExist))
     paramPass = not entry == "Mandatory" or \
         entry == "Mandatory" and not propDoesNotExist
     if entry == "Recommended" and propDoesNotExist:
@@ -61,7 +61,7 @@ def validateRequirement(entry, decodeditem):
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
         rsvLogger.error('\tNonCompliant')
-    return msgInterop('Requirement', entry, 'False' if entry == "Mandatory" else 'Any', propDoesNotExist, paramPass),\
+    return msgInterop('ReadRequirement', entry, 'Must Exist' if entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
         paramPass
 
 
@@ -108,9 +108,9 @@ def findPropItemforString(propObj, itemname):
     return None
 
 
-def validateWriteable(propObj, entry, itemname):
+def validateWriteRequirement(propObj, entry, itemname):
     """
-    Validates if a property is Writeable or not
+    Validates if a property is WriteRequirement or not
     """
     rsvLogger.info('writeable \n\t' + str(entry))
     permission = 'Read'
@@ -132,7 +132,7 @@ def validateWriteable(propObj, entry, itemname):
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
         rsvLogger.error('\tNonCompliant')
-    return msgInterop('Writeable', entry, expected, permission, paramPass),\
+    return msgInterop('WriteRequirement', entry, expected, permission, paramPass),\
         paramPass
 
 
@@ -174,6 +174,10 @@ def checkComparison(val, compareType, target):
         paramPass = val < target
     if compareType == "LessThanEqual":
         paramPass = val <= target
+    if compareType == "Absent":
+        paramPass = val == 'DNE'
+    if compareType == "Present":
+        paramPass = val != 'DNE'
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
         rsvLogger.error('\tNonCompliant')
@@ -245,10 +249,10 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
         comparePropName = entry["CompareProperty"]
         while comparePropName not in decodeditem and decoded is not None:
             decodeditem, decoded = decoded
-        compareProp = decodeditem.get(comparePropName)
-        return checkComparison(compareProp, entry["Comparison"], entry["Values"])
-    if "Writeable" in entry:
-        return validateWriteable(propResourceObj, entry["Writeable"], itemname)
+        compareProp = decodeditem.get(comparePropName, 'DNE')
+        return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues"))
+    if "WriteRequirement" in entry:
+        return validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
 
 
 def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, chkCondition=False, inlist=None):
@@ -290,9 +294,9 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
     else:
         # consider requirement before anything else
         # problem: if dne, skip?
-        if "Requirement" in entry:
+        if "ReadRequirement" in entry:
             # problem: if dne, skip
-            msg, success = validateRequirement(entry['Requirement'], decodeditem)
+            msg, success = validateRequirement(entry['ReadRequirement'], decodeditem)
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
             counts["pass"] += 1 if success else 0
@@ -307,12 +311,12 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
                     msgs.extend(conditionalMsgs)
                 else:
                     rsvLogger.info("Condition does not apply")
-        if "Writeable" in entry and not chkCondition:
-            msg, success = validateWriteable(propResourceObj, entry["Writeable"], itemname)
+        if "WriteRequirement" in entry and not chkCondition:
+            msg, success = validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
             counts["pass"] += 1 if success else 0
-            counts["failWriteable"] += 1 if not success else 0
+            counts["failWriteRequirement"] += 1 if not success else 0
         if "MinSupportValues" in entry:
             msg, success = validateSupportedValues(
                     decodeditem, entry["MinSupportValues"],
@@ -323,7 +327,7 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             counts["failMinSupportValues"] += 1 if not success else 0
         if "Comparison" in entry and not chkCondition and \
                 (inlist is None and entry["Comparison"] not in ["AnyOf", "AllOf"]):
-            msg, success = checkComparison(decodeditem, entry["Comparison"], entry["Values"])
+            msg, success = checkComparison(decodeditem, entry["Comparison"], entry.get("Values",[]))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
             counts["pass"] += 1 if success else 0
@@ -355,9 +359,9 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
     msgs = []
     rsvLogger.info('actionRequirement \n\tval: ' + str(decodeditem if not isinstance(
         decodeditem, dict) else 'dict') + ' ' + str(entry))
-    if "Requirement" in entry:
+    if "ReadRequirement" in entry:
         # problem: if dne, skip
-        msg, success = validateRequirement(entry['Requirement'], decodeditem)
+        msg, success = validateRequirement(entry['ReadRequirement'], decodeditem)
         msgs.append(msg)
         msg.name = actionname + '.' + msg.name
         counts["pass"] += 1 if success else 0
@@ -371,9 +375,9 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
         for k in innerDict:
             item = innerDict[k]
             annotation = decodeditem.get(str(k) + '@Redfish.AllowableValues', 'DNE')
-            if "Requirement" in entry:
+            if "ReadRequirement" in entry:
                 # problem: if dne, skip
-                msg, success = validateRequirement(item['Requirement'], annotation)
+                msg, success = validateRequirement(item['ReadRequirement'], annotation)
                 msgs.append(msg)
                 msg.name = actionname + '.' + msg.name
                 counts["pass"] += 1 if success else 0
@@ -401,9 +405,9 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
     rsvLogger.info('interopResource \n\t' + str(interopDict))
     counts = Counter()
     decodedtuple = (decoded, None)
-    if "Requirement" in interopDict:
+    if "ReadRequirement" in interopDict:
         # problem: if dne, skip
-        msg, success = validateRequirement(interopDict['Requirement'], None)
+        msg, success = validateRequirement(interopDict['ReadRequirement'], None)
         msgs.append(msg)
         counts["pass"] += 1 if success else 0
         counts["failRequirement"] += 1 if not success else 0
@@ -509,28 +513,33 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     # "property"
 
     # Attempt to get a list of properties
-    propResourceObj = rst.ResourceObj(
-        uriName, URI, expectedType, expectedSchema, expectedJson, parent)
-    if not propResourceObj.initiated:
+    successGet, jsondata, status, rtime = rst.callResourceURI(URI)
+    successPayload, odataMessages = checkPayloadCompliance(URI, jsondata if successGet else {})
+
+    if not successPayload:
+        counts['failPayloadError'] += 1
+        rsvLogger.error(str(URI) + ':  payload error, @odata property noncompliant',)
+        # rsvLogger.removeHandler(errh)
+        # return False, counts, results, None, propResourceObj
+    # Generate dictionary of property info
+
+    try:
+        propResourceObj = rst.ResourceObj(
+            uriName, URI, expectedType, expectedSchema, expectedJson, parent)
+        if not propResourceObj.initiated:
+            counts['problemResource'] += 1
+            success = False
+            results[uriName] = (URI, success, counts, messages,
+                                errorMessages, None, None)
+            return False, counts, results, None, None
+    except Exception as e:
         counts['exceptionResource'] += 1
         success = False
         results[uriName] = (URI, success, counts, messages,
                             errorMessages, None, None)
         return False, counts, results, None, None
     counts['passGet'] += 1
-    results[uriName] = (URI + ' ({}s)'.format(propResourceObj.rtime), success, counts, messages, errorMessages,
-                        propResourceObj.context, propResourceObj.typeobj.fulltype)
-
-    successPayload, odataMessages = checkPayloadCompliance(
-        URI, propResourceObj.jsondata)
-
-    if not successPayload:
-        counts['failPayloadError'] += 1
-        rsvLogger.error(
-            str(URI) + ':  payload error, @odata property noncompliant',)
-        rsvLogger.removeHandler(errh)
-        return False, counts, results, None, propResourceObj
-    # Generate dictionary of property info
+    results[uriName] = (str(URI) + ' ({}s)'.format(propResourceObj.rtime), success, counts, messages, errorMessages, propResourceObj.context, propResourceObj.typeobj.fulltype)
 
     uriName, SchemaFullType, jsondata = propResourceObj.name, propResourceObj.typeobj.fulltype, propResourceObj.jsondata
     SchemaNamespace, SchemaType = rst.getNamespace(
@@ -645,8 +654,8 @@ def main(argv):
     argget.add_argument('--localonly', action='store_true', help='only use local schema')
     argget.add_argument('--service', action='store_true', help='only use uris within the service')
     argget.add_argument('--suffix', type=str, default='_v1.xml', help='suffix of local schema files (for version differences)')
-    argget.add_argument('profile', type=str, default='sample.json', help='suffix of local schema files (for version differences)')
-    argget.add_argument('--schema', type=str, default=None, help='suffix of local schema files (for version differences)')
+    argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
+    argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
     
     args = argget.parse_args()    
     rsvLogger = rst.getLogger()
@@ -684,12 +693,16 @@ def main(argv):
     rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))
 
     profile = schema = None
+    success = True
     with open(args.profile) as f:
         profile = json.loads(f.read())
         if args.schema is not None:
             with open(args.schema) as f:
                 schema = json.loads(f.read())
-                checkProfileCompliance(profile, schema)
+                success = checkProfileCompliance(profile, schema)
+    if not success:
+        rsvLogger.info("Profile did not comply to the given schema...")
+        return 1
 
     # Start main
     status_code = 1
@@ -751,10 +764,10 @@ def main(argv):
         innerCounts = results[item][2]
         finalCounts.update(innerCounts)
         for countType in sorted(innerCounts.keys()):
-            if 'fail' in countType or 'exception' in countType:
-                rsvLogger.error('{} {} errors in {}'.format(innerCounts[countType], countType, results[item][0].split(' ')[0]))
             if innerCounts.get(countType) == 0:
                 continue
+            if 'fail' in countType or 'exception' in countType:
+                rsvLogger.error('{} {} errors in {}'.format(innerCounts[countType], countType, results[item][0].split(' ')[0]))
             innerCounts[countType] += 0
             htmlStr += '<div {style}>{p}: {q}</div>'.format(
                     p=countType,

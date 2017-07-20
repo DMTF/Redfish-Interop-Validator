@@ -1,0 +1,369 @@
+{
+	"$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema.v1_1_0.json",
+	"title": "#RedfishInteroperabilityProfile.v1_0_0.RedfishInteroperabilityProfile",
+	"copyright": "Copyright 2017 Distributed Management Task Force, Inc. (DMTF). For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+	"type": "object",
+	"additionalProperties": false,
+	"properties": {
+		"SchemaDefinition": {
+			"type": "string",
+			"description": "The JSON schema which defines this Redfish Interoperability Profile document and can be used to validate its contents."
+		},
+		"ProfileName": {
+			"type": "string",
+			"description": "The name of this Redfish Interoperability Profile."
+		},
+		"ProfileVersion": {
+			"type": "string",
+			"description": "The version of this Redfish Interoperability Profile."
+		},
+		"Author": {
+			"type": "string",
+			"description": "The author(s) of this Redfish Interoperability Profile."
+		},
+		"Purpose": {
+			"$ref": "#/definitions/Purpose"
+		},
+		"ContactInfo": {
+			"type": "string",
+			"description": "An email address or URL that can be used to provide feedback about this Redfish Interoperability Profile."
+		},
+		"RequiredProfiles": {
+			"type": "object",
+			"description": "A set of Redfish Interoperability Profiles which serve as a basis for this Profile.  The requirements set forth in those Profiles are included in this Profile.",
+			"additionalProperties": {
+				"Repository": {
+					"$ref": "#/definitions/Repository"
+				},
+				"OwningEntity": {
+					"$ref": "#/definitions/OwningEntity"
+				},
+				"OwningEntityName": {
+					"$ref": "#/definitions/OwningEntityName"
+				},
+				"MinVersion": {
+					"$ref": "#/definitions/MinVersion"
+				}
+			}
+		},
+		"Protocol": {
+			"type": "object",
+			"description": "Interoperability Profile requirements related to the Redfish protocol outside of the JSON resources.",
+			"properties": {
+				"MinVersion": {
+					"$ref": "#/definitions/MinVersion",
+					"description": "The minimum version of the Redfish Specification protocol support required by this Profile. This version shall be reported by the Redfish Service in the ServiceRoot property 'RedfishVersion'.  If this property is absent, the minimum value shall be '1.0.0'."
+				},
+				"DiscoveryRequired": {
+					"type": "boolean",
+					"description": "Indicates that support of the Redfish SSDP Discovery protocol is required for this Profile. If this property is absent, the value shall be false."
+				}
+			}
+		},
+		"Resources": {
+			"type": "object",
+			"description": "The JSON resource requirements for this Redfish Interoperability Profile.",
+			"additionalProperties": {
+				"$ref": "#/definitions/ResourceProfile"
+			}
+		},
+		"Registries": {
+			"type": "object",
+			"description": "The Message Registry requirements for this Redfish Interoperability Profile.",
+			"additionalProperties": {
+				"$ref": "#/definitions/RegistryProfile"
+			}
+		}
+	},
+	"definitions": {
+		"ResourceProfile": {
+			"type": "object",
+			"properties": {
+				"MinVersion": {
+					"$ref": "#/definitions/MinVersion"
+				},
+				"OwningEntity": {
+					"$ref": "#/definitions/OwningEntity"
+				},
+				"OwningEntityName": {
+					"$ref": "#/definitions/OwningEntityName"
+				},
+				"Repository": {
+					"$ref": "#/definitions/Repository"
+				},
+				"ReadRequirement": {
+					"$ref": "#/definitions/ReadRequirement"
+				},
+				"Purpose": {
+					"$ref": "#/definitions/Purpose"
+				},
+				"ConditionalRequirements": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Condition"
+					}
+				},
+				"PropertyRequirements": {
+					"type": "object",
+					"description": "The property-level requirements for this Redfish Interoperability Profile.  These requirements apply to every instance of this resource.  If a property defined in the associated schema is not present, there is no requirement for that property to be supported.",
+					"additionalProperties": {
+						"$ref": "#/definitions/PropertyProfile",
+						"PropertyRequirements": {
+							"type": "object",
+							"description": "Properties defined within an embedded JSON object which have requirements defined by this Profile.",
+							"additionalProperties": {
+								"$ref": "#/definitions/PropertyProfile",
+								"PropertyRequirements": {
+									"type": "object",
+									"description": "Properties defined within an embedded JSON object which have requirements defined by this Profile.",
+									"additionalProperties": {							
+										"$ref": "#/definitions/PropertyProfile"
+									}
+								}
+							}
+						}
+					}
+				},
+				"ActionRequirements": {
+					"type": "object",
+					"description": "The action requirements for this Redfish Interoperability Profile.",
+					"additionalPropeties": {
+						"$ref": "#/definitions/ActionProfile"
+					}
+				}
+			}
+		},
+		"PropertyProfile": {
+			"type": "object",
+			"description": "Properties defined for a Resource which have requirements defined by this Profile.  A Property listed with no further details should be assumed to be a Required property.  Properties not listed have no support requirements associated with this Profile.",
+			"properties": {
+				"ReadRequirement": {
+					"$ref": "#/definitions/ReadRequirement"
+				},
+				"WriteRequirement": {
+					"$ref": "#/definitions/WriteRequirement"
+				},
+				"Purpose": {
+					"$ref": "#/definitions/Purpose"
+				},
+				"MinCount": {
+					"$ref": "#/definitions/MinCount"
+				},
+				"MinSupportValues": {
+					"$ref": "#/definitions/MinSupportValues"
+				},
+				"Comparison": {
+					"$ref": "#/definitions/Comparison"
+				},
+				"Values": {
+					"$ref": "#/definitions/Values"
+				},				
+				"ConditionalRequirements": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Condition"
+					}
+				}
+			}
+		},
+		"ActionProfile": {
+			"type": "object",
+			"description": "Actions defined for a Resource which have requirements defined by this Redfish Interoperability Profile.",
+			"properties": {
+				"ReadRequirement": {
+					"$ref": "#/definitions/ReadRequirement"
+				},
+				"Purpose": {
+					"$ref": "#/definitions/Purpose"
+				},
+				"Parameters": {
+					"type": "object",
+					"additionalProperties": {
+						"ReadRequirement": {
+							"$ref": "#/definitions/ReadRequirement"
+						},
+						"MinSupportValues": {
+							"$ref": "#/definitions/MinSupportValues"
+						}
+					}
+				}
+			},
+			"additionalProperties": false
+		},
+		"RegistryProfile": {
+			"type": "object",
+			"description": "Requirements for support of a Message Registry by this Redfish Interoperability Profile.",
+			"properties": {
+				"ReadRequirement": {
+					"$ref": "#/definitions/ReadRequirement"
+				},
+				"Purpose": {
+					"$ref": "#/definitions/Purpose"
+				},
+				"MinVersion": {
+					"$ref": "#/definitions/MinVersion"
+				},
+				"OwningEntity": {
+					"$ref": "#/definitions/OwningEntity"
+				},
+				"OwningEntityName": {
+					"$ref": "#/definitions/OwningEntityName"
+				},
+				"Repository": {
+					"$ref": "#/definitions/Repository"
+				},
+				"Messages": {
+					"type": "object",
+					"description": "The Messages in this Registry which have support requirements for this Redfish Interoperability Profile. If this property is absent, all Messages in this Registry follow the registry-level 'ReadRequirement'.",
+					"additionalProperties": {
+						"ReadRequirement": {
+							"$ref": "#/definitions/ReadRequirement"
+						}
+					}
+				}
+			},
+			"additionalProperties": false
+		},
+		"MinVersion": {
+			"type": "string",
+			"description": "The minimum version required by this Redfish Interoperability Profile. If this property is absent, the minimum value shall be '1.0.0'."
+		},
+		"MinCount": {
+			"type": "integer",
+			"description": "For array type properties, the minimum number of non-NULL instances within the array. If this property is absent, the minimum count shall be 1."
+		},
+		"Purpose": {
+			"type": "string",
+			"description": "A description of the purpose of this requirement, to provide justification or explanation in the profile documentation."
+		},
+		"ReadRequirement": {
+			"type": "string",
+			"description": "The read (HTTP GET) requirements for this property.  The default value, or if no 'ReadRequirement' is present, is 'Mandatory'. For properties of type 'object', requirements of the embedded properties will apply only if the object is present.",
+			"enum": [
+				"Mandatory",
+				"Recommended",
+				"IfImplemented",
+				"Conditional",
+				"None"
+			],
+			"enumDescriptions": {
+				"Mandatory": "This property is required in all instances of this resource. For properties of type 'array', the property is required in all non-NULL array items. If 'Values' are listed, at least one instance of each enumeration value is required among instance(s) of this property.",
+				"Recommended": "It is recommended, but not required, that this property be supported.",
+				"IfImplemented": "This property is required if the underlying functionality is implemented. For properties of type 'object', requirements on embedded properties within the object will only apply if the object is present.",
+				"Conditional": "This property is only required if one or more 'ConditionalRequirements' items apply to this instance of the resource.",
+				"None": "This property is not required by this profile.  It is listed here for clarity."
+			}
+		},
+		"WriteRequirement": {
+			"type": "string",
+			"description": "The writable (HTTP PATCH or PUT) requirements for this property.  The default value, or if no 'WriteRequirement' is present, is 'None' - that is, the propery may be read-only.",
+			"enum": [
+				"Mandatory",
+				"Recommended",
+				"None"
+			],
+			"enumDescriptions": {
+				"Mandatory": "This property is required to be writable in all instances of this resource.",
+				"Recommended": "It is recommended, but not required, that this property be writable.",
+				"None": "This property is not required to be writable by this profile.  It is listed here for clarity, and is the default value used if 'WriteRequirement' is not present."
+			}
+		},
+		"Condition": {
+			"type": "object",
+			"description": "Conditions that if met, apply additional Profile requirements for this resource.",
+			"properties": {
+				"ReadRequirement": {
+					"$ref": "#/definitions/ReadRequirement"
+				},
+				"WriteRequirement": {
+					"$ref": "#/definitions/WriteRequirement"
+				},
+				"Purpose": {
+					"$ref": "#/definitions/Purpose"
+				},
+				"SubordinateToResource": {
+					"type": "array",
+					"description": "An ordered list (from top of heirarchy to bottom) of resources where this resource is linked as as subordinate resource.  The conditional requirements listed for the resource apply only to instances which are subordinate to the listed parent resource list."
+				},
+				"Comparison": {
+					"$ref": "#/definitions/Comparison"
+				},
+				"CompareProperty": {
+					"type": "string",
+					"description": "The name of the property in this resource whose value is used to test this condition. The property name will be evaluated at the current object level within the resource.  If the property name is not found at the current level, upper levels will be searched until the root level is reached."
+				},
+				"CompareValues": {
+					"description": "The values of the 'CompareProperty' used to test the 'Comparison' for this conditional requirement.",
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				}
+			}
+		},
+		"MinSupportValues": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			},
+			"description": "The minimum set of enumerations that must be supported for this writable property."
+		},
+		"Comparison": {
+			"type": "string",
+			"description": "The condition used to check support of the property or compare the value of the property to 'Values'.",
+			"enum": [
+				"Absent",
+				"AnyOf",
+				"AllOf",
+				"Equal",
+				"NotEqual",
+				"GreaterThan",
+				"GreaterThanEqual",
+				"LessThan",
+				"LessThanEqual",
+				"Present"
+			],
+			"enumDescriptions": {
+				"Absent": "The property is not present in this resource.",
+				"AnyOf": "An instance of the property in this resource must be equal to one of the Values listed.",
+				"AllOf": "At least one instance of the property in this resource must be equal to each of the values listed.",
+				"Equal": "The value of the property must be equal to the Values.",
+				"NotEqual": "The value of the property must not be equal to the Values.",
+				"GreaterThan": "The value of the property must be greater than the Values.",
+				"GreaterThanEqual": "The value of the property must be greater than or equal to the Values.",
+				"LessThan": "The value of the property must be less than to the Values.",
+				"LessThanEqual": "The value of the property must be less than or equal to the Values.",
+				"Present": "The property is present in this resource."
+			}
+		},
+		"Values": {
+			"type": "array",
+			"items": {
+				"type": "string"
+			},
+			"description": "The value(s) required for this property based on the 'Comparison'. If no 'Comparison' is present, the property must be equal to one of the values listed."
+		},
+		"OwningEntity": {
+			"type": "string",
+			"description": "Indicates whether this resource is defined by schema published by a standards body or an OEM. If this property is absent, the value shall be 'DMTF'.",
+			"enum": [
+				"DMTF",
+				"SNIA",
+				"Other"
+			],
+			"enumDescriptions": {
+				"DMTF": "A standard schema defined by the Distributed Management Task Force.",
+				"SNIA": "A standard schema defined by the Storage Networking Industry Association.",
+				"OEM": "A vendor-defined schema."
+			}
+		},
+		"OwningEntityName": {
+			"type": "string",
+			"description": "Name of the owning entity, when used with 'Other', follows 'Oem Property Naming' in the Redfish Specification"
+		},
+		"Repository": {
+			"type": "string",
+			"description": "A URI providing the location of the repository which contains the file(s) to be included.  If absent, the location shall be the Redfish Schema Repository at redfish.dmtf.org ."
+		}
+	}
+}
