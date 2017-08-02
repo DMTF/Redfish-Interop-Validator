@@ -14,6 +14,8 @@ from collections import OrderedDict
 from functools import lru_cache
 import logging
 from distutils.version import LooseVersion
+from datetime import datetime, timedelta
+from rfSession import rfSession
 
 expectedVersion = '4.5.3'
 
@@ -30,10 +32,13 @@ ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.INFO)
 traverseLogger.addHandler(ch)
 config = configparser.ConfigParser()
-config['DEFAULT'] = {'LogPath': './logs', 'SchemaSuffix': '_v1.xml', 'timeout': 30}
+config['DEFAULT'] = {'LogPath': './logs', 'SchemaSuffix': '_v1.xml', 'timeout': 30, 'AuthType': 'Basic'}
 config['internal'] = {'configSet': '0'}
-SchemaSuffix = useSSL = ConfigURI = User = Passwd = sysDescription = SchemaLocation\
-        = chkCert = localOnly = serviceOnly = timeout = LogPath = None
+commonHeader = {'OData-Version': '4.0'}
+SchemaSuffix = UseSSL = ConfigURI = User = Passwd = SysDescription = SchemaLocation\
+        = ChkCert = LocalOnly = AuthType = ServiceOnly = timeout = LogPath = None
+
+currentSession = rfSession()
 
 
 def getLogger():
@@ -47,22 +52,28 @@ def setConfigNamespace(args):
     """
     Provided a namespace, modify args based on it
     """
-    global SchemaSuffix, useSSL, ConfigURI, User, Passwd, sysDescription, SchemaLocation,\
-        chkCert, localOnly, serviceOnly, timeout, LogPath
+    global SchemaSuffix, UseSSL, ConfigURI, User, Passwd, SysDescription, SchemaLocation,\
+        ChkCert, LocalOnly, ServiceOnly, timeout, LogPath, AuthType
     User = args.user
     Passwd = args.passwd
-    sysDescription = args.desc
+    AuthType = args.authtype
+    SysDescription = args.desc
     SchemaLocation = args.dir
     timeout = args.timeout
-    chkCert = not args.nochkcert
-    useSSL = not args.nossl
+    ChkCert = not args.nochkcert
+    UseSSL = not args.nossl
     LogPath = args.logdir
-    ConfigURI = ('https' if useSSL else 'http') + '://' + \
+    ConfigURI = ('https' if UseSSL else 'http') + '://' + \
         args.ip
-    localOnly = args.localonly
-    serviceOnly = args.service
+    LocalOnly = args.localonly
+    ServiceOnly = args.service
     SchemaSuffix = args.suffix
+
     versionCheck(bs4.__version__, expectedVersion)
+
+    if AuthType == 'Session':
+        currentSession.startSession(User, Passwd, ConfigURI, ChkCert)
+
     config['internal']['configSet'] = '1'
 
 
@@ -70,27 +81,32 @@ def setConfig(filename):
     """
     Set config based on config file read from location filename
     """
-    global SchemaSuffix, useSSL, ConfigURI, User, Passwd, sysDescription, SchemaLocation,\
-        chkCert, localOnly, serviceOnly, timeout, LogPath
+    global SchemaSuffix, UseSSL, ConfigURI, User, Passwd, SysDescription, SchemaLocation,\
+        ChkCert, LocalOnly, ServiceOnly, timeout, LogPath, AuthType
     config.read(filename)
-    useSSL = config.getboolean('Options', 'UseSSL')
+    UseSSL = config.getboolean('Options', 'UseSSL')
 
-    ConfigURI = ('https' if useSSL else 'http') + '://' + \
+    ConfigURI = ('https' if UseSSL else 'http') + '://' + \
         config.get('SystemInformation', 'TargetIP')
 
     User = config.get('SystemInformation', 'UserName')
     Passwd = config.get('SystemInformation', 'Password')
-    sysDescription = config.get('SystemInformation', 'SystemInfo')
+    SysDescription = config.get('SystemInformation', 'SystemInfo')
+    AuthType = config.get('SystemInformation', 'AuthType')
 
     SchemaLocation = config.get('Options', 'MetadataFilePath')
     LogPath = config.get('Options', 'LogPath')
-    chkCert = config.getboolean('Options', 'CertificateCheck') and useSSL
+    ChkCert = config.getboolean('Options', 'CertificateCheck') and UseSSL
     SchemaSuffix = config.get('Options', 'SchemaSuffix')
     timeout = config.getint('Options', 'timeout')
-    localOnly = config.getboolean('Options', 'LocalOnlyMode')
-    serviceOnly = config.getboolean('Options', 'ServiceMode')
+    LocalOnly = config.getboolean('Options', 'LocalOnlyMode')
+    ServiceOnly = config.getboolean('Options', 'ServiceMode')
 
     versionCheck(bs4.__version__, expectedVersion)
+
+    if AuthType == 'Session':
+        currentSession.startSession(User, Passwd, ConfigURI, ChkCert)
+
     config['internal']['configSet'] = '1'
 
 
@@ -139,20 +155,25 @@ def callResourceURI(URILink):
         else:
             auth = (User, Passwd)
 
-    if nonService and serviceOnly:
+    if nonService and ServiceOnly:
         traverseLogger.debug('Disallowed out of service URI')
         return False, None, -1, 0
 
     # rs-assertion: do not send auth over http
-    if not useSSL or nonService:
+    if not UseSSL or nonService or AuthType != 'Basic':
         auth = None
+
+    if UseSSL and not nonService and AuthType == 'Session' and not noauthchk:
+        headers = {"X-Auth-Token": currentSession.getSessionKey()}
+        headers.update(commonHeader)
+    else:
+        headers = commonHeader
 
     # rs-assertion: must have application/json or application/xml
     traverseLogger.debug('callingResourceURI: %s', URILink)
     try:
         response = requests.get(ConfigURI + URILink if not nonService else URILink,
-                                headers={'OData-Version': '4.0'},
-                                auth=auth, verify=chkCert, timeout=timeout)
+                                headers=headers, auth=auth, verify=ChkCert, timeout=timeout)
         expCode = [200]
         elapsed = response.elapsed.total_seconds()
         statusCode = response.status_code
@@ -200,14 +221,14 @@ def getSchemaDetails(SchemaAlias, SchemaURI):
     Find Schema file for given Namespace.
 
     param arg1: Schema Namespace, such as ServiceRoot
-    param SchemaURI: uri to grab schema, given localOnly is False
+    param SchemaURI: uri to grab schema, given LocalOnly is False
     return: (success boolean, a Soup object)
     """
     if SchemaAlias is None:
         return False, None, None
 
     # rs-assertion: parse frags
-    if SchemaURI is not None and not localOnly:
+    if SchemaURI is not None and not LocalOnly:
         # Get our expected Schema file here
         success, data, status, elapsed = callResourceURI(SchemaURI)
         # if success, generate Soup, then check for frags to parse
@@ -230,7 +251,7 @@ def getSchemaDetails(SchemaAlias, SchemaURI):
                         "SchemaURI missing reference link: %s %s", SchemaURI, frag)
             else:
                 return True, soup, SchemaURI
-        if isNonService(SchemaURI) and serviceOnly:
+        if isNonService(SchemaURI) and ServiceOnly:
             traverseLogger.info("Nonservice URI skipped " + SchemaURI)
         else:
             traverseLogger.debug("SchemaURI unsuccessful: %s", SchemaURI)
@@ -311,12 +332,14 @@ def getReferenceDetails(soup, metadata_dict=None):
     if metadata_dict is not None:
         refDict.update(metadata_dict)
         if len(refDict.keys()) > len(metadata_dict.keys()):
+            propSchema = soup.find('schema')
+            nameOfSchema = propSchema.get('namespace', '?')
             diff_keys = [key for key in refDict if key not in metadata_dict]
             traverseLogger.log(
-                    logging.ERROR if serviceOnly else logging.WARN, 
-                    "Reference in a Schema not in metadata, this may not be compatible with ServiceMode")
+                    logging.ERROR if ServiceOnly else logging.WARN,
+                    "Reference in a Schema containing {} not in metadata, this may not be compatible with ServiceMode".format(nameOfSchema))
             traverseLogger.log(
-                    logging.ERROR if serviceOnly else logging.WARN, 
+                    logging.ERROR if ServiceOnly else logging.WARN,
                     "References missing in metadata: {}".format(str(diff_keys)))
     return refDict
 

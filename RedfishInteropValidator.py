@@ -652,6 +652,7 @@ def main(argv):
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--nossl', action='store_true', help='use http instead of https')
     argget.add_argument('--localonly', action='store_true', help='only use local schema')
+    argget.add_argument('--authtype', type=str, default='Basic', help='authorization type (None|Basic|Session, default Basic)')
     argget.add_argument('--service', action='store_true', help='only use uris within the service')
     argget.add_argument('--suffix', type=str, default='_v1.xml', help='suffix of local schema files (for version differences)')
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
