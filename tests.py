@@ -13,7 +13,7 @@ import RedfishInteropValidator as riv
 class ValidatorTest(TestCase):
 
     # can we test writeable, find_prop, conditional
-    # propRequirements? 
+    # propReadRequirements? 
 
     def test_no_test(self):
         self.assertTrue(True, 'Huh?')
@@ -71,31 +71,31 @@ class ValidatorTest(TestCase):
         vals = [interopdict,
                 'DNE', 'DNE', interopdict, {}]
         entries = [{
-                    "Requirement": "Mandatory",
+                    "ReadRequirement": "Mandatory",
                     "Parameters": {
                         "ResetType": {
                             "AllowableValues": ["On", "ForceOff"],
-                            "Requirement": "Mandatory"
+                            "ReadRequirement": "Mandatory"
                         }
                     }
                 }, {
-                    "Requirement": "Mandatory",
+                    "ReadRequirement": "Mandatory",
                 }, {
-                    "Requirement": "Recommended",
+                    "ReadRequirement": "Recommended",
                 }, {
-                    "Requirement": "Recommended",
+                    "ReadRequirement": "Recommended",
                     "Parameters": {
                         "ResetType": {
                             "AllowableValues": ["ForceOff", "PowerCycle"],
-                            "Requirement": "Mandatory"
+                            "ReadRequirement": "Mandatory"
                         }
                     }
                 }, {
-                    "Requirement": "Recommended",
+                    "ReadRequirement": "Recommended",
                     "Parameters": {
                         "ResetType": {
                             "AllowableValues": ["ForceOff", "PowerCycle"],
-                            "Requirement": "Mandatory"
+                            "ReadRequirement": "Mandatory"
                         }
                     }
                 }]

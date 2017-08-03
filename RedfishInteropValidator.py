@@ -610,7 +610,7 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
                 counts['repeat'] += 1
                 continue
 
-            success, linkCounts, linkResults, xlinks = executeLink(
+            success, linkCounts, linkResults, xlinks, xobj = executeLink(
                 links[linkName], thisobj)
             refLinks.update(xlinks)
             if not success:
@@ -625,13 +625,13 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
             else:
                 continue
 
-            success, linkCounts, linkResults, xlinks = executeLink(
+            success, linkCounts, linkResults, xlinks, xobj = executeLink(
                 refLinks[linkName], thisobj)
             if not success:
                 counts['unvalidatedRef'] += 1
             results.update(linkResults)
 
-    return validateSuccess, counts, results, refLinks
+    return validateSuccess, counts, results, refLinks, thisobj
 
 #############################################################
 #########          Script starts here              ##########
@@ -652,6 +652,7 @@ def main(argv):
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--nossl', action='store_true', help='use http instead of https')
     argget.add_argument('--localonly', action='store_true', help='only use local schema')
+    argget.add_argument('--authtype', type=str, default='Basic', help='authorization type (None|Basic|Session, default Basic)')
     argget.add_argument('--service', action='store_true', help='only use uris within the service')
     argget.add_argument('--suffix', type=str, default='_v1.xml', help='suffix of local schema files (for version differences)')
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
@@ -660,19 +661,23 @@ def main(argv):
     args = argget.parse_args()    
     rsvLogger = rst.getLogger()
     
-    if args.config is not None:
-        rst.setConfig(args.config)
-        rst.isConfigSet()
-    elif args.ip is not None:
-        rst.setConfigNamespace(args)
-        rst.isConfigSet()
-    else:
-        rsvLogger.info('No ip or config specified.')
-        argget.print_help()
+    try:
+        if args.config is not None:
+            rst.setConfig(args.config)
+            rst.isConfigSet()
+        elif args.ip is not None:
+            rst.setConfigNamespace(args)
+            rst.isConfigSet()
+        else:
+            rsvLogger.info('No ip or config specified.')
+            argget.print_help()
+            return 1
+    except Exception as ex:
+        rsvLogger.exception("Something went wrong")
         return 1
 
     sysDescription, ConfigURI, chkCert, localOnly = (
-        rst.sysDescription, rst.ConfigURI, rst.chkCert, rst.localOnly)
+        rst.SysDescription, rst.ConfigURI, rst.ChkCert, rst.LocalOnly)
     User, SchemaLocation = rst.User, rst.SchemaLocation
     logpath = rst.LogPath
 
@@ -688,7 +693,7 @@ def main(argv):
     rsvLogger.addHandler(fh)
     rsvLogger.info('System Info: ' + sysDescription)
     rsvLogger.info("RedfishServiceValidator Config details: %s", str(
-        (ConfigURI, 'user:' + str(User), SchemaLocation, 'CheckCert' if chkCert else 'no CheckCert', 'localOnly' if localOnly else 'Attempt for Online Schema')))
+        (ConfigURI, 'user:' + str(User), SchemaLocation, 'CheckCert' if chkCert else 'no CheckCert', 'localOnly/service' if rst.ServiceOnly or localOnly else 'Attempt for Online Schema')))
     rsvLogger.info("Profile: {},  Schema: {}".format(args.profile, str(args.schema)))
     rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))
 
@@ -706,11 +711,12 @@ def main(argv):
 
     # Start main
     status_code = 1
-    success, counts, results, xlinks = validateURITree(
+    success, counts, results, xlinks, topobj = validateURITree(
         '/redfish/v1', 'ServiceRoot', profile=profile)
     nowTick = datetime.now()
     rsvLogger.info('Elapsed time: ' +
                    str(nowTick - startTick).rsplit('.', 1)[0])
+    rst.currentSession.killSession()
 
     finalCounts = counts
     
