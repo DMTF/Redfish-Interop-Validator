@@ -716,7 +716,8 @@ def main(argv):
     nowTick = datetime.now()
     rsvLogger.info('Elapsed time: ' +
                    str(nowTick - startTick).rsplit('.', 1)[0])
-    rst.currentSession.killSession()
+    if rst.currentSession.started:
+        rst.currentSession.killSession()
 
     finalCounts = counts
     
