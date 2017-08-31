@@ -53,7 +53,7 @@ def validateRequirement(entry, decodeditem):
     Validates Requirement entry
     """
     propDoesNotExist = (decodeditem == 'DNE')
-    rsvLogger.info('ReadRequirement \n\t' + str(entry) + ' ' + str(propDoesNotExist))
+    rsvLogger.info('Testing ReadRequirement \n\texpected:' + str(entry) + ', exists: ' + str(not propDoesNotExist))
     paramPass = not entry == "Mandatory" or \
         entry == "Mandatory" and not propDoesNotExist
     if entry == "Recommended" and propDoesNotExist:
@@ -69,7 +69,7 @@ def validateMinCount(alist, length, annotation=0):
     """
     Validates Mincount annotation
     """
-    rsvLogger.info('minCount \n\t' + str(length) + ' ' + str(annotation))
+    rsvLogger.info('Testing minCount \n\texpected:' + str(length) + ', val:' + str(annotation))
     paramPass = len(alist) >= length or annotation >= length
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
@@ -82,7 +82,7 @@ def validateSupportedValues(enumlist, annotation):
     """
     Validates SupportedVals annotation
     """
-    rsvLogger.info('supportedValues \n\t' + str(enumlist) + ' ' + str(annotation))
+    rsvLogger.info('Testing supportedValues \n\t:' + str(enumlist) + ', exists:' + str(annotation))
     for item in enumlist:
         paramPass = item in annotation
         if not paramPass:
@@ -121,7 +121,7 @@ def validateWriteRequirement(propObj, entry, itemname):
         if targetProp is not None:
             propAttr = targetProp.propDict.get('OData.Permissions')
         if propAttr is not None:
-            permission = propAttr.get('enummember', 'Read')
+            permission = propAttr.get('EnumMember', 'Read')
             paramPass = permission \
                 == "OData.Permission/ReadWrite"
         else:
@@ -140,7 +140,7 @@ def checkComparison(val, compareType, target):
     """
     Validate a given comparison option, given a value and a target set
     """
-    rsvLogger.info('comparison \n\t' + str((val, compareType, target)))
+    rsvLogger.info('Testing a comparison \n\t' + str((val, compareType, target)))
     vallist = val if isinstance(val, list) else [val]
     paramPass = False
     if compareType == "AnyOf":
@@ -189,7 +189,7 @@ def validateMembers(members, entry, annotation):
     """
     Validate an entry of Members and its count annotation
     """
-    rsvLogger.info('members \n\t' + str((members, entry, annotation)))
+    rsvLogger.info('Testing members \n\t' + str((members, entry, annotation)))
     if not validateRequirement('Mandatory', members):
         return False
     if "MinCount" in entry:
@@ -203,7 +203,7 @@ def validateMinVersion(fulltype, entry):
     Checks for the minimum version of a resource's type
     """
     fulltype = fulltype.replace('#', '')
-    rsvLogger.info('minVersion \n\t' + str((fulltype, entry)))
+    rsvLogger.info('Testing minVersion \n\t' + str((fulltype, entry)))
     # If fulltype doesn't contain version as is, try it as v#_#_#
     versionSplit = entry.split('.')
     versionNew = 'v'
@@ -225,7 +225,7 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
     """
     Returns boolean if entry's conditional is true or false
     """
-    rsvLogger.info('conditionalRequirements \n\t' + str(entry))
+    rsvLogger.info('Evaluating conditionalRequirements')
     if "SubordinateToResource" in entry:
         isSubordinate = False
         # iterate through parents via resourceObj
@@ -262,8 +262,11 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
     msgs = [] 
     counts = Counter()
     decodeditem, decoded = decodedtuple
-    rsvLogger.info('propRequirement \n\tval: ' + str(decodeditem if not isinstance(
-        decodeditem, dict) else 'dict'))
+    if entry is None or len(entry) == 0:
+        rsvLogger.debug('there are no requirements for this prop')
+    else:
+        rsvLogger.info('propRequirement with value: ' + str(decodeditem if not isinstance(
+            decodeditem, dict) else 'dict'))
     # If we're working with a list, then consider MinCount, Comparisons, then execute on each item
     # list based comparisons include AnyOf and AllOf
     if isinstance(decodeditem, list):
@@ -305,12 +308,13 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             innerDict = entry["ConditionalRequirements"]
             for item in innerDict:
                 if checkConditionalRequirement(propResourceObj, item, decodedtuple, itemname):
+                    rsvLogger.info("\tCondition DOES apply")
                     conditionalMsgs, conditionalCounts = validatePropertyRequirement(
                         propResourceObj, item, decodedtuple, itemname, True)
                     counts.update(conditionalCounts)
                     msgs.extend(conditionalMsgs)
                 else:
-                    rsvLogger.info("Condition does not apply")
+                    rsvLogger.info("\tCondition does not apply")
         if "WriteRequirement" in entry and not chkCondition:
             msg, success = validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
             msgs.append(msg)
@@ -402,7 +406,8 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
     Base function that validates a single Interop Resource by its entry
     """
     msgs = []
-    rsvLogger.info('interopResource \n\t' + str(interopDict))
+    rsvLogger.info('### Validating an InteropResource')
+    rsvLogger.debug(str(interopDict))
     counts = Counter()
     decodedtuple = (decoded, None)
     if "ReadRequirement" in interopDict:
@@ -427,7 +432,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
     if "PropertyRequirements" in interopDict:
         innerDict = interopDict["PropertyRequirements"]
         for item in innerDict:
-            rsvLogger.info('\n' + item)
+            rsvLogger.info('### Validating PropertyRequirements for {}'.format(item))
             pmsgs, pcounts = validatePropertyRequirement(
                 propResourceObj, innerDict[item], (decoded.get(item, 'DNE'), decodedtuple), item)
             rsvLogger.info(pcounts)
@@ -438,7 +443,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         actionsJson = decoded.get('Actions', {})
         decodedInnerTuple = (actionsJson, decodedtuple)
         for item in innerDict:
-            actionName = '#' + propResourceObj.typeobj.stype + '.' + item
+            actionName = 'Action #' + propResourceObj.typeobj.stype + '.' + item
             rsvLogger.info(actionName)
             amsgs, acounts = validateActionRequirement(propResourceObj, innerDict[item], (actionsJson.get(
                 actionName, 'DNE'), decodedInnerTuple), actionName)
@@ -549,7 +554,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     if SchemaType not in objRes:
         rsvLogger.debug(
-                'No Such Type in sample ' + URI + ' ' + SchemaNamespace + '.' + SchemaType)
+                'No Such Type in sample {} {}.{}, skipping'.format(URI, SchemaNamespace, SchemaType))
     else:
         rsvLogger.info("\n*** %s, %s", uriName, URI)
         rsvLogger.debug("\n*** %s, %s, %s", expectedType,
@@ -640,8 +645,10 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
 
 def main(argv):
     # Set config
-    argget = argparse.ArgumentParser(description='Usecase tool to check compliance to POST Boot action')
+    argget = argparse.ArgumentParser(description='tool for testing services against an interoperability profile')
     argget.add_argument('--ip', type=str, help='ip to test on [host:port]')
+    argget.add_argument('--payload', type=str, help='mode to validate payloads [Tree, Single, SingleFile, TreeFile] followed by resource/filepath', nargs=2)
+    argget.add_argument('--cache', type=str, help='cache mode [Off, Fallback, Prefer] followed by directory', nargs=2)
     argget.add_argument('-c', '--config', type=str, help='config file (overrides other params)')
     argget.add_argument('-u', '--user', default=None, type=str, help='user for basic auth')
     argget.add_argument('-p', '--passwd', default=None, type=str, help='pass for basic auth')
@@ -651,16 +658,22 @@ def main(argv):
     argget.add_argument('--timeout', type=int, default=30, help='requests timeout in seconds')
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--nossl', action='store_true', help='use http instead of https')
+    argget.add_argument('--authtype', type=str, default='Basic', help='authorization type (None|Basic|Session)')
     argget.add_argument('--localonly', action='store_true', help='only use local schema')
-    argget.add_argument('--authtype', type=str, default='Basic', help='authorization type (None|Basic|Session, default Basic)')
     argget.add_argument('--service', action='store_true', help='only use uris within the service')
     argget.add_argument('--suffix', type=str, default='_v1.xml', help='suffix of local schema files (for version differences)')
+    argget.add_argument('--ca_bundle', default="", type=str, help='path to Certificate Authority bundle file or directory')
+    argget.add_argument('--http_proxy', type=str, default=None, help='URL for the HTTP proxy')
+    argget.add_argument('--https_proxy', type=str, default=None, help='URL for the HTTPS proxy')
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
+    argget.add_argument('-v', action='store_true', help='verbose log output to stdout')
     
-    args = argget.parse_args()    
-    rsvLogger = rst.getLogger()
-    
+    args = argget.parse_args()
+
+    if args.v:
+        rst.ch.setLevel(logging.DEBUG)
+
     try:
         if args.config is not None:
             rst.setConfig(args.config)
@@ -669,17 +682,21 @@ def main(argv):
             rst.setConfigNamespace(args)
             rst.isConfigSet()
         else:
-            rsvLogger.info('No ip or config specified.')
+            rsvLogger.info('No ip or config specified.')  # Printout FORMAT
             argget.print_help()
             return 1
     except Exception as ex:
-        rsvLogger.exception("Something went wrong")
+        rsvLogger.exception("Something went wrong")  # Printout FORMAT
         return 1
 
-    sysDescription, ConfigURI, chkCert, localOnly = (
-        rst.SysDescription, rst.ConfigURI, rst.ChkCert, rst.LocalOnly)
-    User, SchemaLocation = rst.User, rst.SchemaLocation
-    logpath = rst.LogPath
+    config_str = ""
+    for cnt, item in enumerate(sorted(list(rst.config.keys() - set(['systeminfo', 'configuri', 'targetip', 'configset', 'password']))), 1):
+        config_str += "{}: {},  ".format(str(item), str(rst.config[item] if rst.config[item] != '' else 'None'))
+        if cnt % 6 == 0:
+            config_str += '\n'
+
+    sysDescription, ConfigURI = (rst.config['systeminfo'], rst.config['configuri'])
+    logpath = rst.config['logpath']
 
     # Logging config
     startTick = datetime.now()
@@ -687,15 +704,13 @@ def main(argv):
         os.makedirs(logpath)
     fmt = logging.Formatter('%(levelname)s - %(message)s')
     fh = logging.FileHandler(datetime.strftime(startTick, os.path.join(logpath, "ComplianceLog_%m_%d_%Y_%H%M%S.txt")))
-
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)
-    rsvLogger.addHandler(fh)
-    rsvLogger.info('System Info: ' + sysDescription)
-    rsvLogger.info("RedfishServiceValidator Config details: %s", str(
-        (ConfigURI, 'user:' + str(User), SchemaLocation, 'CheckCert' if chkCert else 'no CheckCert', 'localOnly/service' if rst.ServiceOnly or localOnly else 'Attempt for Online Schema')))
-    rsvLogger.info("Profile: {},  Schema: {}".format(args.profile, str(args.schema)))
-    rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))
+    rsvLogger.addHandler(fh)  # Printout FORMAT
+    rsvLogger.info('ConfigURI: ' + ConfigURI)
+    rsvLogger.info('System Info: ' + sysDescription)  # Printout FORMAT
+    rsvLogger.info(config_str)
+    rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))  # Printout FORMAT
 
     profile = schema = None
     success = True
@@ -711,15 +726,29 @@ def main(argv):
 
     # Start main
     status_code = 1
-    success, counts, results, xlinks, topobj = validateURITree(
-        '/redfish/v1', 'ServiceRoot', profile=profile)
+    jsonData = None
+    if rst.config.get('payloadmode') not in ['Tree', 'Single', 'SingleFile', 'TreeFile', 'Default']:
+        rst.config['payloadmode'] = 'Default'
+        rsvLogger.error('PayloadMode or path invalid, using Default behavior')
+    if 'File' in rst.config.get('payloadmode'):
+        if rst.config.get('payloadfilepath') is not None and os.path.isfile(rst.config.get('payloadfilepath')):
+            with open(rst.config.get('payloadfilepath')) as f:
+                jsonData = json.load(f)
+                f.close()
+        else:
+            rsvLogger.error('File not found {}'.format(rst.config.get('payloadfilepath')))
+            return 1
+    if 'Single' in rst.config.get('payloadmode'):
+        success, counts, results, xlinks, topobj = validateSingleURI(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
+    elif 'Tree' in rst.config.get('payloadmode'):
+        success, counts, results, xlinks, topobj = validateURITree(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
+    else:
+        success, counts, results, xlinks, topobj = validateURITree('/redfish/v1', 'ServiceRoot', profile, expectedJson=jsonData)
+    finalCounts = Counter()
     nowTick = datetime.now()
-    rsvLogger.info('Elapsed time: ' +
-                   str(nowTick - startTick).rsplit('.', 1)[0])
+    rsvLogger.info('Elapsed time: ' + str(nowTick-startTick).rsplit('.', 1)[0])  # Printout FORMAT
     if rst.currentSession.started:
         rst.currentSession.killSession()
-
-    finalCounts = counts
     
     # Render html
     htmlStrTop = '<html><head><title>Compliance Test Summary</title>\
@@ -742,27 +771,27 @@ def main(argv):
             .titletable {width:100%}\
             </style>\
             </head>'
+
     htmlStrBodyHeader = '<body><table>\
                 <tr><th>##### Redfish Compliance Test Report #####</th></tr>\
                 <tr><th>System: ' + ConfigURI + '</th></tr>\
                 <tr><th>Description: ' + sysDescription + '</th></tr>\
-                <tr><th>User: ' + str(User) + ' ###  \
-                SSL Cert Check: ' + str(chkCert) + ' ###  \n\
-                Local Only Schema:' + str(localOnly) + ' ###  Local Schema Location :' + SchemaLocation + '</th></tr>\
+                <tr><th>' + str(config_str.replace('\n', '</br>')) + '</th></tr>\
                 <tr><th>Start time: ' + (startTick).strftime('%x - %X') + '</th></tr>\
                 <tr><th>Run time: ' + str(nowTick-startTick).rsplit('.', 1)[0] + '</th></tr>\
-                <tr><th>' + 'Profile: {},  Schema: {}'.format(args.profile, args.schema) + '</th></tr>\
                 <tr><th></th></tr>'
+
     htmlStr = ''
 
+    rsvLogger.info(len(results))
     for cnt, item in enumerate(results):
         if results[item][3] is not None and len(results[item][3]) == 0:
            continue
         htmlStr += '<tr><td class="titlerow"><table class="titletable"><tr>'
         htmlStr += '<td class="title" style="width:40%"><div>{}</div>\
                 <div class="button warn" onClick="document.getElementById(\'resNum{}\').classList.toggle(\'resultsShow\');">Show results</div>\
-                </td>'.format(item, cnt, cnt)
-        htmlStr += '<td class="titlesub log" style="width:30%"><div><b>URI:</b> {}</div><div><b>XML:</b> {}</div><div><b>type:</b> {}</div></td>'.format(results[item][0],results[item][5],results[item][6])
+                </td>'.format(results[item][0], cnt, cnt)
+        htmlStr += '<td class="titlesub log" style="width:30%"><div><b>URI:</b> {}</div><div><b>XML:</b> {}</div><div><b>type:</b> {}</div></td>'.format(item, results[item][5], results[item][6])
         htmlStr += '<td style="width:10%"' + \
             ('class="pass"> GET Success' if results[item]
              [1] else 'class="fail"> GET Failure') + '</td>'
@@ -779,7 +808,7 @@ def main(argv):
             htmlStr += '<div {style}>{p}: {q}</div>'.format(
                     p=countType,
                     q=innerCounts.get(countType, 0),
-                    style='class="fail log"' if 'fail' in countType or 'exception' in countType else 'class=log')
+                    style='class="fail log"' if 'fail' in countType or 'exception' in countType else 'class="warn log"' if 'skip' in countType.lower() else 'class=log')
         htmlStr += '</td></tr>'
         htmlStr += '</table></td></tr>'
         htmlStr += '<tr><td class="results" id=\'resNum{}\'><table><tr><td><table><tr><th style="width:15%"> Name</th> <th>Entry Value</th> <th>must be</th> <th>Service Value</th> <th style="width:10%">Success</th> <tr>'.format(cnt)
@@ -790,7 +819,7 @@ def main(argv):
                 htmlStr += '<td>' + str(i.entry) + '</td>'
                 htmlStr += '<td>' + str(i.expected) + '</td>'
                 htmlStr += '<td>' + str(i.actual) + '</td>'
-                htmlStr += '<td>' + str(i.success) + '</td>'
+                htmlStr += '<td class="fail center">FAIL</td>' if not i.success else '<td class="pass center">Success</td>'
                 htmlStr += '</tr>'
         htmlStr += '</table></td></tr>'
         if results[item][4] is not None:
@@ -813,10 +842,9 @@ def main(argv):
     with open(datetime.strftime(startTick, os.path.join(logpath, "ComplianceHtmlLog_%m_%d_%Y_%H%M%S.html")), 'w') as f:
         f.write(htmlPage)
 
-
     fails = 0
     for key in finalCounts:
-        if 'fail' in key or 'exception' in key:
+        if 'problem' in key or 'fail' in key or 'exception' in key:
             fails += counts[key]
 
     success = success and not (fails > 0)
