@@ -819,7 +819,7 @@ def main(argv):
                 htmlStr += '<td>' + str(i.entry) + '</td>'
                 htmlStr += '<td>' + str(i.expected) + '</td>'
                 htmlStr += '<td>' + str(i.actual) + '</td>'
-                htmlStr += '<td>' + str(i.success) + '</td>'
+                htmlStr += '<td class="fail center">FAIL</td>' if not i.success else '<td class="pass center">Success</td>'
                 htmlStr += '</tr>'
         htmlStr += '</table></td></tr>'
         if results[item][4] is not None:
