@@ -443,7 +443,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         actionsJson = decoded.get('Actions', {})
         decodedInnerTuple = (actionsJson, decodedtuple)
         for item in innerDict:
-            actionName = '#' + propResourceObj.typeobj.stype + '.' + item
+            actionName = 'Action #' + propResourceObj.typeobj.stype + '.' + item
             rsvLogger.info(actionName)
             amsgs, acounts = validateActionRequirement(propResourceObj, innerDict[item], (actionsJson.get(
                 actionName, 'DNE'), decodedInnerTuple), actionName)

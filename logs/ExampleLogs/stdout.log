@@ -1,0 +1,1018 @@
+ConfigURI: http://127.0.0.1:8000
+System Info: No desc
+authtype: Basic,  cachefilepath: None,  cachemode: Off,  certificatebundle: None,  certificatecheck: False,  httpproxy: None,  
+httpsproxy: None,  localonlymode: True,  logpath: ./logs,  metadatafilepath: ./SchemaFiles/metadata,  payloadfilepath: None,  payloadmode: Default,  
+schemasuffix: _v1.xml,  servicemode: False,  timeout: 30,  username: None,  usessl: False,  
+Start time: 08/31/17 - 15:26:12
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Systems.Systems, /redfish/v1/Systems
+ComputerSystemCollection
+### Validating an InteropResource
+### Validating PropertyRequirements for Members
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9450R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9451R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9452R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9453R6')])]
+inside of a list: Members
+Testing minCount 
+	expected:1, val:4
+	pass True
+propRequirement with value: dict
+propRequirement with value: dict
+propRequirement with value: dict
+propRequirement with value: dict
+Counter({'pass': 1, 'failMinCountFail': 0})
+Counter({'pass': 1, 'failMinCountFail': 0})
+#ComputerSystemCollection.ComputerSystemCollection, Counter({'passGet': 1, 'pass': 1, 'failMinCountFail': 0})
+
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Systems.Systems -> Members.ComputerSystem#0, /redfish/v1/Systems/529QB9450R6
+ComputerSystem
+### Validating an InteropResource
+Testing minVersion 
+	('ComputerSystem.v1_1_0.ComputerSystem', '1.1.0')
+	pass True
+### Validating PropertyRequirements for PartNumber
+propRequirement with value: 166480-S23
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('6914260', 'Absent', None)
+	pass False
+	NonCompliant
+	Condition DOES apply
+propRequirement with value: 166480-S23
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for IndicatorLED
+propRequirement with value: Off
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('Physical', 'AnyOf', ['Physical', 'Composed'])
+	pass True
+	Condition DOES apply
+propRequirement with value: Off
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for SKU
+propRequirement with value: 6914260
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('166480-S23', 'Absent', None)
+	pass False
+	NonCompliant
+	Condition DOES apply
+propRequirement with value: 6914260
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for Model
+propRequirement with value: SX1000
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for SerialNumber
+propRequirement with value: 529QB9450R6
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for Manufacturer
+Counter()
+Action #ComputerSystem.Reset
+actionRequirement 
+	val: DNE {'ReadRequirement': 'Mandatory', 'Parameters': {'ResetType': {'ReadRequirement': 'Mandatory', 'MinSupportValues': ['ForceOff', 'PowerCycle']}}, 'Purpose': 'Ability to reset the system is a core requirement of most users.'}
+Testing ReadRequirement 
+	expected:Mandatory, exists: False
+	pass False
+	NonCompliant
+Counter({'failActionRequirement': 1, 'pass': 0})
+Counter({'pass': 9, 'failActionRequirement': 1, 'failMinVersion': 0, 'failRequirement': 0})
+#ComputerSystem.v1_1_0.ComputerSystem, Counter({'pass': 9, 'passGet': 1, 'failActionRequirement': 1, 'failMinVersion': 0, 'failRequirement': 0})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Systems.Systems -> Members.ComputerSystem#1, /redfish/v1/Systems/529QB9451R6
+ComputerSystem
+### Validating an InteropResource
+Testing minVersion 
+	('ComputerSystem.v1_1_0.ComputerSystem', '1.1.0')
+	pass True
+### Validating PropertyRequirements for PartNumber
+propRequirement with value: 166480-S23
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('6914260', 'Absent', None)
+	pass False
+	NonCompliant
+	Condition DOES apply
+propRequirement with value: 166480-S23
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for IndicatorLED
+propRequirement with value: Off
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('Physical', 'AnyOf', ['Physical', 'Composed'])
+	pass True
+	Condition DOES apply
+propRequirement with value: Off
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for SKU
+propRequirement with value: 6914260
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('166480-S23', 'Absent', None)
+	pass False
+	NonCompliant
+	Condition DOES apply
+propRequirement with value: 6914260
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for Model
+propRequirement with value: SX1000
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for SerialNumber
+propRequirement with value: 529QB9451R6
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for Manufacturer
+Counter()
+Action #ComputerSystem.Reset
+actionRequirement 
+	val: DNE {'ReadRequirement': 'Mandatory', 'Parameters': {'ResetType': {'ReadRequirement': 'Mandatory', 'MinSupportValues': ['ForceOff', 'PowerCycle']}}, 'Purpose': 'Ability to reset the system is a core requirement of most users.'}
+Testing ReadRequirement 
+	expected:Mandatory, exists: False
+	pass False
+	NonCompliant
+Counter({'failActionRequirement': 1, 'pass': 0})
+Counter({'pass': 9, 'failActionRequirement': 1, 'failMinVersion': 0, 'failRequirement': 0})
+#ComputerSystem.v1_1_0.ComputerSystem, Counter({'pass': 9, 'passGet': 1, 'failActionRequirement': 1, 'failMinVersion': 0, 'failRequirement': 0})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Systems.Systems -> Members.ComputerSystem#2, /redfish/v1/Systems/529QB9452R6
+ComputerSystem
+### Validating an InteropResource
+Testing minVersion 
+	('ComputerSystem.v1_1_0.ComputerSystem', '1.1.0')
+	pass True
+### Validating PropertyRequirements for PartNumber
+propRequirement with value: 166480-S23
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('6914260', 'Absent', None)
+	pass False
+	NonCompliant
+	Condition DOES apply
+propRequirement with value: 166480-S23
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for IndicatorLED
+propRequirement with value: Off
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('Physical', 'AnyOf', ['Physical', 'Composed'])
+	pass True
+	Condition DOES apply
+propRequirement with value: Off
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for SKU
+propRequirement with value: 6914260
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('166480-S23', 'Absent', None)
+	pass False
+	NonCompliant
+	Condition DOES apply
+propRequirement with value: 6914260
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for Model
+propRequirement with value: SX1000
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for SerialNumber
+propRequirement with value: 529QB9452R6
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for Manufacturer
+Counter()
+Action #ComputerSystem.Reset
+actionRequirement 
+	val: DNE {'ReadRequirement': 'Mandatory', 'Parameters': {'ResetType': {'ReadRequirement': 'Mandatory', 'MinSupportValues': ['ForceOff', 'PowerCycle']}}, 'Purpose': 'Ability to reset the system is a core requirement of most users.'}
+Testing ReadRequirement 
+	expected:Mandatory, exists: False
+	pass False
+	NonCompliant
+Counter({'failActionRequirement': 1, 'pass': 0})
+Counter({'pass': 9, 'failActionRequirement': 1, 'failMinVersion': 0, 'failRequirement': 0})
+#ComputerSystem.v1_1_0.ComputerSystem, Counter({'pass': 9, 'passGet': 1, 'failActionRequirement': 1, 'failMinVersion': 0, 'failRequirement': 0})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Systems.Systems -> Members.ComputerSystem#3, /redfish/v1/Systems/529QB9453R6
+ComputerSystem
+### Validating an InteropResource
+Testing minVersion 
+	('ComputerSystem.v1_1_0.ComputerSystem', '1.1.0')
+	pass True
+### Validating PropertyRequirements for PartNumber
+propRequirement with value: 166480-S23
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('6914260', 'Absent', None)
+	pass False
+	NonCompliant
+	Condition DOES apply
+propRequirement with value: 166480-S23
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for IndicatorLED
+propRequirement with value: Off
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('Physical', 'AnyOf', ['Physical', 'Composed'])
+	pass True
+	Condition DOES apply
+propRequirement with value: Off
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for SKU
+propRequirement with value: 6914260
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Evaluating conditionalRequirements
+Testing a comparison 
+	('166480-S23', 'Absent', None)
+	pass False
+	NonCompliant
+	Condition DOES apply
+propRequirement with value: 6914260
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 2, 'failRequirement': 0})
+### Validating PropertyRequirements for Model
+propRequirement with value: SX1000
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for SerialNumber
+propRequirement with value: 529QB9453R6
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for Manufacturer
+Counter()
+Action #ComputerSystem.Reset
+actionRequirement 
+	val: DNE {'ReadRequirement': 'Mandatory', 'Parameters': {'ResetType': {'ReadRequirement': 'Mandatory', 'MinSupportValues': ['ForceOff', 'PowerCycle']}}, 'Purpose': 'Ability to reset the system is a core requirement of most users.'}
+Testing ReadRequirement 
+	expected:Mandatory, exists: False
+	pass False
+	NonCompliant
+Counter({'failActionRequirement': 1, 'pass': 0})
+Counter({'pass': 9, 'failActionRequirement': 1, 'failMinVersion': 0, 'failRequirement': 0})
+#ComputerSystem.v1_1_0.ComputerSystem, Counter({'pass': 9, 'passGet': 1, 'failActionRequirement': 1, 'failMinVersion': 0, 'failRequirement': 0})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Chassis.Chassis, /redfish/v1/Chassis
+ChassisCollection
+### Validating an InteropResource
+### Validating PropertyRequirements for Members
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade1')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade2')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade3')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade4')])]
+inside of a list: Members
+Testing minCount 
+	expected:1, val:5
+	pass True
+propRequirement with value: dict
+propRequirement with value: dict
+propRequirement with value: dict
+propRequirement with value: dict
+propRequirement with value: dict
+Counter({'pass': 1, 'failMinCountFail': 0})
+Counter({'pass': 1, 'failMinCountFail': 0})
+#ChassisCollection.ChassisCollection, Counter({'passGet': 1, 'pass': 1, 'failMinCountFail': 0})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Chassis.Chassis -> Members.Chassis#0 -> Thermal.Thermal, /redfish/v1/Chassis/MultiBladeEncl/Thermal
+Thermal
+### Validating an InteropResource
+Testing minVersion 
+	('Thermal.v1_1_0.Thermal', '1.1.0')
+	pass True
+### Validating PropertyRequirements for Fans
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Thermal#/Fans/0'), ('MemberId', '0'), ('Name', 'System Fan 0'), ('PhysicalContext', 'Front'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('Reading', 15100), ('ReadingUnits', 'RPM'), ('LowerThresholdFatal', 3000), ('MinReadingRange', 0), ('MaxReadingRange', 16000), ('Redundancy', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Thermal#/Redundancy/0')])]), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade1')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade2')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade3')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade4')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9450R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9451R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9452R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9453R6')])])]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Thermal#/Fans/1'), ('MemberId', '1'), ('Name', 'System Fan 1'), ('PhysicalContext', 'Front'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('Reading', 14800), ('ReadingUnits', 'RPM'), ('LowerThresholdFatal', 3000), ('MinReadingRange', 0), ('MaxReadingRange', 16000), ('Redundancy', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Thermal#/Redundancy/0')])]), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade1')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade2')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade3')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade4')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9450R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9451R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9452R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9453R6')])])]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Thermal#/Fans/2'), ('MemberId', '2'), ('Name', 'System Fan 2'), ('PhysicalContext', 'Front'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'Critical')])), ('Reading', 0), ('ReadingUnits', 'RPM'), ('LowerThresholdFatal', 3000), ('MinReadingRange', 0), ('MaxReadingRange', 16000), ('Redundancy', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Thermal#/Redundancy/0')])]), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade1')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade2')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade3')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade4')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9450R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9451R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9452R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9453R6')])])]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Thermal#/Fans/3'), ('MemberId', '3'), ('Name', 'System Fan 3'), ('PhysicalContext', 'Front'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('Reading', 15000), ('ReadingUnits', 'RPM'), ('LowerThresholdFatal', 3000), ('MinReadingRange', 0), ('MaxReadingRange', 16000), ('Redundancy', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Thermal#/Redundancy/0')])]), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade1')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade2')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade3')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade4')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9450R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9451R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9452R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9453R6')])])])]
+inside of a list: Fans
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:IfImplemented, exists: True
+	pass True
+inside complex Fans#0.Status
+inside complex Fans#0.Reading
+inside complex Fans#0.ReadingUnits
+inside complex Fans#0.PhysicalContext
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:IfImplemented, exists: True
+	pass True
+inside complex Fans#1.Status
+inside complex Fans#1.Reading
+inside complex Fans#1.ReadingUnits
+inside complex Fans#1.PhysicalContext
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:IfImplemented, exists: True
+	pass True
+inside complex Fans#2.Status
+inside complex Fans#2.Reading
+inside complex Fans#2.ReadingUnits
+inside complex Fans#2.PhysicalContext
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:IfImplemented, exists: True
+	pass True
+inside complex Fans#3.Status
+inside complex Fans#3.Reading
+inside complex Fans#3.ReadingUnits
+inside complex Fans#3.PhysicalContext
+Counter({'pass': 4, 'failRequirement': 0})
+### Validating PropertyRequirements for Temperatures
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Thermal#/Temperatures/0'), ('MemberId', '0'), ('Name', 'Chassis Intake'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('ReadingCelsius', 24), ('UpperThresholdNonCritical', 35), ('UpperThresholdCritical', 42), ('UpperThresholdFatal', 50), ('MinReadingRange', 0), ('MaxReadingRange', 60), ('PhysicalContext', 'Intake'), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade1')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade2')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade3')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade4')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9450R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9451R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9452R6')]), OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9453R6')])])])]
+inside of a list: Temperatures
+Testing minCount 
+	expected:2, val:0
+	pass False
+	NonCompliant
+Testing a comparison 
+	(['Intake'], 'AllOf', ['CPU', 'Ambient'])
+	pass False
+	NonCompliant
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+inside complex Temperatures#0.UpperThresholdFatal
+propRequirement with value: 50
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+inside complex Temperatures#0.ReadingCelsius
+inside complex Temperatures#0.UpperThresholdNonCritical
+inside complex Temperatures#0.UpperThresholdCritical
+inside complex Temperatures#0.PhysicalContext
+propRequirement with value: Intake
+Testing a comparison 
+	('Intake', 'AnyOf', ['CPU', 'Ambient'])
+	pass False
+	NonCompliant
+Counter({'pass': 2, 'failComparisonList': 1, 'failComparison': 1, 'failMinCountFail': 1, 'failRequirement': 0})
+Counter({'pass': 7, 'failComparison': 1, 'failComparisonList': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failRequirement': 0})
+#Thermal.v1_1_0.Thermal, Counter({'pass': 7, 'failComparison': 1, 'failComparisonList': 1, 'passGet': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failRequirement': 0})
+
+No @odata.type present, assuming highest type Thermal.v1_3_0.Temperature
+Annotations generated: 0 out of 0
+No @odata.type present, assuming highest type Thermal.v1_3_0.Fan
+Annotations generated: 0 out of 0
+No @odata.type present, assuming highest type Thermal.v1_3_0.Fan
+Annotations generated: 0 out of 0
+No @odata.type present, assuming highest type Thermal.v1_3_0.Fan
+Annotations generated: 0 out of 0
+No @odata.type present, assuming highest type Thermal.v1_3_0.Fan
+Annotations generated: 0 out of 0
+Annotations generated: 1 out of 1
+No @odata.type present, assuming highest type Power.v1_3_0.PowerSupply
+Annotations generated: 0 out of 0
+No @odata.type present, assuming highest type Power.v1_3_0.PowerSupply
+Annotations generated: 0 out of 0
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Chassis.Chassis -> Members.Chassis#1 -> Thermal.Thermal, /redfish/v1/Chassis/Blade1/Thermal
+Thermal
+### Validating an InteropResource
+Testing minVersion 
+	('Thermal.v1_1_0.Thermal', '1.1.0')
+	pass True
+### Validating PropertyRequirements for Fans
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade1/Thermal#/Fans/0'), ('MemberId', '0'), ('Name', 'CPU Fan'), ('PhysicalContext', 'CPU'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('Reading', 6000), ('ReadingUnits', 'RPM'), ('LowerThresholdFatal', 2000), ('MinReadingRange', 0), ('MaxReadingRange', 10000), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9450R6/Processors/CPU')])])])]
+inside of a list: Fans
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:IfImplemented, exists: True
+	pass True
+inside complex Fans#0.Status
+inside complex Fans#0.Reading
+inside complex Fans#0.ReadingUnits
+inside complex Fans#0.PhysicalContext
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for Temperatures
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade1/Thermal#/Temperatures/0'), ('MemberId', '0'), ('Name', 'CPU Temp'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('ReadingCelsius', 62), ('UpperThresholdNonCritical', 75), ('UpperThresholdCritical', 90), ('UpperThresholdFatal', 95), ('MinReadingRange', 0), ('MaxReadingRange', 120), ('PhysicalContext', 'CPU'), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9450R6/Processors/CPU')])])])]
+inside of a list: Temperatures
+Testing minCount 
+	expected:2, val:0
+	pass False
+	NonCompliant
+Testing a comparison 
+	(['CPU'], 'AllOf', ['CPU', 'Ambient'])
+	pass False
+	NonCompliant
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+inside complex Temperatures#0.UpperThresholdFatal
+propRequirement with value: 95
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+inside complex Temperatures#0.ReadingCelsius
+inside complex Temperatures#0.UpperThresholdNonCritical
+inside complex Temperatures#0.UpperThresholdCritical
+inside complex Temperatures#0.PhysicalContext
+propRequirement with value: CPU
+Testing a comparison 
+	('CPU', 'AnyOf', ['CPU', 'Ambient'])
+	pass True
+Counter({'pass': 3, 'failComparisonList': 1, 'failMinCountFail': 1, 'failComparison': 0, 'failRequirement': 0})
+Counter({'pass': 5, 'failComparisonList': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failComparison': 0, 'failRequirement': 0})
+#Thermal.v1_1_0.Thermal, Counter({'pass': 5, 'failComparisonList': 1, 'passGet': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failComparison': 0, 'failRequirement': 0})
+
+No @odata.type present, assuming highest type Thermal.v1_3_0.Temperature
+Annotations generated: 0 out of 0
+No @odata.type present, assuming highest type Thermal.v1_3_0.Fan
+Annotations generated: 0 out of 0
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Chassis.Chassis -> Members.Chassis#2 -> Thermal.Thermal, /redfish/v1/Chassis/Blade2/Thermal
+Thermal
+### Validating an InteropResource
+Testing minVersion 
+	('Thermal.v1_1_0.Thermal', '1.1.0')
+	pass True
+### Validating PropertyRequirements for Fans
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade2/Thermal#/Fans/0'), ('MemberId', '0'), ('Name', 'CPU Fan'), ('PhysicalContext', 'CPU'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('Reading', 5800), ('ReadingUnits', 'RPM'), ('LowerThresholdFatal', 2000), ('MinReadingRange', 0), ('MaxReadingRange', 10000), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9451R6/Processors/CPU')])])])]
+inside of a list: Fans
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:IfImplemented, exists: True
+	pass True
+inside complex Fans#0.Status
+inside complex Fans#0.Reading
+inside complex Fans#0.ReadingUnits
+inside complex Fans#0.PhysicalContext
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for Temperatures
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade2/Thermal#/Temperatures/0'), ('MemberId', '0'), ('Name', 'CPU Temp'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('ReadingCelsius', 57), ('UpperThresholdNonCritical', 75), ('UpperThresholdCritical', 90), ('UpperThresholdFatal', 95), ('MinReadingRange', 0), ('MaxReadingRange', 120), ('PhysicalContext', 'CPU'), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9451R6/Processors/CPU')])])])]
+inside of a list: Temperatures
+Testing minCount 
+	expected:2, val:0
+	pass False
+	NonCompliant
+Testing a comparison 
+	(['CPU'], 'AllOf', ['CPU', 'Ambient'])
+	pass False
+	NonCompliant
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+inside complex Temperatures#0.UpperThresholdFatal
+propRequirement with value: 95
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+inside complex Temperatures#0.ReadingCelsius
+inside complex Temperatures#0.UpperThresholdNonCritical
+inside complex Temperatures#0.UpperThresholdCritical
+inside complex Temperatures#0.PhysicalContext
+propRequirement with value: CPU
+Testing a comparison 
+	('CPU', 'AnyOf', ['CPU', 'Ambient'])
+	pass True
+Counter({'pass': 3, 'failComparisonList': 1, 'failMinCountFail': 1, 'failComparison': 0, 'failRequirement': 0})
+Counter({'pass': 5, 'failComparisonList': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failComparison': 0, 'failRequirement': 0})
+#Thermal.v1_1_0.Thermal, Counter({'pass': 5, 'failComparisonList': 1, 'passGet': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failComparison': 0, 'failRequirement': 0})
+
+No @odata.type present, assuming highest type Thermal.v1_3_0.Temperature
+Annotations generated: 0 out of 0
+No @odata.type present, assuming highest type Thermal.v1_3_0.Fan
+Annotations generated: 0 out of 0
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Chassis.Chassis -> Members.Chassis#3 -> Thermal.Thermal, /redfish/v1/Chassis/Blade3/Thermal
+Thermal
+### Validating an InteropResource
+Testing minVersion 
+	('Thermal.v1_1_0.Thermal', '1.1.0')
+	pass True
+### Validating PropertyRequirements for Fans
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade3/Thermal#/Fans/0'), ('MemberId', '0'), ('Name', 'CPU Fan'), ('PhysicalContext', 'CPU'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('Reading', 9600), ('ReadingUnits', 'RPM'), ('LowerThresholdFatal', 2000), ('MinReadingRange', 0), ('MaxReadingRange', 10000), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9452R6/Processors/CPU')])])])]
+inside of a list: Fans
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:IfImplemented, exists: True
+	pass True
+inside complex Fans#0.Status
+inside complex Fans#0.Reading
+inside complex Fans#0.ReadingUnits
+inside complex Fans#0.PhysicalContext
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for Temperatures
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade3/Thermal#/Temperatures/0'), ('MemberId', '0'), ('Name', 'CPU Temp'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'Warning')])), ('ReadingCelsius', 77), ('UpperThresholdNonCritical', 75), ('UpperThresholdCritical', 90), ('UpperThresholdFatal', 95), ('MinReadingRange', 0), ('MaxReadingRange', 120), ('PhysicalContext', 'CPU'), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9452R6/Processors/CPU')])])])]
+inside of a list: Temperatures
+Testing minCount 
+	expected:2, val:0
+	pass False
+	NonCompliant
+Testing a comparison 
+	(['CPU'], 'AllOf', ['CPU', 'Ambient'])
+	pass False
+	NonCompliant
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+inside complex Temperatures#0.UpperThresholdFatal
+propRequirement with value: 95
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+inside complex Temperatures#0.ReadingCelsius
+inside complex Temperatures#0.UpperThresholdNonCritical
+inside complex Temperatures#0.UpperThresholdCritical
+inside complex Temperatures#0.PhysicalContext
+propRequirement with value: CPU
+Testing a comparison 
+	('CPU', 'AnyOf', ['CPU', 'Ambient'])
+	pass True
+Counter({'pass': 3, 'failComparisonList': 1, 'failMinCountFail': 1, 'failComparison': 0, 'failRequirement': 0})
+Counter({'pass': 5, 'failComparisonList': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failComparison': 0, 'failRequirement': 0})
+#Thermal.v1_1_0.Thermal, Counter({'pass': 5, 'failComparisonList': 1, 'passGet': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failComparison': 0, 'failRequirement': 0})
+
+No @odata.type present, assuming highest type Thermal.v1_3_0.Temperature
+Annotations generated: 0 out of 0
+No @odata.type present, assuming highest type Thermal.v1_3_0.Fan
+Annotations generated: 0 out of 0
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Chassis.Chassis -> Members.Chassis#4 -> Thermal.Thermal, /redfish/v1/Chassis/Blade4/Thermal
+Thermal
+### Validating an InteropResource
+Testing minVersion 
+	('Thermal.v1_1_0.Thermal', '1.1.0')
+	pass True
+### Validating PropertyRequirements for Fans
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade4/Thermal#/Fans/0'), ('MemberId', '0'), ('Name', 'CPU Fan'), ('PhysicalContext', 'CPU'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('Reading', 4800), ('ReadingUnits', 'RPM'), ('LowerThresholdFatal', 2000), ('MinReadingRange', 0), ('MaxReadingRange', 10000), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9453R6/Processors/CPU')])])])]
+inside of a list: Fans
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:IfImplemented, exists: True
+	pass True
+inside complex Fans#0.Status
+inside complex Fans#0.Reading
+inside complex Fans#0.ReadingUnits
+inside complex Fans#0.PhysicalContext
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for Temperatures
+propRequirement with value: [OrderedDict([('@odata.id', '/redfish/v1/Chassis/Blade4/Thermal#/Temperatures/0'), ('MemberId', '0'), ('Name', 'CPU Temp'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('ReadingCelsius', 50), ('UpperThresholdNonCritical', 75), ('UpperThresholdCritical', 90), ('UpperThresholdFatal', 95), ('MinReadingRange', 0), ('MaxReadingRange', 120), ('PhysicalContext', 'CPU'), ('RelatedItem', [OrderedDict([('@odata.id', '/redfish/v1/Systems/529QB9453R6/Processors/CPU')])])])]
+inside of a list: Temperatures
+Testing minCount 
+	expected:2, val:0
+	pass False
+	NonCompliant
+Testing a comparison 
+	(['CPU'], 'AllOf', ['CPU', 'Ambient'])
+	pass False
+	NonCompliant
+propRequirement with value: dict
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+inside complex Temperatures#0.UpperThresholdFatal
+propRequirement with value: 95
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+inside complex Temperatures#0.ReadingCelsius
+inside complex Temperatures#0.UpperThresholdNonCritical
+inside complex Temperatures#0.UpperThresholdCritical
+inside complex Temperatures#0.PhysicalContext
+propRequirement with value: CPU
+Testing a comparison 
+	('CPU', 'AnyOf', ['CPU', 'Ambient'])
+	pass True
+Counter({'pass': 3, 'failComparisonList': 1, 'failMinCountFail': 1, 'failComparison': 0, 'failRequirement': 0})
+Counter({'pass': 5, 'failComparisonList': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failComparison': 0, 'failRequirement': 0})
+#Thermal.v1_1_0.Thermal, Counter({'pass': 5, 'failComparisonList': 1, 'passGet': 1, 'failMinCountFail': 1, 'failMinVersion': 0, 'failComparison': 0, 'failRequirement': 0})
+
+No @odata.type present, assuming highest type Thermal.v1_3_0.Temperature
+Annotations generated: 0 out of 0
+No @odata.type present, assuming highest type Thermal.v1_3_0.Fan
+Annotations generated: 0 out of 0
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Managers.Managers, /redfish/v1/Managers
+ManagerCollection
+### Validating an InteropResource
+Testing members 
+	([OrderedDict([('@odata.id', '/redfish/v1/Managers/MultiBladeBMC')]), OrderedDict([('@odata.id', '/redfish/v1/Managers/Blade1BMC')]), OrderedDict([('@odata.id', '/redfish/v1/Managers/Blade2BMC')]), OrderedDict([('@odata.id', '/redfish/v1/Managers/Blade3BMC')]), OrderedDict([('@odata.id', '/redfish/v1/Managers/Blade4BMC')])], {'MinCount': 1}, 5)
+Testing ReadRequirement 
+	expected:Mandatory, exists: True
+	pass True
+Testing minCount 
+	expected:1, val:5
+	pass True
+Counter({'pass': 1, 'failMembers': 0})
+#ManagerCollection.ManagerCollection, Counter({'passGet': 1, 'pass': 1, 'failMembers': 0})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Managers.Managers -> Members.Manager#0 -> EthernetInterfaces.EthernetInterfaces -> Members.EthernetInterface#0, /redfish/v1/Managers/MultiBladeBMC/EthernetInterfaces/1
+EthernetInterface
+### Validating an InteropResource
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Testing minVersion 
+	('EthernetInterface.v1_0_2.EthernetInterface', '1.2.0')
+	pass False
+	NonCompliant
+### Validating PropertyRequirements for Status
+propRequirement with value: dict
+inside complex Status.State
+inside complex Status.Health
+Counter()
+### Validating PropertyRequirements for IPv6Addresses
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Mandatory, exists: False
+	pass False
+	NonCompliant
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'failRequirement': 1, 'pass': 0})
+### Validating PropertyRequirements for HostName
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Recommended, exists: False
+	Item is recommended but does not exist
+	pass True
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for MACAddress
+propRequirement with value: DNE
+Counter()
+Counter({'pass': 2, 'failMinVersion': 1, 'failRequirement': 1})
+#EthernetInterface.v1_0_2.EthernetInterface, Counter({'pass': 2, 'passGet': 1, 'failMinVersion': 1, 'failRequirement': 1})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 0 out of 0
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Managers.Managers -> Members.Manager#1 -> EthernetInterfaces.EthernetInterfaces -> Members.EthernetInterface#0, /redfish/v1/Managers/Blade1BMC/EthernetInterfaces/1
+EthernetInterface
+### Validating an InteropResource
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Testing minVersion 
+	('EthernetInterface.v1_0_2.EthernetInterface', '1.2.0')
+	pass False
+	NonCompliant
+### Validating PropertyRequirements for Status
+propRequirement with value: dict
+inside complex Status.State
+inside complex Status.Health
+Counter()
+### Validating PropertyRequirements for IPv6Addresses
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Mandatory, exists: False
+	pass False
+	NonCompliant
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'failRequirement': 1, 'pass': 0})
+### Validating PropertyRequirements for HostName
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Recommended, exists: False
+	Item is recommended but does not exist
+	pass True
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for MACAddress
+propRequirement with value: DNE
+Counter()
+Counter({'pass': 2, 'failMinVersion': 1, 'failRequirement': 1})
+#EthernetInterface.v1_0_2.EthernetInterface, Counter({'pass': 2, 'passGet': 1, 'failMinVersion': 1, 'failRequirement': 1})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Managers.Managers -> Members.Manager#2 -> EthernetInterfaces.EthernetInterfaces -> Members.EthernetInterface#0, /redfish/v1/Managers/Blade2BMC/EthernetInterfaces/1
+EthernetInterface
+### Validating an InteropResource
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Testing minVersion 
+	('EthernetInterface.v1_0_2.EthernetInterface', '1.2.0')
+	pass False
+	NonCompliant
+### Validating PropertyRequirements for Status
+propRequirement with value: dict
+inside complex Status.State
+inside complex Status.Health
+Counter()
+### Validating PropertyRequirements for IPv6Addresses
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Mandatory, exists: False
+	pass False
+	NonCompliant
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'failRequirement': 1, 'pass': 0})
+### Validating PropertyRequirements for HostName
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Recommended, exists: False
+	Item is recommended but does not exist
+	pass True
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for MACAddress
+propRequirement with value: DNE
+Counter()
+Counter({'pass': 2, 'failMinVersion': 1, 'failRequirement': 1})
+#EthernetInterface.v1_0_2.EthernetInterface, Counter({'pass': 2, 'passGet': 1, 'failMinVersion': 1, 'failRequirement': 1})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Managers.Managers -> Members.Manager#3 -> EthernetInterfaces.EthernetInterfaces -> Members.EthernetInterface#0, /redfish/v1/Managers/Blade3BMC/EthernetInterfaces/1
+EthernetInterface
+### Validating an InteropResource
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Testing minVersion 
+	('EthernetInterface.v1_0_2.EthernetInterface', '1.2.0')
+	pass False
+	NonCompliant
+### Validating PropertyRequirements for Status
+propRequirement with value: dict
+inside complex Status.State
+inside complex Status.Health
+Counter()
+### Validating PropertyRequirements for IPv6Addresses
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Mandatory, exists: False
+	pass False
+	NonCompliant
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'failRequirement': 1, 'pass': 0})
+### Validating PropertyRequirements for HostName
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Recommended, exists: False
+	Item is recommended but does not exist
+	pass True
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for MACAddress
+propRequirement with value: DNE
+Counter()
+Counter({'pass': 2, 'failMinVersion': 1, 'failRequirement': 1})
+#EthernetInterface.v1_0_2.EthernetInterface, Counter({'pass': 2, 'passGet': 1, 'failMinVersion': 1, 'failRequirement': 1})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 0 out of 0
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+
+*** ServiceRoot -> Managers.Managers -> Members.Manager#4 -> EthernetInterfaces.EthernetInterfaces -> Members.EthernetInterface#0, /redfish/v1/Managers/Blade4BMC/EthernetInterfaces/1
+EthernetInterface
+### Validating an InteropResource
+Testing ReadRequirement 
+	expected:Recommended, exists: True
+	pass True
+Testing minVersion 
+	('EthernetInterface.v1_0_2.EthernetInterface', '1.2.0')
+	pass False
+	NonCompliant
+### Validating PropertyRequirements for Status
+propRequirement with value: dict
+inside complex Status.State
+inside complex Status.Health
+Counter()
+### Validating PropertyRequirements for IPv6Addresses
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Mandatory, exists: False
+	pass False
+	NonCompliant
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'failRequirement': 1, 'pass': 0})
+### Validating PropertyRequirements for HostName
+propRequirement with value: DNE
+Testing ReadRequirement 
+	expected:Recommended, exists: False
+	Item is recommended but does not exist
+	pass True
+Evaluating conditionalRequirements
+	subordinance EthernetInterfaceCollection True
+	subordinance Manager False
+	Condition does not apply
+Counter({'pass': 1, 'failRequirement': 0})
+### Validating PropertyRequirements for MACAddress
+propRequirement with value: DNE
+Counter()
+Counter({'pass': 2, 'failMinVersion': 1, 'failRequirement': 1})
+#EthernetInterface.v1_0_2.EthernetInterface, Counter({'pass': 2, 'passGet': 1, 'failMinVersion': 1, 'failRequirement': 1})
+
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Annotations generated: 1 out of 1
+Redundancy.Redundancy#0, ('/redfish/v1/Chassis/MultiBladeEncl/Power#/Redundancy/0', True, 'Redundancy.Redundancy', 'http://redfish.dmtf.org/schemas/v1/Redundancy_v1.xml', OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Power#/Redundancy/0'), ('MemberId', '0'), ('Name', 'Power Supply Redundancy'), ('RedundancySet', [OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Power#/PowerSupplies/0')]), OrderedDict([('@odata.id', '/redfish/v1/Chassis/MultiBladeEncl/Power#/PowerSupplies/1')])]), ('Mode', 'N+m'), ('Status', OrderedDict([('State', 'Enabled'), ('Health', 'OK')])), ('MinNumNeeded', 1), ('MaxNumSupported', 2)]))
+No @odata.type present, assuming highest type Redundancy.v1_2_0.Redundancy
+Annotations generated: 0 out of 0
+Elapsed time: 0:00:04
+98
+1 failActionRequirement errors in /redfish/v1/Systems/529QB9450R6
+1 failActionRequirement errors in /redfish/v1/Systems/529QB9451R6
+1 failActionRequirement errors in /redfish/v1/Systems/529QB9452R6
+1 failActionRequirement errors in /redfish/v1/Systems/529QB9453R6
+1 failComparison errors in /redfish/v1/Chassis/MultiBladeEncl/Thermal
+1 failComparisonList errors in /redfish/v1/Chassis/MultiBladeEncl/Thermal
+1 failMinCountFail errors in /redfish/v1/Chassis/MultiBladeEncl/Thermal
+1 failComparisonList errors in /redfish/v1/Chassis/Blade1/Thermal
+1 failMinCountFail errors in /redfish/v1/Chassis/Blade1/Thermal
+1 failComparisonList errors in /redfish/v1/Chassis/Blade2/Thermal
+1 failMinCountFail errors in /redfish/v1/Chassis/Blade2/Thermal
+1 failComparisonList errors in /redfish/v1/Chassis/Blade3/Thermal
+1 failMinCountFail errors in /redfish/v1/Chassis/Blade3/Thermal
+1 failComparisonList errors in /redfish/v1/Chassis/Blade4/Thermal
+1 failMinCountFail errors in /redfish/v1/Chassis/Blade4/Thermal
+1 failMinVersion errors in /redfish/v1/Managers/MultiBladeBMC/EthernetInterfaces/1
+1 failRequirement errors in /redfish/v1/Managers/MultiBladeBMC/EthernetInterfaces/1
+1 failMinVersion errors in /redfish/v1/Managers/Blade1BMC/EthernetInterfaces/1
+1 failRequirement errors in /redfish/v1/Managers/Blade1BMC/EthernetInterfaces/1
+1 failMinVersion errors in /redfish/v1/Managers/Blade2BMC/EthernetInterfaces/1
+1 failRequirement errors in /redfish/v1/Managers/Blade2BMC/EthernetInterfaces/1
+1 failMinVersion errors in /redfish/v1/Managers/Blade3BMC/EthernetInterfaces/1
+1 failRequirement errors in /redfish/v1/Managers/Blade3BMC/EthernetInterfaces/1
+1 failMinVersion errors in /redfish/v1/Managers/Blade4BMC/EthernetInterfaces/1
+1 failRequirement errors in /redfish/v1/Managers/Blade4BMC/EthernetInterfaces/1
+Counter({'pass': 76, 'passGet': 17, 'failMinVersion': 5, 'failMinCountFail': 5, 'failComparisonList': 5, 'failRequirement': 5, 'failActionRequirement': 4, 'failComparison': 1, 'failMembers': 0})
+Validation has succeeded.

@@ -41,6 +41,7 @@ The Tool has an option to ignore SSL certificate check if certificate is not ins
 [Options]
 UseSSL = <<On / Off>>
 CertificateCheck = <<On / Off>>
+CertificateBundle = 
 
 Other  attributes under the “[Options]” section have schema specific implementations as described below
 LocalOnlyMode - (boolean) Only test properties against Schema placed in the root of MetadataFilePath.
@@ -49,16 +50,22 @@ MetadataFilePath – (string) This attribute points to the location of the DMTF 
 LogPath - (string) Path with which to generate logs in
 Timeout - (integer) Interval of time before timing out
 SchemaSuffix - (string) When searching for local hard drive schema, append this if unable to derive the expected xml from the service's metadata
+HttpProxy - Proxy for http gets (untested)
+HttpsProxy - Proxy for https gets (untested)
 
-Once the above details are updated for the system under test, the Redfish Interop Validator can be triggered from a command prompt by typing the below command:
+Additional options are available for cached files and 
+CacheMode = [Off, Prefer, Fallback] -- Options for using a cache, which will allow a user to override or fallback to a file on disk during a resource call on a service
+CacheFilePath = Path to cache directory
+PayloadMode = [Default, Tree, Single, TreeFile, SingleFile] -- Options for the target of validation, allowing to specify a file or specific URI and traversal behavior
+PayloadFilePath = Path to URI/File
 
-python3 RedfishInteropValidator.py <profile> -c config/config.ini
+Once the above details are updated for the system under test, the Redfish Interop Validator can be triggered from a command prompt by typing the below command, with the option of verbosity:
 
-Where profile is the Interop Profile in question.  There is additionally a --schema option, which would allow to specify a schema to validate the profile itself against, to validate that it is in fact a properly formatted profile to Redfish specification.  
+python3 RedfishInteropValidator.py <profile> -c config/config.ini (-v)
 
-Alternatively, all of these options are available through the command line.  A configuration file overrides every option specified in the command line, such that -c should not be specified.  In order to review these options, please run the command:
+Alternatively, all of these options are available through the command line. __A configuration file overrides every option specified in the command line, such that -c should not be specified.__  In order to review these options, please run the command:
 
-python3 RedfishInteropValidator.py -h
+python3 RedfishInteropValidator.py -h (-v)
 
 In order to run without a configuration file, the option --ip must be specified.
 
@@ -71,6 +78,27 @@ python3 RedfishInteropValidator.py <profile> --ip host:port [...]
 ** ii.	Reads the schema file related to the particular resource, collects all the information about individual properties from the resource schema file and stores them into a dictionary
 ** iii.	Queries the service with the individual resource uri and validates all Resource returned by the service that are included in the profile specified to the tool.
 * 3.	Step 2 repeats till all the URIs and resources are covered.
+
+Upon validation of a resource, the following types of tests may occur:
+* **Unlike** the Service Validator, the program will not necessarily list and warn problematic Resources, it will expect those problems to be found with the Service Validator and are ignored in the process here.
+* When a Resource is found, check if this resource exists in the Profile provided, otherwise ignore it and move on to the next available resources via its Links.
+* With the Resource initiated, begin to validate itself and the Properties that exist in the Profile given to the program with the following possible tests:
+  * MinVersion - Test the @odata.type/version of the Resource which is being tested, which must be GREATER than the given MinVersion in the profile
+  * MinCount - Test based on the @odata.count annotation, determine the size of the a given Collection or List, which must be GREATER than this given MinCount in the profile
+  * ReadRequirement - Test the existence of a Property or Resource, depending on whether it is Recommended or Mandatory (others unimplemented) in the profile
+  * Members - Test a Resource's "Members" property, which includes MinCount test
+  * MinSupportedValues - Test the enumerations of a particular Property, based on the annotation @odata.SupportedValues and the given in the profile
+  * Writeable/WriteRequirement - Test if the Property is ReadWrite capable, depending on if it is required in the profile
+  * Comparison - Test between an Enum Property's value and values in the Profile, with a particular set of comparisons available:
+    * AnyOf, AllOf = compare if any or all of the given values exist in a List or single Enum
+    * GreaterThan, LessThan, Equal, ... = compare based on common comparisons Less, Greater or Equal
+    * Absent, Present =  compare if a property exist or does not
+  * ConditionalRequirements - Perform some of the above tests above if one of the specified requirements are True:
+    * Subordinate - Test if this Resource is a child/link of the type tree listed 
+    * Comparison - Test if a Comparison is True to a certain value
+  * ActionRequirements - Perform tests based on what Actions require, such as ReadRequirement, AllowableValues
+  * Check whether a Property is at first able to be nulled or is mandatory, and pass based on its Requirement or Nullability
+  * For collections, validate each property inside of itself, and expects a list rather than a single Property, otherwise validate normally:
  
 ## Conformance Logs – Summary and Detailed Conformance Report
 The Redfish Interop Validator generates an html report under the “logs” folder, named as  The report gives the detailed view of the individual properties checked, with the Pass/Fail/Skip/Warning status for each resource checked for conformance.
