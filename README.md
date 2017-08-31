@@ -11,10 +11,16 @@ This tool is designed to accept a profile conformant to the schematics specified
 The Redfish Interop Validator is based on Python 3 and the client system is required to have the Python framework installed before the tool can be installed and executed on the system. Additionally, the following packages are required to be installed and accessible from the python environment:
 * beautifulsoup4  - https://pypi.python.org/pypi/beautifulsoup4/4.5.3 (must be <= 4.5.3)
 * requests  - https://github.com/kennethreitz/requests (Documentation is available at http://docs.python-requests.org/)
+* lxml - https://pypi.python.org/pypi/lxml
+* jsonschema
 
 You may install the prerequisites by running:
 
 pip3 install -r requirements.txt
+
+If you have a previous beautifulsoup4 installation, please use the following command:
+
+pip3 install beautifulsoup4 --upgrade
 
 There is no dependency based on Windows or Linux OS. The result logs are generated in HTML format and an appropriate browser (Chrome, Firefox, IE, etc.) is required to view the logs on the client system.
 
