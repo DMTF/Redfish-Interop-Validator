@@ -19,7 +19,7 @@ import argparse
 rsvLogger = rst.getLogger()
 
 
-def checkProfileCompliance(profile, schema):
+def checkProfileAgainstSchema(profile, schema):
     """
     Checks if a profile is compliant
     """
@@ -60,7 +60,7 @@ def validateRequirement(entry, decodeditem):
         rsvLogger.warning('\tItem is recommended but does not exist')
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\tNonCompliant')
+        rsvLogger.error('\tNo Pass')
     return msgInterop('ReadRequirement', entry, 'Must Exist' if entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
         paramPass
 
@@ -73,7 +73,7 @@ def validateMinCount(alist, length, annotation=0):
     paramPass = len(alist) >= length or annotation >= length
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\tNonCompliant')
+        rsvLogger.error('\tNoPass')
     return msgInterop('MinCount', length, '<=', annotation if annotation > len(alist) else len(alist), paramPass),\
         paramPass
 
@@ -89,7 +89,7 @@ def validateSupportedValues(enumlist, annotation):
             break
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\tNonCompliant')
+        rsvLogger.error('\nNoPass')
     return msgInterop('SupportedValues', enumlist, 'included in...', annotation, paramPass),\
         paramPass
 
@@ -131,7 +131,7 @@ def validateWriteRequirement(propObj, entry, itemname):
 
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\tNonCompliant')
+        rsvLogger.error('\tNoPass')
     return msgInterop('WriteRequirement', entry, expected, permission, paramPass),\
         paramPass
 
@@ -180,7 +180,7 @@ def checkComparison(val, compareType, target):
         paramPass = val != 'DNE'
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\tNonCompliant')
+        rsvLogger.error('\tNoPass')
     return msgInterop('Comparison', target, compareType, val, paramPass),\
         paramPass
 
@@ -216,7 +216,7 @@ def validateMinVersion(fulltype, entry):
     paramPass = v_payload >= (versionNew if 'v' in v_payload else entry)
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\tNonCompliant')
+        rsvLogger.error('\tNo Pass')
     return msgInterop('MinVersion', '{} ({})'.format(entry, versionNew), '<=', fulltype, paramPass),\
         paramPass
 
@@ -280,7 +280,7 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             counts["failMinCountFail"] += 1 if not success else 0
         for k, v in entry.get('PropertyRequirements', {}).items():
             if "Comparison" in v and v["Comparison"] in ["AllOf", "AnyOf"]:
-                msg, success = (checkComparison([val.get(k, '') for val in decodeditem],
+                msg, success = (checkComparison([val.get(k, 'DNE') for val in decodeditem],
                                     v["Comparison"], v["Values"]))
                 msgs.append(msg)
                 msg.name = itemname + '.' + msg.name
@@ -523,7 +523,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     if not successPayload:
         counts['failPayloadError'] += 1
-        rsvLogger.error(str(URI) + ':  payload error, @odata property noncompliant',)
+        rsvLogger.error(str(URI) + ':  payload error, @odata property nonvalid')
         # rsvLogger.removeHandler(errh)
         # return False, counts, results, None, propResourceObj
     # Generate dictionary of property info
@@ -569,8 +569,8 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         except Exception as ex:
             rsvLogger.exception("Something went wrong")
             rsvLogger.error(
-                'Could not finish compliance check on this property')
-            counts['exceptionPropCompliance'] += 1
+                'Could not finish validation check on this payload')
+            counts['exceptionProfilePayload'] += 1
         rsvLogger.info('%s, %s\n', SchemaFullType, counts)
 
     # Get all links available
@@ -703,7 +703,7 @@ def main(argv):
     if not os.path.isdir(logpath):
         os.makedirs(logpath)
     fmt = logging.Formatter('%(levelname)s - %(message)s')
-    fh = logging.FileHandler(datetime.strftime(startTick, os.path.join(logpath, "ComplianceLog_%m_%d_%Y_%H%M%S.txt")))
+    fh = logging.FileHandler(datetime.strftime(startTick, os.path.join(logpath, "ConformanceLog_%m_%d_%Y_%H%M%S.txt")))
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)
     rsvLogger.addHandler(fh)  # Printout FORMAT
@@ -719,7 +719,7 @@ def main(argv):
         if args.schema is not None:
             with open(args.schema) as f:
                 schema = json.loads(f.read())
-                success = checkProfileCompliance(profile, schema)
+                success = checkProfileAgaistSchema(profile, schema)
     if not success:
         rsvLogger.info("Profile did not comply to the given schema...")
         return 1
@@ -751,7 +751,7 @@ def main(argv):
         rst.currentSession.killSession()
     
     # Render html
-    htmlStrTop = '<html><head><title>Compliance Test Summary</title>\
+    htmlStrTop = '<html><head><title>Conformance Test Summary</title>\
             <style>\
             .pass {background-color:#99EE99}\
             .fail {background-color:#EE9999}\
@@ -773,7 +773,7 @@ def main(argv):
             </head>'
 
     htmlStrBodyHeader = '<body><table>\
-                <tr><th>##### Redfish Compliance Test Report #####</th></tr>\
+                <tr><th>##### Redfish Conformance Test Report #####</th></tr>\
                 <tr><th>System: ' + ConfigURI + '</th></tr>\
                 <tr><th>Description: ' + sysDescription + '</th></tr>\
                 <tr><th>' + str(config_str.replace('\n', '</br>')) + '</th></tr>\
@@ -839,7 +839,7 @@ def main(argv):
 
     htmlPage = htmlStrTop + htmlStrBodyHeader + htmlStrTotal + htmlStr
 
-    with open(datetime.strftime(startTick, os.path.join(logpath, "ComplianceHtmlLog_%m_%d_%Y_%H%M%S.html")), 'w') as f:
+    with open(datetime.strftime(startTick, os.path.join(logpath, "ConformanceHtmlLog_%m_%d_%Y_%H%M%S.html")), 'w') as f:
         f.write(htmlPage)
 
     fails = 0
