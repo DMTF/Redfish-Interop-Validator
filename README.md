@@ -80,6 +80,8 @@ PayloadMode = [Default, Tree, Single, TreeFile, SingleFile] -- Options for the t
 
 PayloadFilePath = Path to URI/File
 
+WarnRecommended - Warn on recommended requirements rather than Pass
+
 Once the above details are updated for the system under test, the Redfish Interop Validator can be triggered from a command prompt by typing the below command, with the option of verbosity:
 
 python3 RedfishInteropValidator.py profileName -c config/config.ini (-v)

@@ -15,9 +15,17 @@ import json
 import traverseService as rst
 import jsonschema
 import argparse
+from enum import Enum
+
+class sEnum(Enum):
+    FAIL = 'FAIL'
+    PASS = 'PASS'
+    WARN = 'WARN'
+
 
 rsvLogger = rst.getLogger()
 
+config = {'WarnRecommended': False}
 
 def checkProfileAgainstSchema(profile, schema):
     """
@@ -44,7 +52,10 @@ class msgInterop:
         self.entry = entry
         self.expected = expected
         self.actual = actual
-        self.success = success
+        if isinstance(success, bool):
+            self.success = sEnum.PASS if success else sEnum.FAIL
+        else:
+            self.success = success
         self.parent = None
 
 
@@ -57,7 +68,11 @@ def validateRequirement(entry, decodeditem):
     paramPass = not entry == "Mandatory" or \
         entry == "Mandatory" and not propDoesNotExist
     if entry == "Recommended" and propDoesNotExist:
-        rsvLogger.warning('\tItem is recommended but does not exist')
+        rsvLogger.info('\tItem is recommended but does not exist')
+        if config['WarnRecommended']:
+            rsvLogger.error('\tItem is recommended but does not exist, escalating to WARN')
+            paramPass = sEnum.WARN
+        
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
         rsvLogger.error('\tNo Pass')
@@ -250,7 +265,7 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
         while comparePropName not in decodeditem and decoded is not None:
             decodeditem, decoded = decoded
         compareProp = decodeditem.get(comparePropName, 'DNE')
-        return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues"))
+        return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues", []))
     if "WriteRequirement" in entry:
         return validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
 
@@ -276,16 +291,12 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
                                 decoded[0].get(itemname.split('.')[-1] + '@odata.count', 0))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-            counts["pass"] += 1 if success else 0
-            counts["failMinCountFail"] += 1 if not success else 0
         for k, v in entry.get('PropertyRequirements', {}).items():
             if "Comparison" in v and v["Comparison"] in ["AllOf", "AnyOf"]:
                 msg, success = (checkComparison([val.get(k, 'DNE') for val in decodeditem],
                                     v["Comparison"], v["Values"]))
                 msgs.append(msg)
                 msg.name = itemname + '.' + msg.name
-                counts["pass"] += 1 if success else 0
-                counts["failComparisonList"] += 1 if not success else 0
         cnt = 0
         for item in decodeditem:
             listmsgs, listcounts = validatePropertyRequirement(
@@ -302,8 +313,6 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             msg, success = validateRequirement(entry['ReadRequirement'], decodeditem)
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-            counts["pass"] += 1 if success else 0
-            counts["failRequirement"] += 1 if not success else 0
         if "ConditionalRequirements" in entry:
             innerDict = entry["ConditionalRequirements"]
             for item in innerDict:
@@ -319,29 +328,21 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             msg, success = validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-            counts["pass"] += 1 if success else 0
-            counts["failWriteRequirement"] += 1 if not success else 0
         if "MinSupportValues" in entry:
             msg, success = validateSupportedValues(
                     decodeditem, entry["MinSupportValues"],
                     decoded[0].get(itemname.split('.')[-1] + '@Redfish.AllowableValues', []))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-            counts["pass"] += 1 if success else 0
-            counts["failMinSupportValues"] += 1 if not success else 0
         if "Comparison" in entry and not chkCondition and \
                 (inlist is None and entry["Comparison"] not in ["AnyOf", "AllOf"]):
             msg, success = checkComparison(decodeditem, entry["Comparison"], entry.get("Values",[]))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-            counts["pass"] += 1 if success else 0
-            counts["failComparison"] += 1 if not success else 0
         elif "Values" in entry and not chkCondition and (inlist is None):
             msg, success = checkComparison(decodeditem, "AnyOf", entry["Values"])
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-            counts["pass"] += 1 if success else 0
-            counts["failComparison"] += 1 if not success else 0
         if "PropertyRequirements" in entry:
             innerDict = entry["PropertyRequirements"]
             if isinstance(decodeditem, dict):
@@ -368,8 +369,6 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
         msg, success = validateRequirement(entry['ReadRequirement'], decodeditem)
         msgs.append(msg)
         msg.name = actionname + '.' + msg.name
-        counts["pass"] += 1 if success else 0
-        counts["failActionRequirement"] += 1 if not success else 0
     propDoesNotExist = (decodeditem == 'DNE')
     if propDoesNotExist:
         return msgs, counts
@@ -384,8 +383,6 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
                 msg, success = validateRequirement(item['ReadRequirement'], annotation)
                 msgs.append(msg)
                 msg.name = actionname + '.' + msg.name
-                counts["pass"] += 1 if success else 0
-                counts["failActionRequirementParam"] += 1 if not success else 0
             if annotation == 'DNE':
                 continue
             if "AllowableValues" in item:
@@ -393,8 +390,6 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
                         item["AllowableValues"], annotation)
                 msgs.append(msg)
                 msg.name = actionname + '.' + msg.name
-                counts["pass"] += 1 if success else 0
-                counts["failActionMinSupportValues"] += 1 if not success else 0
     # consider requirement before anything else, what if action
     # if the action doesn't exist, you can't check parameters
     # if it doesn't exist, what should not be checked for action
@@ -414,21 +409,15 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         # problem: if dne, skip
         msg, success = validateRequirement(interopDict['ReadRequirement'], None)
         msgs.append(msg)
-        counts["pass"] += 1 if success else 0
-        counts["failRequirement"] += 1 if not success else 0
     if "Members" in interopDict:
         # problem: if dne, skip
         members = propResourceObj.jsondata.get('Members', 'DNE')
         annotation = propResourceObj.jsondata.get('Members@odata.count', 0)
         msg, success = validateMembers(members, interopDict['Members'], annotation)
         msgs.append(msg)
-        counts["pass"] += 1 if success else 0
-        counts["failMembers"] += 1 if not success else 0
     if "MinVersion" in interopDict:
         msg, success = validateMinVersion(propResourceObj.typeobj.fulltype, interopDict['MinVersion'])
         msgs.append(msg)
-        counts["pass"] += 1 if success else 0
-        counts["failMinVersion"] += 1 if not success else 0
     if "PropertyRequirements" in interopDict:
         innerDict = interopDict["PropertyRequirements"]
         for item in innerDict:
@@ -443,7 +432,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         actionsJson = decoded.get('Actions', {})
         decodedInnerTuple = (actionsJson, decodedtuple)
         for item in innerDict:
-            actionName = 'Action #' + propResourceObj.typeobj.stype + '.' + item
+            actionName = 'Action#' + propResourceObj.typeobj.stype + '.' + item
             rsvLogger.info(actionName)
             amsgs, acounts = validateActionRequirement(propResourceObj, innerDict[item], (actionsJson.get(
                 actionName, 'DNE'), decodedInnerTuple), actionName)
@@ -451,11 +440,18 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
             counts.update(acounts)
             msgs.extend(amsgs)
 
+    for item in msgs:
+        if item.success == sEnum.WARN:
+            counts['warn'] += 1
+        elif item.success == sEnum.PASS:
+            counts['pass'] += 1
+        elif item.success == sEnum.FAIL:
+            counts['fail{}'.format(item.name)] += 1
     rsvLogger.info(counts)
     return msgs, counts
 
 
-def checkPayloadCompliance(uri, decoded):
+def checkPayloadConformance(uri, decoded):
     """
     checks for @odata entries and their compliance
     These are not checked in the normal loop
@@ -519,7 +515,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     # Attempt to get a list of properties
     successGet, jsondata, status, rtime = rst.callResourceURI(URI)
-    successPayload, odataMessages = checkPayloadCompliance(URI, jsondata if successGet else {})
+    successPayload, odataMessages = checkPayloadConformance(URI, jsondata if successGet else {})
 
     if not successPayload:
         counts['failPayloadError'] += 1
@@ -668,6 +664,7 @@ def main(argv):
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
     argget.add_argument('-v', action='store_true', help='verbose log output to stdout')
+    argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
     
     args = argget.parse_args()
 
@@ -682,12 +679,14 @@ def main(argv):
             rst.setConfigNamespace(args)
             rst.isConfigSet()
         else:
-            rsvLogger.info('No ip or config specified.')  # Printout FORMAT
+            rsvLogger.info('No ip or config specified.')
             argget.print_help()
             return 1
     except Exception as ex:
         rsvLogger.exception("Something went wrong")  # Printout FORMAT
         return 1
+
+    config['WarnRecommended'] = rst.config.get('warnrecommended', False)
 
     config_str = ""
     for cnt, item in enumerate(sorted(list(rst.config.keys() - set(['systeminfo', 'configuri', 'targetip', 'configset', 'password']))), 1):
@@ -719,7 +718,7 @@ def main(argv):
         if args.schema is not None:
             with open(args.schema) as f:
                 schema = json.loads(f.read())
-                success = checkProfileAgaistSchema(profile, schema)
+                success = checkProfileAgainstSchema(profile, schema)
     if not success:
         rsvLogger.info("Profile did not comply to the given schema...")
         return 1
@@ -808,7 +807,7 @@ def main(argv):
             htmlStr += '<div {style}>{p}: {q}</div>'.format(
                     p=countType,
                     q=innerCounts.get(countType, 0),
-                    style='class="fail log"' if 'fail' in countType or 'exception' in countType else 'class="warn log"' if 'skip' in countType.lower() else 'class=log')
+                    style='class="fail log"' if 'fail' in countType or 'exception' in countType else 'class="warn log"' if 'warn' in countType.lower() else 'class=log')
         htmlStr += '</td></tr>'
         htmlStr += '</table></td></tr>'
         htmlStr += '<tr><td class="results" id=\'resNum{}\'><table><tr><td><table><tr><th style="width:15%"> Name</th> <th>Entry Value</th> <th>must be</th> <th>Service Value</th> <th style="width:10%">Success</th> <tr>'.format(cnt)
@@ -819,7 +818,7 @@ def main(argv):
                 htmlStr += '<td>' + str(i.entry) + '</td>'
                 htmlStr += '<td>' + str(i.expected) + '</td>'
                 htmlStr += '<td>' + str(i.actual) + '</td>'
-                htmlStr += '<td class="fail center">FAIL</td>' if not i.success else '<td class="pass center">Success</td>'
+                htmlStr += '<td class="{} center">{}</td>'.format(str(i.success.value).lower(), str(i.success.value))
                 htmlStr += '</tr>'
         htmlStr += '</table></td></tr>'
         if results[item][4] is not None:

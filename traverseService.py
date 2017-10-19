@@ -28,7 +28,7 @@ argparse2configparser = {
         'suffix': 'schemasuffix', 'dir': 'metadatafilepath', 'nossl': '!usessl', 'timeout': 'timeout', 'service': 'servicemode',
         'http_proxy': 'httpproxy', 'localonly': 'localonlymode', 'https_proxy': 'httpsproxy', 'passwd': 'password',
         'ip': 'targetip', 'logdir': 'logpath', 'desc': 'systeminfo', 'authtype': 'authtype',
-        'payload': 'payloadmode+payloadfilepath', 'cache': 'cachemode+cachefilepath'}
+        'payload': 'payloadmode+payloadfilepath', 'cache': 'cachemode+cachefilepath', 'warnrecommended':'warnrecommended'}
 configpsr = configparser.ConfigParser()
 config = {
         'logpath': './logs', 'schemasuffix': '_v1.xml', 'timeout': 30, 'authtype': 'basic', 'certificatebundle': "",
