@@ -65,6 +65,9 @@ def validateRequirement(entry, decodeditem):
     """
     propDoesNotExist = (decodeditem == 'DNE')
     rsvLogger.info('Testing ReadRequirement \n\texpected:' + str(entry) + ', exists: ' + str(not propDoesNotExist))
+    # If we're not mandatory, pass automatically, else fail
+    # However, we have other entries "IfImplemented" and "Conditional"
+    # note: Mandatory is default!! if present in the profile.  Make sure this is made sure.
     paramPass = not entry == "Mandatory" or \
         entry == "Mandatory" and not propDoesNotExist
     if entry == "Recommended" and propDoesNotExist:
@@ -177,17 +180,20 @@ def checkComparison(val, compareType, target):
             else:
                 continue
         paramPass = len(alltarget) == len(target)
+    if compareType == "LinkToResource":
+        # implement
+        paramPass = True
     if compareType == "Equal":
         paramPass = val == target
     if compareType == "NotEqual":
         paramPass = val != target
     if compareType == "GreaterThan":
         paramPass = val > target
-    if compareType == "GreaterThanEqual":
+    if compareType == "GreaterThanOrEqual":
         paramPass = val >= target
     if compareType == "LessThan":
         paramPass = val < target
-    if compareType == "LessThanEqual":
+    if compareType == "LessThanOrEqual":
         paramPass = val <= target
     if compareType == "Absent":
         paramPass = val == 'DNE'
@@ -266,8 +272,6 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
             decodeditem, decoded = decoded
         compareProp = decodeditem.get(comparePropName, 'DNE')
         return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues", []))
-    if "WriteRequirement" in entry:
-        return validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
 
 
 def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, chkCondition=False, inlist=None):
@@ -292,9 +296,11 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
         for k, v in entry.get('PropertyRequirements', {}).items():
-            if "Comparison" in v and v["Comparison"] in ["AllOf", "AnyOf"]:
+            # default to AnyOf if Comparison is not present but Values is
+            comparisonValue = v.get("Comparison", "AnyOf") if v.get("Values") is not None else None
+            if comparisonValue in ["AllOf", "AnyOf"]:
                 msg, success = (checkComparison([val.get(k, 'DNE') for val in decodeditem],
-                                    v["Comparison"], v["Values"]))
+                                    comparisonValue, v["Values"]))
                 msgs.append(msg)
                 msg.name = itemname + '.' + msg.name
         cnt = 0
@@ -308,9 +314,14 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
     else:
         # consider requirement before anything else
         # problem: if dne, skip?
-        if "ReadRequirement" in entry:
-            # problem: if dne, skip
-            msg, success = validateRequirement(entry['ReadRequirement'], decodeditem)
+
+        # Read Requirement is default mandatory if not present
+        msg, success = validateRequirement(entry.get('ReadRequirement', 'Mandatory'), decodeditem)
+        msgs.append(msg)
+        msg.name = itemname + '.' + msg.name
+
+        if "WriteRequirement" in entry:
+            msg, success = validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
         if "ConditionalRequirements" in entry:
@@ -324,10 +335,6 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
                     msgs.extend(conditionalMsgs)
                 else:
                     rsvLogger.info("\tCondition does not apply")
-        if "WriteRequirement" in entry and not chkCondition:
-            msg, success = validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
-            msgs.append(msg)
-            msg.name = itemname + '.' + msg.name
         if "MinSupportValues" in entry:
             msg, success = validateSupportedValues(
                     decodeditem, entry["MinSupportValues"],
@@ -339,10 +346,6 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             msg, success = checkComparison(decodeditem, entry["Comparison"], entry.get("Values",[]))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-        elif "Values" in entry and not chkCondition and (inlist is None):
-            msg, success = checkComparison(decodeditem, "AnyOf", entry["Values"])
-            msgs.append(msg)
-            msg.name = itemname + '.' + msg.name
         if "PropertyRequirements" in entry:
             innerDict = entry["PropertyRequirements"]
             if isinstance(decodeditem, dict):
@@ -352,6 +355,8 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
                         propResourceObj, innerDict[item], (decodeditem.get(item, 'DNE'), decodedtuple), item)
                     msgs.extend(complexMsgs)
                     counts.update(complexCounts)
+            else:
+                rsvLogger.info('complex {} is missing or not a dictionary'.format(itemname + '.' + item, None))
     return msgs, counts
 
 
@@ -378,16 +383,21 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
         for k in innerDict:
             item = innerDict[k]
             annotation = decodeditem.get(str(k) + '@Redfish.AllowableValues', 'DNE')
-            if "ReadRequirement" in entry:
-                # problem: if dne, skip
-                msg, success = validateRequirement(item['ReadRequirement'], annotation)
-                msgs.append(msg)
-                msg.name = actionname + '.' + msg.name
+            # problem: if dne, skip
+            # assume mandatory
+            msg, success = validateRequirement(item.get('ReadRequirement', "Mandatory"), annotation)
+            msgs.append(msg)
+            msg.name = actionname + '.' + msg.name
             if annotation == 'DNE':
                 continue
-            if "AllowableValues" in item:
+            if "ParameterValues" in item:
                 msg, success = validateSupportedValues(
-                        item["AllowableValues"], annotation)
+                        item["ParameterValues"], annotation)
+                msgs.append(msg)
+                msg.name = actionname + '.' + msg.name
+            if "RecommendedValues" in item:
+                msg, success = validateSupportedValues(
+                        item["RecommendedValues"], annotation)
                 msgs.append(msg)
                 msg.name = actionname + '.' + msg.name
     # consider requirement before anything else, what if action
@@ -404,21 +414,39 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
     rsvLogger.info('### Validating an InteropResource')
     rsvLogger.debug(str(interopDict))
     counts = Counter()
+    # decodedtuple provides the chain of dicts containing dicts, needed for CompareProperty
     decodedtuple = (decoded, None)
+    if "MinVersion" in interopDict:
+        msg, success = validateMinVersion(propResourceObj.typeobj.fulltype, interopDict['MinVersion'])
+        msgs.append(msg)
     if "ReadRequirement" in interopDict:
         # problem: if dne, skip
         msg, success = validateRequirement(interopDict['ReadRequirement'], None)
         msgs.append(msg)
     if "Members" in interopDict:
         # problem: if dne, skip
+        # problem: does this still matter?  not listed in schematic DSP0272
+        # seems to have been removed, confirm
         members = propResourceObj.jsondata.get('Members', 'DNE')
         annotation = propResourceObj.jsondata.get('Members@odata.count', 0)
         msg, success = validateMembers(members, interopDict['Members'], annotation)
         msgs.append(msg)
-    if "MinVersion" in interopDict:
-        msg, success = validateMinVersion(propResourceObj.typeobj.fulltype, interopDict['MinVersion'])
-        msgs.append(msg)
+    if "ConditionalRequirements" in interopDict:
+        # problem: sense of redundancy, we can't check if a resource exists at all based on current system
+        # other conditional results possible?
+        innerDict = interopDict["ConditionalRequirements"]
+        for item in innerDict:
+            break
+            if checkConditionalRequirement(propResourceObj, item, decodedtuple, "Schema"):
+                rsvLogger.info("\tCondition DOES apply")
+                conditionalMsgs, conditionalCounts = validatePropertyRequirement(
+                    propResourceObj, item, decodedtuple, "Schema", True)
+                counts.update(conditionalCounts)
+                msgs.extend(conditionalMsgs)
+            else:
+                rsvLogger.info("\tCondition does not apply")
     if "PropertyRequirements" in interopDict:
+        # problem, unlisted in 0.9.9a
         innerDict = interopDict["PropertyRequirements"]
         for item in innerDict:
             rsvLogger.info('### Validating PropertyRequirements for {}'.format(item))
@@ -439,6 +467,12 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
             rsvLogger.info(acounts)
             counts.update(acounts)
             msgs.extend(amsgs)
+    if "CreateResource" in interopDict:
+        pass
+    if "DeleteResource" in interopDict:
+        pass
+    if "UpdateResource" in interopDict:
+        pass
 
     for item in msgs:
         if item.success == sEnum.WARN:
@@ -539,6 +573,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         results[uriName] = (URI, success, counts, messages,
                             errorMessages, None, None)
         return False, counts, results, None, None
+
     counts['passGet'] += 1
     results[uriName] = (str(URI) + ' ({}s)'.format(propResourceObj.rtime), success, counts, messages, errorMessages, propResourceObj.context, propResourceObj.typeobj.fulltype)
 
