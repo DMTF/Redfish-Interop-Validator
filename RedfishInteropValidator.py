@@ -75,7 +75,7 @@ def validateRequirement(entry, decodeditem):
         if config['WarnRecommended']:
             rsvLogger.error('\tItem is recommended but does not exist, escalating to WARN')
             paramPass = sEnum.WARN
-        
+
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
         rsvLogger.error('\tNo Pass')
@@ -371,7 +371,7 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
         decodeditem, dict) else 'dict') + ' ' + str(entry))
     if "ReadRequirement" in entry:
         # problem: if dne, skip
-        msg, success = validateRequirement(entry['ReadRequirement'], decodeditem)
+        msg, success = validateRequirement(entry.get('ReadRequirement', "Mandatory"), decodeditem)
         msgs.append(msg)
         msg.name = actionname + '.' + msg.name
     propDoesNotExist = (decodeditem == 'DNE')
@@ -387,7 +387,7 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
             # assume mandatory
             msg, success = validateRequirement(item.get('ReadRequirement', "Mandatory"), annotation)
             msgs.append(msg)
-            msg.name = actionname + '.' + msg.name
+            msg.name = actionname + '.Parameters.' + msg.name
             if annotation == 'DNE':
                 continue
             if "ParameterValues" in item:
@@ -398,6 +398,13 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
             if "RecommendedValues" in item:
                 msg, success = validateSupportedValues(
                         item["RecommendedValues"], annotation)
+                if config['WarnRecommended'] and not success:
+                    rsvLogger.error('\tRecommended parameters do not all exist, escalating to WARN')
+                    msg.success = sEnum.WARN
+                elif not success:
+                    rsvLogger.error('\tRecommended parameters do not all exist')
+                    msg.success = sEnum.PASS
+
                 msgs.append(msg)
                 msg.name = actionname + '.' + msg.name
     # consider requirement before anything else, what if action
@@ -460,7 +467,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         actionsJson = decoded.get('Actions', {})
         decodedInnerTuple = (actionsJson, decodedtuple)
         for item in innerDict:
-            actionName = 'Action#' + propResourceObj.typeobj.stype + '.' + item
+            actionName = '#' + propResourceObj.typeobj.stype + '.' + item
             rsvLogger.info(actionName)
             amsgs, acounts = validateActionRequirement(propResourceObj, innerDict[item], (actionsJson.get(
                 actionName, 'DNE'), decodedInnerTuple), actionName)
