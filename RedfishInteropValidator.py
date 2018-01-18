@@ -27,6 +27,7 @@ rsvLogger = rst.getLogger()
 
 config = {'WarnRecommended': False}
 
+
 def checkProfileAgainstSchema(profile, schema):
     """
     Checks if a profile is compliant
@@ -59,7 +60,7 @@ class msgInterop:
         self.parent = None
 
 
-def validateRequirement(entry, decodeditem):
+def validateRequirement(entry, decodeditem, conditional=False):
     """
     Validates Requirement entry
     """
@@ -68,6 +69,9 @@ def validateRequirement(entry, decodeditem):
     # If we're not mandatory, pass automatically, else fail
     # However, we have other entries "IfImplemented" and "Conditional"
     # note: Mandatory is default!! if present in the profile.  Make sure this is made sure.
+    originalentry = entry
+    if entry == "IfImplemented" or (entry == "Conditional" and conditional):
+        entry = "Mandatory"
     paramPass = not entry == "Mandatory" or \
         entry == "Mandatory" and not propDoesNotExist
     if entry == "Recommended" and propDoesNotExist:
@@ -79,7 +83,7 @@ def validateRequirement(entry, decodeditem):
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
         rsvLogger.error('\tNo Pass')
-    return msgInterop('ReadRequirement', entry, 'Must Exist' if entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
+    return msgInterop('ReadRequirement', originalentry, 'Must Exist' if entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
         paramPass
 
 
@@ -429,7 +433,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
     if "ReadRequirement" in interopDict:
         # problem: if dne, skip
         msg, success = validateRequirement(interopDict['ReadRequirement'], None)
-        msgs.append(msg)
+        innerDict = interopDict["ConditionalRequirements"]
     if "Members" in interopDict:
         # problem: if dne, skip
         # problem: does this still matter?  not listed in schematic DSP0272
@@ -442,16 +446,6 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         # problem: sense of redundancy, we can't check if a resource exists at all based on current system
         # other conditional results possible?
         innerDict = interopDict["ConditionalRequirements"]
-        for item in innerDict:
-            break
-            if checkConditionalRequirement(propResourceObj, item, decodedtuple, "Schema"):
-                rsvLogger.info("\tCondition DOES apply")
-                conditionalMsgs, conditionalCounts = validatePropertyRequirement(
-                    propResourceObj, item, decodedtuple, "Schema", True)
-                counts.update(conditionalCounts)
-                msgs.extend(conditionalMsgs)
-            else:
-                rsvLogger.info("\tCondition does not apply")
     if "PropertyRequirements" in interopDict:
         # problem, unlisted in 0.9.9a
         innerDict = interopDict["PropertyRequirements"]
@@ -475,10 +469,13 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
             counts.update(acounts)
             msgs.extend(amsgs)
     if "CreateResource" in interopDict:
+        rsvLogger.info('Skipping CreateResource')
         pass
     if "DeleteResource" in interopDict:
+        rsvLogger.info('Skipping DeleteResource')
         pass
     if "UpdateResource" in interopDict:
+        rsvLogger.info('Skipping UpdateResource')
         pass
 
     for item in msgs:
@@ -618,63 +615,55 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     return True, counts, results, propResourceObj.links, propResourceObj
 
 
-def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=None, expectedJson=None, parent=None, allLinks=None):
+def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=None, expectedJson=None):
     """
     Validates a Tree of URIs, traversing from the first given
     """
     traverseLogger = rst.getLogger()
 
-    def executeLink(linkItem, parent=None):
-        linkURI, autoExpand, linkType, linkSchema, innerJson = linkItem
-
-        if linkType is not None and autoExpand:
-            returnVal = validateURITree(
-                linkURI, uriName + ' -> ' + linkName, profile, linkType, linkSchema, innerJson, parent, allLinks)
-        else:
-            returnVal = validateURITree(
-                linkURI, uriName + ' -> ' + linkName, profile, parent=parent, allLinks=allLinks)
-        return returnVal
-
-    top = allLinks is None
-    if top:
-        allLinks = set()
+    allLinks = set()
     allLinks.add(URI)
     refLinks = OrderedDict()
 
     validateSuccess, counts, results, links, thisobj = \
         validateSingleURI(URI, profile, uriName, expectedType,
-                          expectedSchema, expectedJson, parent)
+                          expectedSchema, expectedJson)
+
+    # parent first, then child execution
+    # do top level root first, then do each child root, then their children...
+    # hold refs for last (less recursion)
     if validateSuccess:
-        for linkName in links:
-            if 'Links' in linkName.split('.', 1)[0] or 'RelatedItem' in linkName.split('.', 1)[0] or 'Redundancy' in linkName.split('.', 1)[0]:
-                refLinks[linkName] = links[linkName]
-                continue
-            if links[linkName][0] in allLinks:
-                counts['repeat'] += 1
-                continue
+        currentLinks = links
+        while len(currentLinks) > 0:
+            newLinks = OrderedDict()
+            for linkName in currentLinks:
+                if 'Links' in linkName.split('.', 1)[0] or 'RelatedItem' in linkName.split('.', 1)[0] or 'Redundancy' in linkName.split('.', 1)[0]:
+                    refLinks[linkName] = currentLinks[linkName]
+                    continue
+                if currentLinks[linkName][0] in allLinks:
+                    counts['repeat'] += 1
+                    continue
 
-            success, linkCounts, linkResults, xlinks, xobj = executeLink(
-                links[linkName], thisobj)
-            refLinks.update(xlinks)
-            if not success:
-                counts['unvalidated'] += 1
-            results.update(linkResults)
+                linkURI, autoExpand, linkType, linkSchema, innerJson = currentLinks[linkName]
 
-    if top:
-        for linkName in refLinks:
-            if refLinks[linkName][0] not in allLinks:
-                traverseLogger.info('%s, %s', linkName, refLinks[linkName])
-                counts['reflink'] += 1
-            else:
-                continue
+                if autoExpand and linkType is not None:
+                    linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
+                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName), linkType, linkSchema, innerJson)
+                else:
+                    linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
+                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName))
 
-            success, linkCounts, linkResults, xlinks, xobj = executeLink(
-                refLinks[linkName], thisobj)
-            if not success:
-                counts['unvalidatedRef'] += 1
-            results.update(linkResults)
+                newLinks.update(innerLinks)
+                counts.update(linkCounts)
+                results.update(linkResults)
+
+            currentLinks = newLinks
+            if len(currentLinks) == 0 and len(refLinks) > 0:
+                refLinks = OrderedDict()
+                currentLinks = refLinks
 
     return validateSuccess, counts, results, refLinks, thisobj
+
 
 #############################################################
 #########          Script starts here              ##########
@@ -685,14 +674,10 @@ def main(argv):
     # Set config
     argget = argparse.ArgumentParser(description='tool for testing services against an interoperability profile')
     argget.add_argument('--ip', type=str, help='ip to test on [host:port]')
-    argget.add_argument('--payload', type=str, help='mode to validate payloads [Tree, Single, SingleFile, TreeFile] followed by resource/filepath', nargs=2)
     argget.add_argument('--cache', type=str, help='cache mode [Off, Fallback, Prefer] followed by directory', nargs=2)
-    argget.add_argument('-c', '--config', type=str, help='config file (overrides other params)')
     argget.add_argument('-u', '--user', default=None, type=str, help='user for basic auth')
     argget.add_argument('-p', '--passwd', default=None, type=str, help='pass for basic auth')
-    argget.add_argument('--desc', type=str, default='No desc', help='sysdescription for identifying logs')
     argget.add_argument('--dir', type=str, default='./SchemaFiles/metadata', help='directory for local schema files')
-    argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
     argget.add_argument('--timeout', type=int, default=30, help='requests timeout in seconds')
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--nossl', action='store_true', help='use http instead of https')
@@ -703,15 +688,25 @@ def main(argv):
     argget.add_argument('--ca_bundle', default="", type=str, help='path to Certificate Authority bundle file or directory')
     argget.add_argument('--http_proxy', type=str, default=None, help='URL for the HTTP proxy')
     argget.add_argument('--https_proxy', type=str, default=None, help='URL for the HTTPS proxy')
+
+    # Config information unrelated to Traversal
+    argget.add_argument('-c', '--config', type=str, help='config file (overrides other params)')
+    argget.add_argument('--desc', type=str, default='No desc', help='sysdescription for identifying logs')
+    argget.add_argument('--payload', type=str, help='mode to validate payloads [Tree, Single, SingleFile, TreeFile] followed by resource/filepath', nargs=2)
+    argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
+    argget.add_argument('-v', action='store_true', help='verbose log output to stdout')
+    
+    # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
-    argget.add_argument('-v', action='store_true', help='verbose log output to stdout')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
     
     args = argget.parse_args()
 
+    # Can set verbose no matter config or not
     if args.v:
         rst.ch.setLevel(logging.DEBUG)
+    config['WarnRecommended'] = rst.config.get('warnrecommended', False)
 
     try:
         if args.config is not None:
@@ -727,8 +722,6 @@ def main(argv):
     except Exception as ex:
         rsvLogger.exception("Something went wrong")  # Printout FORMAT
         return 1
-
-    config['WarnRecommended'] = rst.config.get('warnrecommended', False)
 
     config_str = ""
     for cnt, item in enumerate(sorted(list(rst.config.keys() - set(['systeminfo', 'configuri', 'targetip', 'configset', 'password']))), 1):
