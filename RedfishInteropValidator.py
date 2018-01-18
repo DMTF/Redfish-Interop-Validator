@@ -82,7 +82,7 @@ def validateRequirement(entry, decodeditem, conditional=False):
 
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\tNo Pass')
+        rsvLogger.error('\tNoPass')
     return msgInterop('ReadRequirement', originalentry, 'Must Exist' if entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
         paramPass
 
@@ -111,7 +111,7 @@ def validateSupportedValues(enumlist, annotation):
             break
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\nNoPass')
+        rsvLogger.error('\tNoPass')
     return msgInterop('SupportedValues', enumlist, 'included in...', annotation, paramPass),\
         paramPass
 
@@ -286,10 +286,10 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
         while comparePropName not in decodeditem and decoded is not None:
             decodeditem, decoded = decoded
         compareProp = decodeditem.get(comparePropName, 'DNE')
-        return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues", []))
+        return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues", []))[1]
 
 
-def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname): 
+def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, chkCondition=False): 
     """
     Validate PropertyRequirements
     """
@@ -345,8 +345,10 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname):
                 if checkConditionalRequirement(propResourceObj, item, decodedtuple, itemname):
                     rsvLogger.info("\tCondition DOES apply")
                     conditionalMsgs, conditionalCounts = validatePropertyRequirement(
-                        propResourceObj, item, decodedtuple, itemname)
+                        propResourceObj, item, decodedtuple, itemname, chkCondition = True)
                     counts.update(conditionalCounts)
+                    for item in conditionalMsgs:
+                        item.name = item.name.replace('.', '.Conditional.', 1)
                     msgs.extend(conditionalMsgs)
                 else:
                     rsvLogger.info("\tCondition does not apply")
@@ -356,7 +358,7 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname):
                     decoded[0].get(itemname.split('.')[-1] + '@Redfish.AllowableValues', []))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-        if "Comparison" in entry and \
+        if "Comparison" in entry and not chkCondition and\
                 entry["Comparison"] not in ["AnyOf", "AllOf"]:
             msg, success = checkComparison(decodeditem, entry["Comparison"], entry.get("Values",[]))
             msgs.append(msg)
@@ -413,11 +415,12 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
             if "RecommendedValues" in item:
                 msg, success = validateSupportedValues(
                         item["RecommendedValues"], annotation)
+                msg.name = msg.name.replace('Supported', 'Recommended')
                 if config['WarnRecommended'] and not success:
                     rsvLogger.error('\tRecommended parameters do not all exist, escalating to WARN')
                     msg.success = sEnum.WARN
                 elif not success:
-                    rsvLogger.error('\tRecommended parameters do not all exist')
+                    rsvLogger.error('\tRecommended parameters do not all exist, but are not Mandatory')
                     msg.success = sEnum.PASS
 
                 msgs.append(msg)
@@ -533,6 +536,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     errh = logging.StreamHandler(errorMessages)
     errh.setLevel(logging.ERROR)
     errh.setFormatter(fmt)
+    # rsvLogger.addHandler(errh)
 
     # Start
     counts = Counter()
@@ -891,6 +895,7 @@ def main(argv):
 
     rsvLogger.info(len(results))
     for cnt, item in enumerate(results):
+        printPayload = False
         innerCounts = results[item][2]
         finalCounts.update(innerCounts)
         if results[item][3] is not None and len(results[item][3]) == 0:
