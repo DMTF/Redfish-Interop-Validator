@@ -264,6 +264,7 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
                                str(parentType) + ' ' + str(isSubordinate))
                 resourceParent = resourceParent.parent
             else:
+                rsvLogger.info('no parent')
                 isSubordinate = False
         return isSubordinate
     if "CompareProperty" in entry:
@@ -329,8 +330,8 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
         if "ConditionalRequirements" in entry:
-            innerDict = entry["ConditionalRequirements"]
-            for item in innerDict:
+            innerList = entry["ConditionalRequirements"]
+            for item in innerList:
                 if checkConditionalRequirement(propResourceObj, item, decodedtuple, itemname):
                     rsvLogger.info("\tCondition DOES apply")
                     conditionalMsgs, conditionalCounts = validatePropertyRequirement(
@@ -430,22 +431,6 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
     if "MinVersion" in interopDict:
         msg, success = validateMinVersion(propResourceObj.typeobj.fulltype, interopDict['MinVersion'])
         msgs.append(msg)
-    if "ReadRequirement" in interopDict:
-        # problem: if dne, skip
-        msg, success = validateRequirement(interopDict['ReadRequirement'], None)
-        innerDict = interopDict["ConditionalRequirements"]
-    if "Members" in interopDict:
-        # problem: if dne, skip
-        # problem: does this still matter?  not listed in schematic DSP0272
-        # seems to have been removed, confirm
-        members = propResourceObj.jsondata.get('Members', 'DNE')
-        annotation = propResourceObj.jsondata.get('Members@odata.count', 0)
-        msg, success = validateMembers(members, interopDict['Members'], annotation)
-        msgs.append(msg)
-    if "ConditionalRequirements" in interopDict:
-        # problem: sense of redundancy, we can't check if a resource exists at all based on current system
-        # other conditional results possible?
-        innerDict = interopDict["ConditionalRequirements"]
     if "PropertyRequirements" in interopDict:
         # problem, unlisted in 0.9.9a
         innerDict = interopDict["PropertyRequirements"]
@@ -484,7 +469,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         elif item.success == sEnum.PASS:
             counts['pass'] += 1
         elif item.success == sEnum.FAIL:
-            counts['fail{}'.format(item.name)] += 1
+            counts['fail.{}'.format(item.name)] += 1
     rsvLogger.info(counts)
     return msgs, counts
 
@@ -623,46 +608,108 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
 
     allLinks = set()
     allLinks.add(URI)
-    refLinks = OrderedDict()
+    refLinks = list()
 
+    # Resource level validation
+    rcounts = Counter()
+    rmessages = []
+    rsuccess = True
+    rerror = io.StringIO()
+    objRes = dict(profile.get('Resources'))
+
+    # Validate top URI
     validateSuccess, counts, results, links, thisobj = \
         validateSingleURI(URI, profile, uriName, expectedType,
                           expectedSchema, expectedJson)
+
 
     # parent first, then child execution
     # do top level root first, then do each child root, then their children...
     # hold refs for last (less recursion)
     if validateSuccess:
-        currentLinks = links
+        currentLinks = [(l, links[l], thisobj) for l in links]
         while len(currentLinks) > 0:
-            newLinks = OrderedDict()
-            for linkName in currentLinks:
-                if 'Links' in linkName.split('.', 1)[0] or 'RelatedItem' in linkName.split('.', 1)[0] or 'Redundancy' in linkName.split('.', 1)[0]:
-                    refLinks[linkName] = currentLinks[linkName]
+            newLinks = list()
+            for linkName, link, parent in currentLinks:
+                if refLinks is not currentLinks and ('Links' in linkName.split('.', 1)[0] or 'RelatedItem' in linkName.split('.', 1)[0] or 'Redundancy' in linkName.split('.', 1)[0]):
+                    refLinks.append((linkName, link, parent)) 
                     continue
-                if currentLinks[linkName][0] in allLinks:
-                    counts['repeat'] += 1
+                if link[0] in allLinks:
                     continue
 
-                linkURI, autoExpand, linkType, linkSchema, innerJson = currentLinks[linkName]
+                linkURI, autoExpand, linkType, linkSchema, innerJson = link
 
                 if autoExpand and linkType is not None:
                     linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
-                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName), linkType, linkSchema, innerJson)
+                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName), linkType, linkSchema, innerJson, parent=parent)
                 else:
                     linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
-                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName))
+                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName), parent=parent)
 
-                newLinks.update(innerLinks)
+                innerLinksTuple = [(l, innerLinks[l], linkobj) for l in innerLinks]
+                newLinks.extend(innerLinksTuple)
                 counts.update(linkCounts)
                 results.update(linkResults)
 
+                # Check schema level for requirements
+                SchemaType = rst.getType(linkobj.typeobj.fulltype)
+                if SchemaType in objRes:
+                    req = objRes[SchemaType].get("ReadRequirement", "Mandatory") 
+                    msg, pss = validateRequirement(req, None)
+                    if pss and objRes[SchemaType].get('mark', False) == False:
+                        rmessages.append(msg)
+                        msg.name = SchemaType + '.' + msg.name
+                        objRes[SchemaType]['mark'] = True
+
+                    if "ConditionalRequirements" in objRes[SchemaType]:
+                        input("ok")
+                        innerList = objRes[SchemaType]["ConditionalRequirements"]
+                        newList = list()
+                        for condreq in innerList:
+                            input(linkobj.parent)
+                            condtrue = checkConditionalRequirement(linkobj, condreq, (linkobj.jsondata, None), None) 
+                            input(condtrue)
+                            if condtrue:
+                                msg, cpss = validateRequirement(condreq.get("ReadRequirement", "Mandatory"), None)
+                                input(cpss)
+                                if cpss:
+                                    rmessages.append(msg)
+                                    msg.name = SchemaType + '.Conditional.' + msg.name
+                                else:
+                                    newList.append(condreq)
+                            else:
+                                newList.append(condreq)
+                        objRes[SchemaType]["ConditionalRequirements"] = newList
+                        
             currentLinks = newLinks
             if len(currentLinks) == 0 and len(refLinks) > 0:
                 refLinks = OrderedDict()
                 currentLinks = refLinks
 
-    return validateSuccess, counts, results, refLinks, thisobj
+    # interop service level checks
+    finalResults = OrderedDict()
+    for left in objRes:
+        if not objRes[left].get('mark', False):
+            req = objRes[left].get("ReadRequirement", "Mandatory") 
+            rmessages.append(
+                    msgInterop(left + '.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', sEnum.FAIL))
+            rcounts['fail'] += 1
+        if "ConditionalRequirements" in objRes[left]:
+            input(left)
+            innerList = objRes[left]["ConditionalRequirements"]
+            for condreq in innerList:
+                input(innerList)
+                input(condreq)
+                req = condreq.get("ReadRequirement", "Mandatory")
+                rmessages.append(
+                    msgInterop(left + '.Conditional.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', sEnum.FAIL))
+                rcounts['fail'] += 1
+
+
+    finalResults['Service Level Requirements'] = ("Top Level", rcounts.get('fail', 0) == 0, rcounts, rmessages, rerror, "", "")
+    finalResults.update(results)
+
+    return validateSuccess, counts, finalResults, refLinks, thisobj
 
 
 #############################################################
@@ -706,8 +753,13 @@ def main(argv):
     # Can set verbose no matter config or not
     if args.v:
         rst.ch.setLevel(logging.DEBUG)
+    
+    # Set interop config items
     config['WarnRecommended'] = rst.config.get('warnrecommended', False)
+    config['profile'] = rst.config.get('profile')
+    config['schema'] = rst.config.get('schema')
 
+    # Set config
     try:
         if args.config is not None:
             rst.setConfig(args.config)
@@ -723,6 +775,7 @@ def main(argv):
         rsvLogger.exception("Something went wrong")  # Printout FORMAT
         return 1
 
+    # Strings
     config_str = ""
     for cnt, item in enumerate(sorted(list(rst.config.keys() - set(['systeminfo', 'configuri', 'targetip', 'configset', 'password']))), 1):
         config_str += "{}: {},  ".format(str(item), str(rst.config[item] if rst.config[item] != '' else 'None'))
@@ -746,6 +799,7 @@ def main(argv):
     rsvLogger.info(config_str)
     rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))  # Printout FORMAT
 
+    # Interop Profile handling
     profile = schema = None
     success = True
     with open(args.profile) as f:
@@ -783,6 +837,8 @@ def main(argv):
     rsvLogger.info('Elapsed time: ' + str(nowTick-startTick).rsplit('.', 1)[0])  # Printout FORMAT
     if rst.currentSession.started:
         rst.currentSession.killSession()
+    
+    # Handle Schema Level validations
     
     # Render html
     htmlStrTop = '<html><head><title>Conformance Test Summary</title>\
