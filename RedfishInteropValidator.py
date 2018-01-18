@@ -279,7 +279,7 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
         return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues", []))
 
 
-def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, chkCondition=False, inlist=None):
+def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname): 
     """
     Validate PropertyRequirements
     """
@@ -311,7 +311,7 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
         cnt = 0
         for item in decodeditem:
             listmsgs, listcounts = validatePropertyRequirement(
-                propResourceObj, entry, (item, decoded), itemname + '#' + str(cnt), inlist=decodeditem)
+                propResourceObj, entry, (item, decoded), itemname + '#' + str(cnt))
             counts.update(listcounts)
             msgs.extend(listmsgs)
             cnt += 1
@@ -346,8 +346,8 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
                     decoded[0].get(itemname.split('.')[-1] + '@Redfish.AllowableValues', []))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-        if "Comparison" in entry and not chkCondition and \
-                (inlist is None and entry["Comparison"] not in ["AnyOf", "AllOf"]):
+        if "Comparison" in entry and \
+                entry["Comparison"] not in ["AnyOf", "AllOf"]:
             msg, success = checkComparison(decodeditem, entry["Comparison"], entry.get("Values",[]))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
@@ -622,7 +622,6 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
         validateSingleURI(URI, profile, uriName, expectedType,
                           expectedSchema, expectedJson)
 
-
     # parent first, then child execution
     # do top level root first, then do each child root, then their children...
     # hold refs for last (less recursion)
@@ -654,6 +653,7 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
                 # Check schema level for requirements
                 SchemaType = rst.getType(linkobj.typeobj.fulltype)
                 if SchemaType in objRes:
+                    traverseLogger.info("Checking service requirement for {}".format(SchemaType))
                     req = objRes[SchemaType].get("ReadRequirement", "Mandatory") 
                     msg, pss = validateRequirement(req, None)
                     if pss and objRes[SchemaType].get('mark', False) == False:
@@ -662,16 +662,12 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
                         objRes[SchemaType]['mark'] = True
 
                     if "ConditionalRequirements" in objRes[SchemaType]:
-                        input("ok")
                         innerList = objRes[SchemaType]["ConditionalRequirements"]
                         newList = list()
                         for condreq in innerList:
-                            input(linkobj.parent)
                             condtrue = checkConditionalRequirement(linkobj, condreq, (linkobj.jsondata, None), None) 
-                            input(condtrue)
                             if condtrue:
                                 msg, cpss = validateRequirement(condreq.get("ReadRequirement", "Mandatory"), None)
-                                input(cpss)
                                 if cpss:
                                     rmessages.append(msg)
                                     msg.name = SchemaType + '.Conditional.' + msg.name
@@ -689,24 +685,25 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
     # interop service level checks
     finalResults = OrderedDict()
     for left in objRes:
+        resultEnum = sEnum.FAIL
+        if URI != "/redfish/v1":
+            resultEnum = sEnum.WARN
+            traverseLogger.info("We are not validating root, warn only")
         if not objRes[left].get('mark', False):
             req = objRes[left].get("ReadRequirement", "Mandatory") 
             rmessages.append(
-                    msgInterop(left + '.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', sEnum.FAIL))
+                    msgInterop(left + '.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', sEnum.WARN))
             rcounts['fail'] += 1
         if "ConditionalRequirements" in objRes[left]:
-            input(left)
             innerList = objRes[left]["ConditionalRequirements"]
             for condreq in innerList:
-                input(innerList)
-                input(condreq)
                 req = condreq.get("ReadRequirement", "Mandatory")
                 rmessages.append(
-                    msgInterop(left + '.Conditional.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', sEnum.FAIL))
+                    msgInterop(left + '.Conditional.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', sEnum.WARN))
                 rcounts['fail'] += 1
 
 
-    finalResults['Service Level Requirements'] = ("Top Level", rcounts.get('fail', 0) == 0, rcounts, rmessages, rerror, "", "")
+    finalResults['n/a'] = ("Service Level Requirements", rcounts.get('fail', 0) == 0, rcounts, rmessages, rerror, "n/a", "n/a")
     finalResults.update(results)
 
     return validateSuccess, counts, finalResults, refLinks, thisobj
