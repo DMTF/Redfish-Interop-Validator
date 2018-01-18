@@ -185,8 +185,18 @@ def checkComparison(val, compareType, target):
                 continue
         paramPass = len(alltarget) == len(target)
     if compareType == "LinkToResource":
-        # implement
-        paramPass = True
+        vallink = val.get('@odata.id')
+        success, decoded, code, elapsed = rst.callResourceURI(vallink)
+        if success:
+            ourType = decoded.get('@odata.type')
+            if ourType is not None:
+                SchemaType = rst.getType(ourType)
+                paramPass = SchemaType in target
+            else: 
+                paramPass = False
+        else:
+            paramPass = False
+
     if compareType == "Equal":
         paramPass = val == target
     if compareType == "NotEqual":
@@ -335,7 +345,7 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname):
                 if checkConditionalRequirement(propResourceObj, item, decodedtuple, itemname):
                     rsvLogger.info("\tCondition DOES apply")
                     conditionalMsgs, conditionalCounts = validatePropertyRequirement(
-                        propResourceObj, item, decodedtuple, itemname, True)
+                        propResourceObj, item, decodedtuple, itemname)
                     counts.update(conditionalCounts)
                     msgs.extend(conditionalMsgs)
                 else:
@@ -564,7 +574,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         return False, counts, results, None, None
 
     counts['passGet'] += 1
-    results[uriName] = (str(URI) + ' ({}s)'.format(propResourceObj.rtime), success, counts, messages, errorMessages, propResourceObj.context, propResourceObj.typeobj.fulltype)
+    results[uriName] = (str(URI) + ' ({}s)'.format(propResourceObj.rtime), success, counts, messages, errorMessages, propResourceObj.context, propResourceObj.typeobj.fulltype, propResourceObj.jsondata)
 
     uriName, SchemaFullType, jsondata = propResourceObj.name, propResourceObj.typeobj.fulltype, propResourceObj.jsondata
     SchemaNamespace, SchemaType = rst.getNamespace(
@@ -615,12 +625,17 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
     rmessages = []
     rsuccess = True
     rerror = io.StringIO()
+    serviceVersion = profile["Protocol"].get('MinVersion', '1.0.0')
+
     objRes = dict(profile.get('Resources'))
 
     # Validate top URI
     validateSuccess, counts, results, links, thisobj = \
         validateSingleURI(URI, profile, uriName, expectedType,
                           expectedSchema, expectedJson)
+
+    msg, mpss = validateMinVersion(thisobj.jsondata.get("RedfishVersion", "0"), serviceVersion)
+    rmessages.append(msg)
 
     # parent first, then child execution
     # do top level root first, then do each child root, then their children...
@@ -647,7 +662,6 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
 
                 innerLinksTuple = [(l, innerLinks[l], linkobj) for l in innerLinks]
                 newLinks.extend(innerLinksTuple)
-                counts.update(linkCounts)
                 results.update(linkResults)
 
                 # Check schema level for requirements
@@ -692,16 +706,21 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
         if not objRes[left].get('mark', False):
             req = objRes[left].get("ReadRequirement", "Mandatory") 
             rmessages.append(
-                    msgInterop(left + '.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', sEnum.WARN))
-            rcounts['fail'] += 1
+                    msgInterop(left + '.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', resultEnum))
         if "ConditionalRequirements" in objRes[left]:
             innerList = objRes[left]["ConditionalRequirements"]
             for condreq in innerList:
                 req = condreq.get("ReadRequirement", "Mandatory")
                 rmessages.append(
-                    msgInterop(left + '.Conditional.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', sEnum.WARN))
-                rcounts['fail'] += 1
+                    msgInterop(left + '.Conditional.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', resultEnum))
 
+    for item in rmessages:
+        if item.success == sEnum.WARN:
+            rcounts['warn'] += 1
+        elif item.success == sEnum.PASS:
+            rcounts['pass'] += 1
+        elif item.success == sEnum.FAIL:
+            rcounts['fail.{}'.format(item.name)] += 1
 
     finalResults['n/a'] = ("Service Level Requirements", rcounts.get('fail', 0) == 0, rcounts, rmessages, rerror, "n/a", "n/a")
     finalResults.update(results)
@@ -872,6 +891,8 @@ def main(argv):
 
     rsvLogger.info(len(results))
     for cnt, item in enumerate(results):
+        innerCounts = results[item][2]
+        finalCounts.update(innerCounts)
         if results[item][3] is not None and len(results[item][3]) == 0:
            continue
         htmlStr += '<tr><td class="titlerow"><table class="titletable"><tr>'
@@ -884,8 +905,6 @@ def main(argv):
              [1] else 'class="fail"> GET Failure') + '</td>'
         htmlStr += '<td style="width:10%">'
 
-        innerCounts = results[item][2]
-        finalCounts.update(innerCounts)
         for countType in sorted(innerCounts.keys()):
             if innerCounts.get(countType) == 0:
                 continue
@@ -912,7 +931,10 @@ def main(argv):
         if results[item][4] is not None:
             htmlStr += '<tr><td class="fail log">' + str(results[item][4].getvalue()).replace('\n', '<br />') + '</td></tr>'
             results[item][4].close()
-        htmlStr += '<tr><td>---</td></tr></table></td></tr>'
+        htmlStr += "<tr><td><details><summary>Payload</summary>\
+            <p class='log'>{}</p>\
+            </details></td></tr></table></td></tr>".format(json.dumps(results[item][7],
+                indent=4, separators=(',', ': ')) if len(results[item]) >= 8 else "n/a")
 
     htmlStr += '</table></body></html>'
 
@@ -932,7 +954,7 @@ def main(argv):
     fails = 0
     for key in finalCounts:
         if 'problem' in key or 'fail' in key or 'exception' in key:
-            fails += counts[key]
+            fails += finalCounts[key]
 
     success = success and not (fails > 0)
     rsvLogger.info(finalCounts)
