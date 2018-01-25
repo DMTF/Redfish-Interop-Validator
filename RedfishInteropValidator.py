@@ -27,6 +27,7 @@ rsvLogger = rst.getLogger()
 
 config = {'WarnRecommended': False}
 
+
 def checkProfileAgainstSchema(profile, schema):
     """
     Checks if a profile is compliant
@@ -59,12 +60,18 @@ class msgInterop:
         self.parent = None
 
 
-def validateRequirement(entry, decodeditem):
+def validateRequirement(entry, decodeditem, conditional=False):
     """
     Validates Requirement entry
     """
     propDoesNotExist = (decodeditem == 'DNE')
     rsvLogger.info('Testing ReadRequirement \n\texpected:' + str(entry) + ', exists: ' + str(not propDoesNotExist))
+    # If we're not mandatory, pass automatically, else fail
+    # However, we have other entries "IfImplemented" and "Conditional"
+    # note: Mandatory is default!! if present in the profile.  Make sure this is made sure.
+    originalentry = entry
+    if entry == "IfImplemented" or (entry == "Conditional" and conditional):
+        entry = "Mandatory"
     paramPass = not entry == "Mandatory" or \
         entry == "Mandatory" and not propDoesNotExist
     if entry == "Recommended" and propDoesNotExist:
@@ -72,11 +79,11 @@ def validateRequirement(entry, decodeditem):
         if config['WarnRecommended']:
             rsvLogger.error('\tItem is recommended but does not exist, escalating to WARN')
             paramPass = sEnum.WARN
-        
+
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\tNo Pass')
-    return msgInterop('ReadRequirement', entry, 'Must Exist' if entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
+        rsvLogger.error('\tNoPass')
+    return msgInterop('ReadRequirement', originalentry, 'Must Exist' if entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
         paramPass
 
 
@@ -104,7 +111,7 @@ def validateSupportedValues(enumlist, annotation):
             break
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
-        rsvLogger.error('\nNoPass')
+        rsvLogger.error('\tNoPass')
     return msgInterop('SupportedValues', enumlist, 'included in...', annotation, paramPass),\
         paramPass
 
@@ -177,17 +184,30 @@ def checkComparison(val, compareType, target):
             else:
                 continue
         paramPass = len(alltarget) == len(target)
+    if compareType == "LinkToResource":
+        vallink = val.get('@odata.id')
+        success, decoded, code, elapsed = rst.callResourceURI(vallink)
+        if success:
+            ourType = decoded.get('@odata.type')
+            if ourType is not None:
+                SchemaType = rst.getType(ourType)
+                paramPass = SchemaType in target
+            else: 
+                paramPass = False
+        else:
+            paramPass = False
+
     if compareType == "Equal":
         paramPass = val == target
     if compareType == "NotEqual":
         paramPass = val != target
     if compareType == "GreaterThan":
         paramPass = val > target
-    if compareType == "GreaterThanEqual":
+    if compareType == "GreaterThanOrEqual":
         paramPass = val >= target
     if compareType == "LessThan":
         paramPass = val < target
-    if compareType == "LessThanEqual":
+    if compareType == "LessThanOrEqual":
         paramPass = val <= target
     if compareType == "Absent":
         paramPass = val == 'DNE'
@@ -254,6 +274,7 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
                                str(parentType) + ' ' + str(isSubordinate))
                 resourceParent = resourceParent.parent
             else:
+                rsvLogger.info('no parent')
                 isSubordinate = False
         return isSubordinate
     if "CompareProperty" in entry:
@@ -265,12 +286,10 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
         while comparePropName not in decodeditem and decoded is not None:
             decodeditem, decoded = decoded
         compareProp = decodeditem.get(comparePropName, 'DNE')
-        return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues", []))
-    if "WriteRequirement" in entry:
-        return validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
+        return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues", []))[1]
 
 
-def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, chkCondition=False, inlist=None):
+def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, chkCondition=False): 
     """
     Validate PropertyRequirements
     """
@@ -292,15 +311,17 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
         for k, v in entry.get('PropertyRequirements', {}).items():
-            if "Comparison" in v and v["Comparison"] in ["AllOf", "AnyOf"]:
+            # default to AnyOf if Comparison is not present but Values is
+            comparisonValue = v.get("Comparison", "AnyOf") if v.get("Values") is not None else None
+            if comparisonValue in ["AllOf", "AnyOf"]:
                 msg, success = (checkComparison([val.get(k, 'DNE') for val in decodeditem],
-                                    v["Comparison"], v["Values"]))
+                                    comparisonValue, v["Values"]))
                 msgs.append(msg)
                 msg.name = itemname + '.' + msg.name
         cnt = 0
         for item in decodeditem:
             listmsgs, listcounts = validatePropertyRequirement(
-                propResourceObj, entry, (item, decoded), itemname + '#' + str(cnt), inlist=decodeditem)
+                propResourceObj, entry, (item, decoded), itemname + '#' + str(cnt))
             counts.update(listcounts)
             msgs.extend(listmsgs)
             cnt += 1
@@ -308,39 +329,38 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
     else:
         # consider requirement before anything else
         # problem: if dne, skip?
-        if "ReadRequirement" in entry:
-            # problem: if dne, skip
-            msg, success = validateRequirement(entry['ReadRequirement'], decodeditem)
-            msgs.append(msg)
-            msg.name = itemname + '.' + msg.name
-        if "ConditionalRequirements" in entry:
-            innerDict = entry["ConditionalRequirements"]
-            for item in innerDict:
-                if checkConditionalRequirement(propResourceObj, item, decodedtuple, itemname):
-                    rsvLogger.info("\tCondition DOES apply")
-                    conditionalMsgs, conditionalCounts = validatePropertyRequirement(
-                        propResourceObj, item, decodedtuple, itemname, True)
-                    counts.update(conditionalCounts)
-                    msgs.extend(conditionalMsgs)
-                else:
-                    rsvLogger.info("\tCondition does not apply")
-        if "WriteRequirement" in entry and not chkCondition:
+
+        # Read Requirement is default mandatory if not present
+        msg, success = validateRequirement(entry.get('ReadRequirement', 'Mandatory'), decodeditem)
+        msgs.append(msg)
+        msg.name = itemname + '.' + msg.name
+
+        if "WriteRequirement" in entry:
             msg, success = validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
+        if "ConditionalRequirements" in entry:
+            innerList = entry["ConditionalRequirements"]
+            for item in innerList:
+                if checkConditionalRequirement(propResourceObj, item, decodedtuple, itemname):
+                    rsvLogger.info("\tCondition DOES apply")
+                    conditionalMsgs, conditionalCounts = validatePropertyRequirement(
+                        propResourceObj, item, decodedtuple, itemname, chkCondition = True)
+                    counts.update(conditionalCounts)
+                    for item in conditionalMsgs:
+                        item.name = item.name.replace('.', '.Conditional.', 1)
+                    msgs.extend(conditionalMsgs)
+                else:
+                    rsvLogger.info("\tCondition does not apply")
         if "MinSupportValues" in entry:
             msg, success = validateSupportedValues(
                     decodeditem, entry["MinSupportValues"],
                     decoded[0].get(itemname.split('.')[-1] + '@Redfish.AllowableValues', []))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-        if "Comparison" in entry and not chkCondition and \
-                (inlist is None and entry["Comparison"] not in ["AnyOf", "AllOf"]):
+        if "Comparison" in entry and not chkCondition and\
+                entry["Comparison"] not in ["AnyOf", "AllOf"]:
             msg, success = checkComparison(decodeditem, entry["Comparison"], entry.get("Values",[]))
-            msgs.append(msg)
-            msg.name = itemname + '.' + msg.name
-        elif "Values" in entry and not chkCondition and (inlist is None):
-            msg, success = checkComparison(decodeditem, "AnyOf", entry["Values"])
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
         if "PropertyRequirements" in entry:
@@ -352,6 +372,8 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
                         propResourceObj, innerDict[item], (decodeditem.get(item, 'DNE'), decodedtuple), item)
                     msgs.extend(complexMsgs)
                     counts.update(complexCounts)
+            else:
+                rsvLogger.info('complex {} is missing or not a dictionary'.format(itemname + '.' + item, None))
     return msgs, counts
 
 
@@ -366,7 +388,7 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
         decodeditem, dict) else 'dict') + ' ' + str(entry))
     if "ReadRequirement" in entry:
         # problem: if dne, skip
-        msg, success = validateRequirement(entry['ReadRequirement'], decodeditem)
+        msg, success = validateRequirement(entry.get('ReadRequirement', "Mandatory"), decodeditem)
         msgs.append(msg)
         msg.name = actionname + '.' + msg.name
     propDoesNotExist = (decodeditem == 'DNE')
@@ -378,16 +400,29 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
         for k in innerDict:
             item = innerDict[k]
             annotation = decodeditem.get(str(k) + '@Redfish.AllowableValues', 'DNE')
-            if "ReadRequirement" in entry:
-                # problem: if dne, skip
-                msg, success = validateRequirement(item['ReadRequirement'], annotation)
-                msgs.append(msg)
-                msg.name = actionname + '.' + msg.name
+            # problem: if dne, skip
+            # assume mandatory
+            msg, success = validateRequirement(item.get('ReadRequirement', "Mandatory"), annotation)
+            msgs.append(msg)
+            msg.name = actionname + '.Parameters.' + msg.name
             if annotation == 'DNE':
                 continue
-            if "AllowableValues" in item:
+            if "ParameterValues" in item:
                 msg, success = validateSupportedValues(
-                        item["AllowableValues"], annotation)
+                        item["ParameterValues"], annotation)
+                msgs.append(msg)
+                msg.name = actionname + '.' + msg.name
+            if "RecommendedValues" in item:
+                msg, success = validateSupportedValues(
+                        item["RecommendedValues"], annotation)
+                msg.name = msg.name.replace('Supported', 'Recommended')
+                if config['WarnRecommended'] and not success:
+                    rsvLogger.error('\tRecommended parameters do not all exist, escalating to WARN')
+                    msg.success = sEnum.WARN
+                elif not success:
+                    rsvLogger.error('\tRecommended parameters do not all exist, but are not Mandatory')
+                    msg.success = sEnum.PASS
+
                 msgs.append(msg)
                 msg.name = actionname + '.' + msg.name
     # consider requirement before anything else, what if action
@@ -404,21 +439,13 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
     rsvLogger.info('### Validating an InteropResource')
     rsvLogger.debug(str(interopDict))
     counts = Counter()
+    # decodedtuple provides the chain of dicts containing dicts, needed for CompareProperty
     decodedtuple = (decoded, None)
-    if "ReadRequirement" in interopDict:
-        # problem: if dne, skip
-        msg, success = validateRequirement(interopDict['ReadRequirement'], None)
-        msgs.append(msg)
-    if "Members" in interopDict:
-        # problem: if dne, skip
-        members = propResourceObj.jsondata.get('Members', 'DNE')
-        annotation = propResourceObj.jsondata.get('Members@odata.count', 0)
-        msg, success = validateMembers(members, interopDict['Members'], annotation)
-        msgs.append(msg)
     if "MinVersion" in interopDict:
         msg, success = validateMinVersion(propResourceObj.typeobj.fulltype, interopDict['MinVersion'])
         msgs.append(msg)
     if "PropertyRequirements" in interopDict:
+        # problem, unlisted in 0.9.9a
         innerDict = interopDict["PropertyRequirements"]
         for item in innerDict:
             rsvLogger.info('### Validating PropertyRequirements for {}'.format(item))
@@ -432,13 +459,22 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         actionsJson = decoded.get('Actions', {})
         decodedInnerTuple = (actionsJson, decodedtuple)
         for item in innerDict:
-            actionName = 'Action#' + propResourceObj.typeobj.stype + '.' + item
+            actionName = '#' + propResourceObj.typeobj.stype + '.' + item
             rsvLogger.info(actionName)
             amsgs, acounts = validateActionRequirement(propResourceObj, innerDict[item], (actionsJson.get(
                 actionName, 'DNE'), decodedInnerTuple), actionName)
             rsvLogger.info(acounts)
             counts.update(acounts)
             msgs.extend(amsgs)
+    if "CreateResource" in interopDict:
+        rsvLogger.info('Skipping CreateResource')
+        pass
+    if "DeleteResource" in interopDict:
+        rsvLogger.info('Skipping DeleteResource')
+        pass
+    if "UpdateResource" in interopDict:
+        rsvLogger.info('Skipping UpdateResource')
+        pass
 
     for item in msgs:
         if item.success == sEnum.WARN:
@@ -446,7 +482,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         elif item.success == sEnum.PASS:
             counts['pass'] += 1
         elif item.success == sEnum.FAIL:
-            counts['fail{}'.format(item.name)] += 1
+            counts['fail.{}'.format(item.name)] += 1
     rsvLogger.info(counts)
     return msgs, counts
 
@@ -500,6 +536,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     errh = logging.StreamHandler(errorMessages)
     errh.setLevel(logging.ERROR)
     errh.setFormatter(fmt)
+    # rsvLogger.addHandler(errh)
 
     # Start
     counts = Counter()
@@ -539,8 +576,9 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         results[uriName] = (URI, success, counts, messages,
                             errorMessages, None, None)
         return False, counts, results, None, None
+
     counts['passGet'] += 1
-    results[uriName] = (str(URI) + ' ({}s)'.format(propResourceObj.rtime), success, counts, messages, errorMessages, propResourceObj.context, propResourceObj.typeobj.fulltype)
+    results[uriName] = (str(URI) + ' ({}s)'.format(propResourceObj.rtime), success, counts, messages, errorMessages, propResourceObj.context, propResourceObj.typeobj.fulltype, propResourceObj.jsondata)
 
     uriName, SchemaFullType, jsondata = propResourceObj.name, propResourceObj.typeobj.fulltype, propResourceObj.jsondata
     SchemaNamespace, SchemaType = rst.getNamespace(
@@ -576,63 +614,123 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     return True, counts, results, propResourceObj.links, propResourceObj
 
 
-def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=None, expectedJson=None, parent=None, allLinks=None):
+def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=None, expectedJson=None):
     """
     Validates a Tree of URIs, traversing from the first given
     """
     traverseLogger = rst.getLogger()
 
-    def executeLink(linkItem, parent=None):
-        linkURI, autoExpand, linkType, linkSchema, innerJson = linkItem
-
-        if linkType is not None and autoExpand:
-            returnVal = validateURITree(
-                linkURI, uriName + ' -> ' + linkName, profile, linkType, linkSchema, innerJson, parent, allLinks)
-        else:
-            returnVal = validateURITree(
-                linkURI, uriName + ' -> ' + linkName, profile, parent=parent, allLinks=allLinks)
-        return returnVal
-
-    top = allLinks is None
-    if top:
-        allLinks = set()
+    allLinks = set()
     allLinks.add(URI)
-    refLinks = OrderedDict()
+    refLinks = list()
 
+    # Resource level validation
+    rcounts = Counter()
+    rmessages = []
+    rsuccess = True
+    rerror = io.StringIO()
+    serviceVersion = profile["Protocol"].get('MinVersion', '1.0.0')
+
+    objRes = dict(profile.get('Resources'))
+
+    # Validate top URI
     validateSuccess, counts, results, links, thisobj = \
         validateSingleURI(URI, profile, uriName, expectedType,
-                          expectedSchema, expectedJson, parent)
+                          expectedSchema, expectedJson)
+
+    msg, mpss = validateMinVersion(thisobj.jsondata.get("RedfishVersion", "0"), serviceVersion)
+    rmessages.append(msg)
+
+    # parent first, then child execution
+    # do top level root first, then do each child root, then their children...
+    # hold refs for last (less recursion)
     if validateSuccess:
-        for linkName in links:
-            if 'Links' in linkName.split('.', 1)[0] or 'RelatedItem' in linkName.split('.', 1)[0] or 'Redundancy' in linkName.split('.', 1)[0]:
-                refLinks[linkName] = links[linkName]
-                continue
-            if links[linkName][0] in allLinks:
-                counts['repeat'] += 1
-                continue
+        currentLinks = [(l, links[l], thisobj) for l in links]
+        while len(currentLinks) > 0:
+            newLinks = list()
+            for linkName, link, parent in currentLinks:
+                if refLinks is not currentLinks and ('Links' in linkName.split('.', 1)[0] or 'RelatedItem' in linkName.split('.', 1)[0] or 'Redundancy' in linkName.split('.', 1)[0]):
+                    refLinks.append((linkName, link, parent)) 
+                    continue
+                if link[0] in allLinks:
+                    continue
 
-            success, linkCounts, linkResults, xlinks, xobj = executeLink(
-                links[linkName], thisobj)
-            refLinks.update(xlinks)
-            if not success:
-                counts['unvalidated'] += 1
-            results.update(linkResults)
+                linkURI, autoExpand, linkType, linkSchema, innerJson = link
 
-    if top:
-        for linkName in refLinks:
-            if refLinks[linkName][0] not in allLinks:
-                traverseLogger.info('%s, %s', linkName, refLinks[linkName])
-                counts['reflink'] += 1
-            else:
-                continue
+                if autoExpand and linkType is not None:
+                    linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
+                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName), linkType, linkSchema, innerJson, parent=parent)
+                else:
+                    linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
+                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName), parent=parent)
 
-            success, linkCounts, linkResults, xlinks, xobj = executeLink(
-                refLinks[linkName], thisobj)
-            if not success:
-                counts['unvalidatedRef'] += 1
-            results.update(linkResults)
+                innerLinksTuple = [(l, innerLinks[l], linkobj) for l in innerLinks]
+                newLinks.extend(innerLinksTuple)
+                results.update(linkResults)
 
-    return validateSuccess, counts, results, refLinks, thisobj
+                # Check schema level for requirements
+                SchemaType = rst.getType(linkobj.typeobj.fulltype)
+                if SchemaType in objRes:
+                    traverseLogger.info("Checking service requirement for {}".format(SchemaType))
+                    req = objRes[SchemaType].get("ReadRequirement", "Mandatory") 
+                    msg, pss = validateRequirement(req, None)
+                    if pss and objRes[SchemaType].get('mark', False) == False:
+                        rmessages.append(msg)
+                        msg.name = SchemaType + '.' + msg.name
+                        objRes[SchemaType]['mark'] = True
+
+                    if "ConditionalRequirements" in objRes[SchemaType]:
+                        innerList = objRes[SchemaType]["ConditionalRequirements"]
+                        newList = list()
+                        for condreq in innerList:
+                            condtrue = checkConditionalRequirement(linkobj, condreq, (linkobj.jsondata, None), None) 
+                            if condtrue:
+                                msg, cpss = validateRequirement(condreq.get("ReadRequirement", "Mandatory"), None)
+                                if cpss:
+                                    rmessages.append(msg)
+                                    msg.name = SchemaType + '.Conditional.' + msg.name
+                                else:
+                                    newList.append(condreq)
+                            else:
+                                newList.append(condreq)
+                        objRes[SchemaType]["ConditionalRequirements"] = newList
+                        
+            currentLinks = newLinks
+            if len(currentLinks) == 0 and len(refLinks) > 0:
+                refLinks = OrderedDict()
+                currentLinks = refLinks
+
+    # interop service level checks
+    finalResults = OrderedDict()
+    for left in objRes:
+        resultEnum = sEnum.FAIL
+        if URI != "/redfish/v1":
+            resultEnum = sEnum.WARN
+            traverseLogger.info("We are not validating root, warn only")
+        if not objRes[left].get('mark', False):
+            req = objRes[left].get("ReadRequirement", "Mandatory") 
+            rmessages.append(
+                    msgInterop(left + '.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', resultEnum))
+        if "ConditionalRequirements" in objRes[left]:
+            innerList = objRes[left]["ConditionalRequirements"]
+            for condreq in innerList:
+                req = condreq.get("ReadRequirement", "Mandatory")
+                rmessages.append(
+                    msgInterop(left + '.Conditional.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', resultEnum))
+
+    for item in rmessages:
+        if item.success == sEnum.WARN:
+            rcounts['warn'] += 1
+        elif item.success == sEnum.PASS:
+            rcounts['pass'] += 1
+        elif item.success == sEnum.FAIL:
+            rcounts['fail.{}'.format(item.name)] += 1
+
+    finalResults['n/a'] = ("Service Level Requirements", rcounts.get('fail', 0) == 0, rcounts, rmessages, rerror, "n/a", "n/a")
+    finalResults.update(results)
+
+    return validateSuccess, counts, finalResults, refLinks, thisobj
+
 
 #############################################################
 #########          Script starts here              ##########
@@ -643,14 +741,10 @@ def main(argv):
     # Set config
     argget = argparse.ArgumentParser(description='tool for testing services against an interoperability profile')
     argget.add_argument('--ip', type=str, help='ip to test on [host:port]')
-    argget.add_argument('--payload', type=str, help='mode to validate payloads [Tree, Single, SingleFile, TreeFile] followed by resource/filepath', nargs=2)
     argget.add_argument('--cache', type=str, help='cache mode [Off, Fallback, Prefer] followed by directory', nargs=2)
-    argget.add_argument('-c', '--config', type=str, help='config file (overrides other params)')
     argget.add_argument('-u', '--user', default=None, type=str, help='user for basic auth')
     argget.add_argument('-p', '--passwd', default=None, type=str, help='pass for basic auth')
-    argget.add_argument('--desc', type=str, default='No desc', help='sysdescription for identifying logs')
     argget.add_argument('--dir', type=str, default='./SchemaFiles/metadata', help='directory for local schema files')
-    argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
     argget.add_argument('--timeout', type=int, default=30, help='requests timeout in seconds')
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--nossl', action='store_true', help='use http instead of https')
@@ -661,16 +755,31 @@ def main(argv):
     argget.add_argument('--ca_bundle', default="", type=str, help='path to Certificate Authority bundle file or directory')
     argget.add_argument('--http_proxy', type=str, default=None, help='URL for the HTTP proxy')
     argget.add_argument('--https_proxy', type=str, default=None, help='URL for the HTTPS proxy')
+
+    # Config information unrelated to Traversal
+    argget.add_argument('-c', '--config', type=str, help='config file (overrides other params)')
+    argget.add_argument('--desc', type=str, default='No desc', help='sysdescription for identifying logs')
+    argget.add_argument('--payload', type=str, help='mode to validate payloads [Tree, Single, SingleFile, TreeFile] followed by resource/filepath', nargs=2)
+    argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
+    argget.add_argument('-v', action='store_true', help='verbose log output to stdout')
+    
+    # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
-    argget.add_argument('-v', action='store_true', help='verbose log output to stdout')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
     
     args = argget.parse_args()
 
+    # Can set verbose no matter config or not
     if args.v:
         rst.ch.setLevel(logging.DEBUG)
+    
+    # Set interop config items
+    config['WarnRecommended'] = rst.config.get('warnrecommended', False)
+    config['profile'] = rst.config.get('profile')
+    config['schema'] = rst.config.get('schema')
 
+    # Set config
     try:
         if args.config is not None:
             rst.setConfig(args.config)
@@ -686,8 +795,7 @@ def main(argv):
         rsvLogger.exception("Something went wrong")  # Printout FORMAT
         return 1
 
-    config['WarnRecommended'] = rst.config.get('warnrecommended', False)
-
+    # Strings
     config_str = ""
     for cnt, item in enumerate(sorted(list(rst.config.keys() - set(['systeminfo', 'configuri', 'targetip', 'configset', 'password']))), 1):
         config_str += "{}: {},  ".format(str(item), str(rst.config[item] if rst.config[item] != '' else 'None'))
@@ -711,6 +819,7 @@ def main(argv):
     rsvLogger.info(config_str)
     rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))  # Printout FORMAT
 
+    # Interop Profile handling
     profile = schema = None
     success = True
     with open(args.profile) as f:
@@ -749,6 +858,8 @@ def main(argv):
     if rst.currentSession.started:
         rst.currentSession.killSession()
     
+    # Handle Schema Level validations
+    
     # Render html
     htmlStrTop = '<html><head><title>Conformance Test Summary</title>\
             <style>\
@@ -784,6 +895,9 @@ def main(argv):
 
     rsvLogger.info(len(results))
     for cnt, item in enumerate(results):
+        printPayload = False
+        innerCounts = results[item][2]
+        finalCounts.update(innerCounts)
         if results[item][3] is not None and len(results[item][3]) == 0:
            continue
         htmlStr += '<tr><td class="titlerow"><table class="titletable"><tr>'
@@ -796,8 +910,6 @@ def main(argv):
              [1] else 'class="fail"> GET Failure') + '</td>'
         htmlStr += '<td style="width:10%">'
 
-        innerCounts = results[item][2]
-        finalCounts.update(innerCounts)
         for countType in sorted(innerCounts.keys()):
             if innerCounts.get(countType) == 0:
                 continue
@@ -824,7 +936,10 @@ def main(argv):
         if results[item][4] is not None:
             htmlStr += '<tr><td class="fail log">' + str(results[item][4].getvalue()).replace('\n', '<br />') + '</td></tr>'
             results[item][4].close()
-        htmlStr += '<tr><td>---</td></tr></table></td></tr>'
+        htmlStr += "<tr><td><details><summary>Payload</summary>\
+            <p class='log'>{}</p>\
+            </details></td></tr></table></td></tr>".format(json.dumps(results[item][7],
+                indent=4, separators=(',', ': ')) if len(results[item]) >= 8 else "n/a")
 
     htmlStr += '</table></body></html>'
 
@@ -844,7 +959,7 @@ def main(argv):
     fails = 0
     for key in finalCounts:
         if 'problem' in key or 'fail' in key or 'exception' in key:
-            fails += counts[key]
+            fails += finalCounts[key]
 
     success = success and not (fails > 0)
     rsvLogger.info(finalCounts)
