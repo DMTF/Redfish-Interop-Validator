@@ -30,7 +30,7 @@ config = {'WarnRecommended': False}
 
 def checkProfileAgainstSchema(profile, schema):
     """
-    Checks if a profile is compliant
+    Checks if a profile is conformant
     """
     # what is required in a profile? use the json schema
     try:
@@ -489,7 +489,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
 
 def checkPayloadConformance(uri, decoded):
     """
-    checks for @odata entries and their compliance
+    checks for @odata entries and their conformance
     These are not checked in the normal loop
     """
     messages = dict()
@@ -517,7 +517,7 @@ def checkPayloadConformance(uri, decoded):
         else:
             paramPass = True
         if not paramPass:
-            rsvLogger.error(key + "@odata item not compliant: " + decoded[key])
+            rsvLogger.error(key + "@odata item not conformant: " + decoded[key])
             success = False
         messages[key] = (decoded[key], 'odata',
                          'Exists',
@@ -829,7 +829,7 @@ def main(argv):
                 schema = json.loads(f.read())
                 success = checkProfileAgainstSchema(profile, schema)
     if not success:
-        rsvLogger.info("Profile did not comply to the given schema...")
+        rsvLogger.info("Profile did not conform to the given schema...")
         return 1
 
     # Start main
