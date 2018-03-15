@@ -17,11 +17,6 @@ import jsonschema
 import argparse
 from enum import Enum
 
-class sEnum(Enum):
-    FAIL = 'FAIL'
-    PASS = 'PASS'
-    WARN = 'WARN'
-
 
 rsvLogger = rst.getLogger()
 
@@ -46,6 +41,10 @@ def checkProfileAgainstSchema(profile, schema):
     # consider @odata.type, with regex
     return True
 
+class sEnum(Enum):
+    FAIL = 'FAIL'
+    PASS = 'PASS'
+    WARN = 'WARN'
 
 class msgInterop:
     def __init__(self, name, entry, expected, actual, success):
@@ -85,6 +84,17 @@ def validateRequirement(entry, decodeditem, conditional=False):
         rsvLogger.error('\tNoPass')
     return msgInterop('ReadRequirement', originalentry, 'Must Exist' if entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
         paramPass
+
+
+def isPropertyValid(profilePropName, rObj):
+    node = rObj.typeobj
+    while node is not None:
+        for prop in node.propList:
+            if profilePropName == prop.propChild:
+                return None, True
+        node = node.parent
+    rsvLogger.error('{} - Does not exist in ResourceType'.format(profilePropName))
+    return msgInterop('PropertyValidity', profilePropName, 'Should Exist', 'in ResourceType', False), False
 
 
 def validateMinCount(alist, length, annotation=0):
@@ -448,6 +458,9 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         # problem, unlisted in 0.9.9a
         innerDict = interopDict["PropertyRequirements"]
         for item in innerDict:
+            vmsg, isvalid = isPropertyValid(item, propResourceObj) 
+            if not isvalid:
+                msgs.append(vmsg)
             rsvLogger.info('### Validating PropertyRequirements for {}'.format(item))
             pmsgs, pcounts = validatePropertyRequirement(
                 propResourceObj, innerDict[item], (decoded.get(item, 'DNE'), decodedtuple), item)
@@ -629,7 +642,6 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
     rmessages = []
     rsuccess = True
     rerror = io.StringIO()
-    serviceVersion = profile["Protocol"].get('MinVersion', '1.0.0')
 
     objRes = dict(profile.get('Resources'))
 
@@ -638,13 +650,16 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
         validateSingleURI(URI, profile, uriName, expectedType,
                           expectedSchema, expectedJson)
 
-    msg, mpss = validateMinVersion(thisobj.jsondata.get("RedfishVersion", "0"), serviceVersion)
-    rmessages.append(msg)
-
     # parent first, then child execution
     # do top level root first, then do each child root, then their children...
     # hold refs for last (less recursion)
     if validateSuccess:
+        serviceVersion = profile.get("Protocol")
+        if serviceVersion is not None:
+            serviceVersion = serviceVersion.get('MinVersion', '1.0.0')
+            msg, mpss = validateMinVersion(thisobj.jsondata.get("RedfishVersion", "0"), serviceVersion)
+            rmessages.append(msg)
+
         currentLinks = [(l, links[l], thisobj) for l in links]
         while len(currentLinks) > 0:
             newLinks = list()
