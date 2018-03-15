@@ -93,8 +93,8 @@ def isPropertyValid(profilePropName, rObj):
             if profilePropName == prop.propChild:
                 return None, True
         node = node.parent
-    rsvLogger.error('{} - Does not exist in ResourceType'.format(profilePropName))
-    return msgInterop('PropertyValidity', profilePropName, 'Should Exist', 'in ResourceType', False), False
+    rsvLogger.error('{} - Does not exist in ResourceType Schema, please consult profile provided'.format(profilePropName))
+    return msgInterop('PropertyValidity', profilePropName, 'Should Exist', 'in ResourceType Schema', False), False
 
 
 def validateMinCount(alist, length, annotation=0):
@@ -461,6 +461,8 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
             vmsg, isvalid = isPropertyValid(item, propResourceObj) 
             if not isvalid:
                 msgs.append(vmsg)
+                vmsg.name = '{}.{}'.format(item, vmsg.name)
+                continue
             rsvLogger.info('### Validating PropertyRequirements for {}'.format(item))
             pmsgs, pcounts = validatePropertyRequirement(
                 propResourceObj, innerDict[item], (decoded.get(item, 'DNE'), decodedtuple), item)
