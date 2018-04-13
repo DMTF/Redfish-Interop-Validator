@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.3] - 2018-04-13
+- Added prevention of invalid properties from being checked further
+
 ## [1.0.2] - 2018-03-16
 - Fixed usage of the Protocol property to allow for it to be missing in the profile
 - Added checking for invalid properties in payloads
