@@ -17,29 +17,12 @@ import jsonschema
 import argparse
 from enum import Enum
 
+from commonProfile import combineProfile, checkProfileAgainstSchema
 
 rsvLogger = rst.getLogger()
 
 config = {'WarnRecommended': False}
 
-
-def checkProfileAgainstSchema(profile, schema):
-    """
-    Checks if a profile is conformant
-    """
-    # what is required in a profile? use the json schema
-    try:
-        jsonschema.validate(profile, schema)
-    except jsonschema.ValidationError as e:
-        rsvLogger.exception(e)
-        rsvLogger.info('ValidationError')
-        return False
-    except jsonschema.SchemaError as e:
-        rsvLogger.exception(e)
-        rsvLogger.info('SchemaError')
-        return False
-    # consider @odata.type, with regex
-    return True
 
 class sEnum(Enum):
     FAIL = 'FAIL'
@@ -848,6 +831,11 @@ def main(argv):
     if not success:
         rsvLogger.info("Profile did not conform to the given schema...")
         return 1
+
+    # Combine profiles
+    profile = combineProfile(profile, './')
+    input('done')
+     
 
     # Start main
     status_code = 1
