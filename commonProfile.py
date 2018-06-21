@@ -65,7 +65,17 @@ def updateWithProfile(profile, data):
     dict_merge(data, profile)
     return data
 
-def combineProfile(profile, dirname, chain=None):
+def getProfileFromRepo(profilename, repo=None):
+    if repo is None:
+        repo = 'http://redfish.dmtf.org/profiles'
+    success, data, status, elapsed = rst.callResourceURI(repo + '/' + profilename)
+    if success:
+        return data
+
+
+
+def getProfiles(profile, dirname, chain=None):
+    alldata = [profile]
     if 'RequiredProfiles' not in profile:
         rsvLogger.debug('No such item RequiredProfiles')
     else:
@@ -74,37 +84,43 @@ def combineProfile(profile, dirname, chain=None):
             chain = []
         if profileName in chain:
             rsvLogger.error('Suspected duplicate/cyclical import error: {} {}'.format(chain, profileName))
-            return profile
+            return []
         chain.append(profileName)
 
         requiredProfiles = profile['RequiredProfiles']
-        print(requiredProfiles, profileName)
         for item in requiredProfiles:
             targetName = item  
-            targetVersionUnformatted = requiredProfiles[targetName].get('MinVersion', '1.0.0')
+            rp = requiredProfiles[targetName]
+            targetVersionUnformatted = rp.get('MinVersion', '1.0.0')
             targetVersion = 'v{}_{}_{}'.format(*tuple(targetVersionUnformatted.split('.')))
             targetFileBlank = '{}.{}'.format(targetName, extension)
             targetFile = targetFileBlank.replace('.', '.{}.'.format(targetVersion))
 
             # get max filename
             targetList = sorted(list(getListingVersions(targetFileBlank, dirname)))
+            repo = rp.get('Repository')
+            data = getProfileFromRepo(targetFile, repo) 
 
-            if len(targetList) > 0:
-                for item in targetList: 
-                    fileVersion = re.search(versionpattern, item).group()
-                    targetFile = max(targetFile, item)
-                    print(targetFile)
-                filehandle = open(dirname + '/' + targetFile, "r")
-                data = filehandle.read()
-                filehandle.close()
-                data = json.loads(data)
-            else:
-                rsvLogger.error('Could not find RequiredProfile {}'.format(targetFile))
-                continue
+            if data is None:
+                if len(targetList) > 0:
+                    for item in targetList: 
+                        fileVersion = re.search(versionpattern, item).group()
+                        targetFile = max(targetFile, item)
+                    filehandle = open(dirname + '/' + targetFile, "r")
+                    data = filehandle.read()
+                    filehandle.close()
+                    data = json.loads(data)
+                else:
+                    rsvLogger.error('Could not acquire this profile {} {}'.format(targetName, repo))
+                    continue
 
-            data = combineProfile(data, dirname, chain=chain)
-            print(data)
-            profile = updateWithProfile(profile, data)
-            print(profile)
+            alldata.extend(getProfiles(data, dirname, chain))
+    return alldata
+
+
+def combineProfile(profile, dirname, chain=None):
+
+    data = combineProfile(data, dirname, chain=chain)
+    profile = updateWithProfile(profile, data)
 
     return profile
