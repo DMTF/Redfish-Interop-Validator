@@ -13,6 +13,11 @@ import collections
 import traverseService as rst
 rsvLogger = rst.getLogger()
 
+from urllib.request import urlopen
+import re
+
+
+
 def checkProfileAgainstSchema(profile, schema):
     """
     Checks if a profile is conformant
@@ -66,12 +71,34 @@ def updateWithProfile(profile, data):
     return data
 
 def getProfileFromRepo(profilename, repo=None):
-    if repo is None:
-        repo = 'http://redfish.dmtf.org/profiles'
-    success, data, status, elapsed = rst.callResourceURI(repo + '/' + profilename)
-    if success:
-        return data
+    try:
+        if rst.config['servicemode'] or rst.config['localonlymode']:
+            return None
+        if repo is None:
+            repo = 'http://redfish.dmtf.org/profiles'
 
+        urlpath =urlopen(repo)
+        string = urlpath.read().decode('utf-8')
+
+        pattern = '\.' + versionpattern + '\.'
+        filepattern = re.compile(pattern.join(profilename.split('.')))
+
+        filelist = filepattern.findall(string)
+        print(filelist)
+
+        profilename = None
+        for filename in filelist:
+            filename=filename[:-1]
+            if profilename is None:
+                profilename = filename
+                continue
+            profilename = max(profilename, filename)
+
+        remotefile = urlopen(repo + '/' + profilename)
+        return remotefile.read()
+    except Exception as e:
+        print(e)
+        return None
 
 
 def getProfiles(profile, dirname, chain=None):
@@ -94,22 +121,27 @@ def getProfiles(profile, dirname, chain=None):
             targetVersionUnformatted = rp.get('MinVersion', '1.0.0')
             targetVersion = 'v{}_{}_{}'.format(*tuple(targetVersionUnformatted.split('.')))
             targetFileBlank = '{}.{}'.format(targetName, extension)
-            targetFile = targetFileBlank.replace('.', '.{}.'.format(targetVersion))
+            targetFile = None
 
             # get max filename
-            targetList = sorted(list(getListingVersions(targetFileBlank, dirname)))
             repo = rp.get('Repository')
-            data = getProfileFromRepo(targetFile, repo) 
+            data = getProfileFromRepo(targetFileBlank, repo) 
 
             if data is None:
+                targetList = sorted(list(getListingVersions(targetFileBlank, dirname)))
                 if len(targetList) > 0:
+                    rsvLogger.info(targetFile)
                     for item in targetList: 
-                        fileVersion = re.search(versionpattern, item).group()
+                        if targetFile is None:
+                            targetFile = item
                         targetFile = max(targetFile, item)
+                        fileVersion = re.search(versionpattern, targetFile).group()
                     filehandle = open(dirname + '/' + targetFile, "r")
                     data = filehandle.read()
                     filehandle.close()
                     data = json.loads(data)
+                    if targetVersion > fileVersion:
+                        rsvLogger.warn('File version smaller than target MinVersion')
                 else:
                     rsvLogger.error('Could not acquire this profile {} {}'.format(targetName, repo))
                     continue
