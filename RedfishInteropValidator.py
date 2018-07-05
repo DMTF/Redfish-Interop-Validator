@@ -849,7 +849,8 @@ def main(argv):
         else:
             rsvLogger.error('File not found {}'.format(rst.config.get('payloadfilepath')))
             return 1
-    results = OrderedDict()
+
+    results = None 
     for profile in profiles:
         profileName = profile.get('ProfileName')
         if 'Single' in rst.config.get('payloadmode'):
@@ -858,18 +859,24 @@ def main(argv):
             success, counts, resultsNew, xlinks, topobj = validateURITree(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
         else:
             success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1', 'ServiceRoot', profile, expectedJson=jsonData)
-        for item in resultsNew:
-            if item in results:
+
+        if results is None:
+            results = resultsNew
+        else:
+            for item in resultsNew:
+                print(item)
                 innerCounts = results[item][2]
                 innerCounts.update(resultsNew[item][2])
-                for x in resultsNew[item][3]:
-                    x.name = profileName + '.' + x.name
-                results[item][3].extend(resultsNew[item][3])  
-            else:
-                results[item] = resultsNew[item]
-
-        resultsNew = {profileName+key: resultsNew[key] for key in resultsNew}
-        results.update(resultsNew)
+                if item in results:
+                    for x in resultsNew[item][3]:
+                        x.name = profileName + ' -- ' + x.name
+                    results[item][3].extend(resultsNew[item][3])  
+                else: 
+                    newKey = profileName + '...' + key
+                    input(newKey)
+                    results[newKey] = resultsNew[key]
+            #resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
+            #results.update(resultsNew)
     finalCounts = Counter()
     nowTick = datetime.now()
     rsvLogger.info('Elapsed time: ' + str(nowTick-startTick).rsplit('.', 1)[0])  # Printout FORMAT
