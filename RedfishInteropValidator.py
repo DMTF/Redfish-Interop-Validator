@@ -16,29 +16,12 @@ import jsonschema
 import argparse
 from enum import Enum
 
+from commonProfile import getProfiles, checkProfileAgainstSchema
 
 rsvLogger = rst.getLogger()
 
 config = {'WarnRecommended': False}
 
-
-def checkProfileAgainstSchema(profile, schema):
-    """
-    Checks if a profile is conformant
-    """
-    # what is required in a profile? use the json schema
-    try:
-        jsonschema.validate(profile, schema)
-    except jsonschema.ValidationError as e:
-        rsvLogger.exception(e)
-        rsvLogger.info('ValidationError')
-        return False
-    except jsonschema.SchemaError as e:
-        rsvLogger.exception(e)
-        rsvLogger.info('SchemaError')
-        return False
-    # consider @odata.type, with regex
-    return True
 
 class sEnum(Enum):
     FAIL = 'FAIL'
@@ -848,6 +831,9 @@ def main(argv):
         rsvLogger.info("Profile did not conform to the given schema...")
         return 1
 
+    # Combine profiles
+    profiles = getProfiles(profile, './')
+
     # Start main
     status_code = 1
     jsonData = None
@@ -862,12 +848,34 @@ def main(argv):
         else:
             rsvLogger.error('File not found {}'.format(rst.config.get('payloadfilepath')))
             return 1
-    if 'Single' in rst.config.get('payloadmode'):
-        success, counts, results, xlinks, topobj = validateSingleURI(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
-    elif 'Tree' in rst.config.get('payloadmode'):
-        success, counts, results, xlinks, topobj = validateURITree(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
-    else:
-        success, counts, results, xlinks, topobj = validateURITree('/redfish/v1', 'ServiceRoot', profile, expectedJson=jsonData)
+
+    results = None 
+    for profile in profiles:
+        profileName = profile.get('ProfileName')
+        if 'Single' in rst.config.get('payloadmode'):
+            success, counts, resultsNew, xlinks, topobj = validateSingleURI(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
+        elif 'Tree' in rst.config.get('payloadmode'):
+            success, counts, resultsNew, xlinks, topobj = validateURITree(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
+        else:
+            success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1', 'ServiceRoot', profile, expectedJson=jsonData)
+
+        if results is None:
+            results = resultsNew
+        else:
+            for item in resultsNew:
+                print(item)
+                innerCounts = results[item][2]
+                innerCounts.update(resultsNew[item][2])
+                if item in results:
+                    for x in resultsNew[item][3]:
+                        x.name = profileName + ' -- ' + x.name
+                    results[item][3].extend(resultsNew[item][3])  
+                else: 
+                    newKey = profileName + '...' + key
+                    input(newKey)
+                    results[newKey] = resultsNew[key]
+            #resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
+            #results.update(resultsNew)
     finalCounts = Counter()
     nowTick = datetime.now()
     rsvLogger.info('Elapsed time: ' + str(nowTick-startTick).rsplit('.', 1)[0])  # Printout FORMAT
@@ -951,7 +959,6 @@ def main(argv):
         htmlStr += '</table></td></tr>'
         if results[item][4] is not None:
             htmlStr += '<tr><td class="fail log">' + str(results[item][4].getvalue()).replace('\n', '<br />') + '</td></tr>'
-            results[item][4].close()
         htmlStr += "<tr><td><details><summary>Payload</summary>\
             <p class='log'>{}</p>\
             </details></td></tr></table></td></tr>".format(json.dumps(results[item][7],
