@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.4] - 2018-07-06
+- Added support for validating requirements described by profiles listed in "RequiredProfiles"
+
 ## [1.0.3] - 2018-04-13
 - Added prevention of invalid properties from being checked further
 
