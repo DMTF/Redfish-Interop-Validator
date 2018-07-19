@@ -774,10 +774,6 @@ def main(argv):
     if args.v:
         rst.ch.setLevel(logging.DEBUG)
     
-    # Set interop config items
-    config['WarnRecommended'] = rst.config.get('warnrecommended', False)
-    config['profile'] = rst.config.get('profile')
-    config['schema'] = rst.config.get('schema')
 
     # Set config
     try:
@@ -795,12 +791,23 @@ def main(argv):
         rsvLogger.exception("Something went wrong")  # Printout FORMAT
         return 1
 
+    # Set interop config items
+    config['WarnRecommended'] = rst.config.get('warnrecommended', args.warnrecommended)
+    config['profile'] = args.profile 
+    config['schema'] = args.schema 
+
     # Strings
     config_str = ""
     for cnt, item in enumerate(sorted(list(rst.config.keys() - set(['systeminfo', 'configuri', 'targetip', 'configset', 'password']))), 1):
         config_str += "{}: {},  ".format(str(item), str(rst.config[item] if rst.config[item] != '' else 'None'))
         if cnt % 6 == 0:
             config_str += '\n'
+
+    inner_config_str = ""
+    for cnt, item in enumerate(sorted(list(config.keys() - set(['systeminfo', 'configuri', 'targetip', 'configset', 'password']))), 1):
+        inner_config_str += "{}: {},  ".format(str(item), str(config[item] if config[item] != '' else 'None'))
+        if cnt % 6 == 0:
+            inner_config_str += '\n'
 
     sysDescription, ConfigURI = (rst.config['systeminfo'], rst.config['configuri'])
     logpath = rst.config['logpath']
@@ -815,6 +822,7 @@ def main(argv):
     fh.setFormatter(fmt)
     rsvLogger.addHandler(fh)  # Printout FORMAT
     rsvLogger.info('ConfigURI: ' + ConfigURI)
+    rsvLogger.info(inner_config_str)
     rsvLogger.info('System Info: ' + sysDescription)  # Printout FORMAT
     rsvLogger.info(config_str)
     rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))  # Printout FORMAT
@@ -910,6 +918,7 @@ def main(argv):
     htmlStrBodyHeader = '<body><table>\
                 <tr><th>##### Redfish Conformance Test Report #####</th></tr>\
                 <tr><th>System: ' + ConfigURI + '</th></tr>\
+                <tr><th>' + str(inner_config_str.replace('\n', '</br>')) + '</th></tr>\
                 <tr><th>Description: ' + sysDescription + '</th></tr>\
                 <tr><th>' + str(config_str.replace('\n', '</br>')) + '</th></tr>\
                 <tr><th>Start time: ' + (startTick).strftime('%x - %X') + '</th></tr>\
