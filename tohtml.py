@@ -9,7 +9,6 @@ import RedfishLogo as logo
 import html
 
 
-
 def wrapTag(string, tag='div', attr=None):
     string = str(string)
     ltag, rtag = '<{}>'.format(tag), '</{}>'.format(tag)
@@ -96,49 +95,55 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick):
             .titletable {width:100%}\
             </style>\
             </head>'
-    htmlStrBodyHeader = \
-        '<tr><th>' \
-        '<h4>System: <a href="' + ConfigURI + '">' + ConfigURI + '</a> Description: ' + sysDescription + '</h4>' \
-        '</th></tr>' \
-        '<tr><th>' \
-        '<h4>Configuration:</h4>' \
-        '<h4>' + str(config_str.replace('\n', '<br>')) + '</h4>' \
-        '</th></tr>' \
-        ''
     htmlStrBodyHeader = ''
     # Logo and logname
     infos = [wrapTag('##### Redfish Conformance Test Report #####', 'h2')]
     infos.append(wrapTag('<img align="center" alt="DMTF Redfish Logo" height="203" width="288"'
                          'src="data:image/gif;base64,' + logo.logo + '">', 'h4'))
-    infos.append('<h4><a href="https://github.com/DMTF/Redfish-Service-Validator">'
-                 'https://github.com/DMTF/Redfish-Service-Validator</a></h4>')
+    infos.append('<h4><a href="https://github.com/DMTF/Redfish-Interop-Validator">'
+                 'https://github.com/DMTF/Redfish-Interop-Validator</a></h4>')
     infos.append('Tool Version: {}'.format(tool_version))
     infos.append(startTick.strftime('%c'))
     infos.append('(Run time: {})'.format(
         str(nowTick-startTick).rsplit('.', 1)[0]))
     infos.append('<h4>This tool is provided and maintained by the DMTF. '
                  'For feedback, please open issues<br>in the tool\'s Github repository: '
-                 '<a href="https://github.com/DMTF/Redfish-Service-Validator/issues">'
-                 'https://github.com/DMTF/Redfish-Service-Validator/issues</a></h4>')
+                 '<a href="https://github.com/DMTF/Redfish-Interop-Validator/issues">'
+                 'https://github.com/DMTF/Redfish-Interop-Validator/issues</a></h4>')
 
     htmlStrBodyHeader += tr(th(infoBlock(infos)))
 
     infos = {'System': ConfigURI, 'Description': sysDescription}
     htmlStrBodyHeader += tr(th(infoBlock(infos)))
 
-    infos = {x: config[x] for x in config if x not in ['systeminfo', 'targetip', 'password', 'description']}
+    infos = {'Profile': config['profile'], 'Schema': config['schema']}
+    htmlStrBodyHeader += tr(th(infoBlock(infos)))
+
+    infos = {x: config[x] for x in config if x not in ['systeminfo', 'targetip', 'password', 'description', 'profile', 'schema']}
     block = tr(th(infoBlock(infos, '|||')))
     for num, block in enumerate(block.split('|||'), 1):
         sep = '<br/>' if num % 4 == 0 else ',&ensp;'
         sep = '' if num == len(infos) else sep
         htmlStrBodyHeader += block + sep
 
+    htmlStrTotal = '<div>Final counts: '
+    for countType in sorted(finalCounts.keys()):
+        if finalCounts.get(countType) == 0:
+            continue
+        htmlStrTotal += '{p}: {q},   '.format(p=countType, q=finalCounts.get(countType, 0))
+    htmlStrTotal += '</div><div class="button warn" onClick="arr = document.getElementsByClassName(\'results\'); for (var i = 0; i < arr.length; i++){arr[i].className = \'results resultsShow\'};">Expand All</div>'
+    htmlStrTotal += '</div><div class="button fail" onClick="arr = document.getElementsByClassName(\'results\'); for (var i = 0; i < arr.length; i++){arr[i].className = \'results\'};">Collapse All</div>'
+
+    htmlStrBodyHeader += tr(td(htmlStrTotal))
 
     htmlPage = rst.currentService.metadata.to_html()
     for cnt, item in enumerate(results):
         entry = []
         val = results[item]
         rtime = '(response time: {})'.format(val['rtime'])
+
+        if len(val['messages']) == 0:
+            continue
 
         # uri block
         prop_type = val['fulltype']
@@ -176,10 +181,21 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick):
             rhead = wrapTag(''.join(rhead), *x)
         entry.append(rhead)
 
-        """
+        htmlStr = '<tr><td class="results" id=\'resNum{}\'><table><tr><td><table><tr><th style="width:15%"> Name</th> <th>Entry Value</th> <th>must be</th> <th>Service Value</th> <th style="width:10%">Success</th> <tr>'.format(cnt)
+        if results[item]['messages'] is not None:
+            for i in results[item]['messages']:
+                htmlStr += '<tr>'
+                htmlStr += '<td>' + str(i.name) + '</td>'
+                htmlStr += '<td>' + str(i.entry) + '</td>'
+                htmlStr += '<td>' + str(i.expected) + '</td>'
+                htmlStr += '<td>' + str(i.actual) + '</td>'
+                htmlStr += '<td class="{} center">{}</td>'.format(str(i.success.value).lower(), str(i.success.value))
+                htmlStr += '</tr>'
+        htmlStr += '</table></td></tr>'
+
         # actual table
-        rows = [[m] + list(val['messages'][m]) for m in val['messages']]
-        titles = ['Property Name', 'Value', 'Type', 'Exists', 'Result']
+        rows = [(i.name, i.entry, i.expected, i.actual, str(i.success.value)) for i in val['messages']]
+        titles = ['Property Name', 'Value', 'Expected', 'Actual', 'Result']
         widths = ['15','30','30','10','15']
         tableHeader = tableBlock(rows, titles, widths, ffunc=applySuccessColor)
 
@@ -205,7 +221,6 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick):
         tableHeader = td(tableHeader, 'class="results" id=\'resNum{}\''.format(cnt))
 
         entry.append(tableHeader)
-        """
 
         # append
         htmlPage += ''.join([tr(x) for x in entry])
