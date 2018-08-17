@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.5] - 2018-08-17
+- Refactored project to leverage common service traversal code used in the Redfish-Service-Validator tool
+
 ## [1.0.4] - 2018-07-06
 - Added support for validating requirements described by profiles listed in "RequiredProfiles"
 
