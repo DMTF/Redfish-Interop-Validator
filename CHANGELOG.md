@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.6] - 2018-09-07
+- More updates to leverage common code with the Redfish-Service-Validator tool
+
 ## [1.0.5] - 2018-08-17
 - Refactored project to leverage common service traversal code used in the Redfish-Service-Validator tool
 

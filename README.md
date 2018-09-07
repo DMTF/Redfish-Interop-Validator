@@ -1,4 +1,4 @@
-Copyright 2017-2018 Distributed Management Task Force, Inc. All rights reserved.
+Copyright 2017-2018 DMTF. All rights reserved.
 
 # Redfish Interop Validator
 
@@ -132,8 +132,15 @@ Upon validation of a resource, the following types of tests may occur:
   * Check whether a Property is at first able to be nulled or is mandatory, and pass based on its Requirement or Nullability
   * For collections, validate each property inside of itself, and expects a list rather than a single Property, otherwise validate normally:
  
-## Conformance Logs – Summary and Detailed Conformance Report
+## Conformance Logs - Summary and Detailed Conformance Report
 
-The Redfish Interop Validator generates an html report under the “logs” folder, named as  The report gives the detailed view of the individual properties checked, with the Pass/Fail/Skip/Warning status for each resource checked for conformance.
+The Redfish Interop Validator generates an html report under the "logs" folder, named as  The report gives the detailed view of the individual properties checked, with the Pass/Fail/Skip/Warning status for each resource checked for conformance.
 
 There is a verbose log file that may be referenced to diagnose tool or schema problems when the stdout print out is insufficient, located in logs/ConformanceLog_MM_DD_YYYY_HHMMSS.html
+
+## Release Process
+
+1. Update `CHANGELOG.md` with the list of changes since the last release
+2. TODO: Add version string in the tool somewhere
+3. Push changes to Github
+4. Create a new release in Github
