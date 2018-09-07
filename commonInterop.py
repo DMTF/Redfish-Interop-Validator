@@ -361,7 +361,7 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
                     msgs.extend(complexMsgs)
                     counts.update(complexCounts)
             else:
-                rsvLogger.info('complex {} is missing or not a dictionary'.format(itemname + '.' + item, None))
+                rsvLogger.info('complex {} is missing or not a dictionary'.format(itemname))
     return msgs, counts
 
 

@@ -256,10 +256,10 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
 
                 if autoExpand and linkType is not None:
                     linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
-                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName), linkType, linkSchema, innerJson, parent=parent)
+                        validateSingleURI(linkURI, profile, linkURI, linkType, linkSchema, innerJson, parent=parent)
                 else:
                     linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
-                        validateSingleURI(linkURI, profile, "{} -> {}".format(uriName, linkName), linkType, linkSchema, parent=parent)
+                        validateSingleURI(linkURI, profile, linkURI, linkType, linkSchema, parent=parent)
 
                 allLinks.add(linkURI)
 
@@ -332,8 +332,6 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
             'counts':rcounts,\
             'messages':rmessages, 'errors':rerror.getvalue(), 'warns': '',\
             'rtime':'', 'context':'', 'fulltype':''}
-    for l in sorted(allLinks):
-        print(l)
     print(len(allLinks))
     finalResults.update(results)
     rerror.close()

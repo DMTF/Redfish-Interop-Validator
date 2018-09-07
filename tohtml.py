@@ -142,7 +142,7 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick):
         val = results[item]
         rtime = '(response time: {})'.format(val['rtime'])
 
-        if len(val['messages']) == 0:
+        if len(val['messages']) == 0 and len(val['errors']) == 0:
             continue
 
         # uri block
