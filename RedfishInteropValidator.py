@@ -357,14 +357,10 @@ def main(arglist=None, direct_parser=None):
     argget.add_argument('-c', '--config', type=str, help='config file (overrides other params)')
 
     # tool
-    argget.add_argument('--schemadir', type=str, default='./SchemaFiles/metadata', help='directory for local schema files')
-    argget.add_argument('--schema_pack', type=str, default='', help='Deploy DMTF schema from zip distribution, for use with --localonly (Specify url or type "latest", overwrites current schema)')
     argget.add_argument('--desc', type=str, default='No desc', help='sysdescription for identifying logs')
-    argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
     argget.add_argument('--payload', type=str, help='mode to validate payloads [Tree, Single, SingleFile, TreeFile] followed by resource/filepath', nargs=2)
-    argget.add_argument('--sample', type=int, default=0, help='sample this number of members from large collections for validation; default is to validate all members')
-    argget.add_argument('--linklimit', type=str, help='Limit the amount of links in collections, formatted TypeName:## TypeName:## ..., default LogEntry:20 ', nargs='*')
     argget.add_argument('-v', action='store_true', help='verbose log output to stdout')
+    argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
     argget.add_argument('--debug_logging', action="store_const", const=logging.DEBUG, default=logging.INFO,
             help='Output debug statements to text log, otherwise it only uses INFO')
     argget.add_argument('--verbose_checks', action="store_const", const=VERBO_NUM, default=logging.INFO,
@@ -375,19 +371,27 @@ def main(arglist=None, direct_parser=None):
     argget.add_argument('-i', '--ip', type=str, help='ip to test on [host:port]')
     argget.add_argument('-u', '--user', default='', type=str, help='user for basic auth')
     argget.add_argument('-p', '--passwd', default='', type=str, help='pass for basic auth')
+    argget.add_argument('--linklimit', type=str, help='Limit the amount of links in collections, formatted TypeName:## TypeName:## ..., default LogEntry:20 ', nargs='*')
+    argget.add_argument('--sample', type=int, default=0, help='sample this number of members from large collections for validation; default is to validate all members')
     argget.add_argument('--timeout', type=int, default=30, help='requests timeout in seconds')
     argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
     argget.add_argument('--nossl', action='store_true', help='use http instead of https')
     argget.add_argument('--forceauth', action='store_true', help='force authentication on unsecure connections')
     argget.add_argument('--authtype', type=str, default='Basic', help='authorization type (None|Basic|Session|Token)')
     argget.add_argument('--localonly', action='store_true', help='only use locally stored schema on your harddrive')
+    argget.add_argument('--preferonline', action='store_true', help='use online schema')
     argget.add_argument('--service', action='store_true', help='only use uris within the service')
-    argget.add_argument('--suffix', type=str, default='_v1.xml', help='suffix of local schema files (for version differences)')
     argget.add_argument('--ca_bundle', default="", type=str, help='path to Certificate Authority bundle file or directory')
     argget.add_argument('--token', default="", type=str, help='bearer token for authtype Token')
     argget.add_argument('--http_proxy', type=str, default='', help='URL for the HTTP proxy')
     argget.add_argument('--https_proxy', type=str, default='', help='URL for the HTTPS proxy')
     argget.add_argument('--cache', type=str, help='cache mode [Off, Fallback, Prefer] followed by directory', nargs=2)
+    argget.add_argument('--uri_check', action='store_true', help='Check for URI if schema supports it')
+
+    # metadata
+    argget.add_argument('--schemadir', type=str, default='./SchemaFiles/metadata', help='directory for local schema files')
+    argget.add_argument('--schema_pack', type=str, default='', help='Deploy DMTF schema from zip distribution, for use with --localonly (Specify url or type "latest", overwrites current schema)')
+    argget.add_argument('--suffix', type=str, default='_v1.xml', help='suffix of local schema files (for version differences)')
 
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
