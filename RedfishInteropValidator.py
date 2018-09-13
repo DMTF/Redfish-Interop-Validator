@@ -25,6 +25,7 @@ rsvLogger = rst.getLogger()
 VERBO_NUM = 15
 logging.addLevelName(VERBO_NUM, "VERBO")
 
+tool_version = '0.0'
 
 def verboseout(self, message, *args, **kws):
     if self.isEnabledFor(VERBO_NUM):
@@ -393,7 +394,12 @@ def main(arglist=None, direct_parser=None):
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
 
+    rsvLogger.info("Redfish Interop Validator, version {}".format(tool_version))
     args = argget.parse_args(arglist)
+
+    # clear cache from any other runs
+    rst.callResourceURI.cache_clear()
+    rst.rfSchema.getSchemaDetails.cache_clear()
 
     # set up config
     if direct_parser is not None:
@@ -549,8 +555,6 @@ def main(arglist=None, direct_parser=None):
             continue
         if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
             fails += finalCounts[key]
-
-    tool_version = '0.0'
 
     html_str = renderHtml(results, finalCounts, tool_version, startTick, nowTick)
 
