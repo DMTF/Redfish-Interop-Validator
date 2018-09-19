@@ -305,11 +305,12 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
 
     # interop service level checks
     finalResults = OrderedDict()
-    for left in objRes:
+    if URI != "/redfish/v1":
+        resultEnum = commonInterop.sEnum.WARN
+        traverseLogger.info("We are not validating root, warn only")
+    else:
         resultEnum = commonInterop.sEnum.FAIL
-        if URI != "/redfish/v1":
-            resultEnum = commonInterop.sEnum.WARN
-            traverseLogger.info("We are not validating root, warn only")
+    for left in objRes:
         if not objRes[left].get('mark', False):
             req = objRes[left].get("ReadRequirement", "Mandatory")
             rmessages.append(
@@ -351,67 +352,65 @@ def main(arglist=None, direct_parser=None):
     """
     Main program
     """
-    argget = argparse.ArgumentParser(description='tool for testing services against an interoperability profile')
+    argget = argparse.ArgumentParser(description='tool for testing services against an interoperability profile, version {}'.format(tool_version))
 
     # config
-    argget.add_argument('-c', '--config', type=str, help='config file (overrides other params)')
+    argget.add_argument('-c', '--config', type=str, help='config file')
 
     # tool
     argget.add_argument('--desc', type=str, default='No desc', help='sysdescription for identifying logs')
     argget.add_argument('--payload', type=str, help='mode to validate payloads [Tree, Single, SingleFile, TreeFile] followed by resource/filepath', nargs=2)
-    argget.add_argument('-v', action='store_true', help='verbose log output to stdout')
+    argget.add_argument('-v', action='store_const', const=True, default=None, help='verbose log output to stdout (parameter-only)')
     argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
     argget.add_argument('--debug_logging', action="store_const", const=logging.DEBUG, default=logging.INFO,
-            help='Output debug statements to text log, otherwise it only uses INFO')
+            help='Output debug statements to text log, otherwise it only uses INFO (parameter-only)')
     argget.add_argument('--verbose_checks', action="store_const", const=VERBO_NUM, default=logging.INFO,
-            help='Show all checks in logging')
-    argget.add_argument('--nooemcheck', action='store_true', help='Don\'t check OEM items')
+            help='Show all checks in logging (parameter-only)')
+    argget.add_argument('--nooemcheck', action='store_const', const=True, default=None, help='Don\'t check OEM items')
 
     # service
     argget.add_argument('-i', '--ip', type=str, help='ip to test on [host:port]')
-    argget.add_argument('-u', '--user', default='', type=str, help='user for basic auth')
-    argget.add_argument('-p', '--passwd', default='', type=str, help='pass for basic auth')
+    argget.add_argument('-u', '--user', type=str, help='user for basic auth')
+    argget.add_argument('-p', '--passwd', type=str, help='pass for basic auth')
     argget.add_argument('--linklimit', type=str, help='Limit the amount of links in collections, formatted TypeName:## TypeName:## ..., default LogEntry:20 ', nargs='*')
-    argget.add_argument('--sample', type=int, default=0, help='sample this number of members from large collections for validation; default is to validate all members')
-    argget.add_argument('--timeout', type=int, default=30, help='requests timeout in seconds')
-    argget.add_argument('--nochkcert', action='store_true', help='ignore check for certificate')
-    argget.add_argument('--nossl', action='store_true', help='use http instead of https')
-    argget.add_argument('--forceauth', action='store_true', help='force authentication on unsecure connections')
-    argget.add_argument('--authtype', type=str, default='Basic', help='authorization type (None|Basic|Session|Token)')
-    argget.add_argument('--localonly', action='store_true', help='only use locally stored schema on your harddrive')
-    argget.add_argument('--preferonline', action='store_true', help='use online schema')
-    argget.add_argument('--service', action='store_true', help='only use uris within the service')
-    argget.add_argument('--ca_bundle', default="", type=str, help='path to Certificate Authority bundle file or directory')
-    argget.add_argument('--token', default="", type=str, help='bearer token for authtype Token')
-    argget.add_argument('--http_proxy', type=str, default='', help='URL for the HTTP proxy')
-    argget.add_argument('--https_proxy', type=str, default='', help='URL for the HTTPS proxy')
-    argget.add_argument('--cache', type=str, help='cache mode [Off, Fallback, Prefer] followed by directory', nargs=2)
-    argget.add_argument('--uri_check', action='store_true', help='Check for URI if schema supports it')
+    argget.add_argument('--sample', type=int, help='sample this number of members from large collections for validation; default is to validate all members')
+    argget.add_argument('--timeout', type=int, help='requests timeout in seconds')
+    argget.add_argument('--nochkcert', action='store_const', const=True, default=None, help='ignore check for certificate')
+    argget.add_argument('--nossl', action='store_const', const=True, default=None, help='use http instead of https')
+    argget.add_argument('--forceauth', action='store_const', const=True, default=None, help='force authentication on unsecure connections')
+    argget.add_argument('--authtype', type=str, help='authorization type (None|Basic|Session|Token)')
+    argget.add_argument('--localonly', action='store_const', const=True, default=None, help='only use locally stored schema on your harddrive')
+    argget.add_argument('--preferonline', action='store_const', const=True, default=None, help='use online schema')
+    argget.add_argument('--service', action='store_const', const=True, default=None, help='only use uris within the service')
+    argget.add_argument('--ca_bundle', type=str, help='path to Certificate Authority bundle file or directory')
+    argget.add_argument('--token', type=str, help='bearer token for authtype Token')
+    argget.add_argument('--http_proxy', type=str, help='URL for the HTTP proxy')
+    argget.add_argument('--https_proxy', type=str, help='URL for the HTTPS proxy')
+    argget.add_argument('--cache', type=str, help='cache mode [Off, Fallback, Prefer] followed by directory to fallback or override problem service JSON payloads', nargs=2)
+    argget.add_argument('--uri_check', action='store_const', const=True, default=None, help='Check for URI if schema supports it')
+    argget.add_argument('--version_check', type=str, help='Change default tool configuration based on the version provided (default use target version)')
 
     # metadata
-    argget.add_argument('--schemadir', type=str, default='./SchemaFiles/metadata', help='directory for local schema files')
-    argget.add_argument('--schema_pack', type=str, default='', help='Deploy DMTF schema from zip distribution, for use with --localonly (Specify url or type "latest", overwrites current schema)')
-    argget.add_argument('--suffix', type=str, default='_v1.xml', help='suffix of local schema files (for version differences)')
+    argget.add_argument('--schemadir', type=str, help='directory for local schema files')
+    argget.add_argument('--schema_pack', type=str, help='Deploy DMTF schema from zip distribution, for use with --localonly (Specify url or type "latest", overwrites current schema)')
+    argget.add_argument('--suffix', type=str, help='suffix of local schema files (for version differences)')
 
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
 
-    rsvLogger.info("Redfish Interop Validator, version {}".format(tool_version))
     args = argget.parse_args(arglist)
 
-    # clear cache from any other runs
-    rst.callResourceURI.cache_clear()
-    rst.rfSchema.getSchemaDetails.cache_clear()
-
     # set up config
+    rst.ch.setLevel(args.verbose_checks if not args.v else logging.DEBUG)
     if direct_parser is not None:
         try:
             cdict = rst.convertConfigParserToDict(direct_parser)
-            rst.setConfig(cdict)
+            config, default_list = rst.setConfig(cdict)
         except Exception as ex:
-            rsvLogger.exception("Something went wrong")
+            rsvLogger.debug('Exception caught while parsing configuration', exc_info=1)
+            rsvLogger.error('Unable to parse configuration: {}'.format(repr(ex)))
             return 1, None, 'Config Parser Exception'
     elif args.config is None and args.ip is None:
         rsvLogger.info('No ip or config specified.')
@@ -419,12 +418,11 @@ def main(arglist=None, direct_parser=None):
         return 1, None, 'Config Incomplete'
     else:
         try:
-            rst.setByArgparse(args)
-        except Exception:
-            rsvLogger.exception("Something went wrong")
+            config, default_list = rst.setByArgparse(args)
+        except Exception as ex:
+            rsvLogger.debug('Exception caught while parsing configuration', exc_info=1)
+            rsvLogger.error('Unable to parse configuration: {}'.format(repr(ex)))
             return 1, None, 'Config Exception'
-
-    config = rst.config
 
     # Set interop config items
     config['WarnRecommended'] = rst.config.get('warnrecommended', args.warnrecommended)
@@ -453,9 +451,11 @@ def main(arglist=None, direct_parser=None):
     rsvLogger.addHandler(fh)
 
     # Then start service
+    rsvLogger.info("Redfish Interop Validator, version {}".format(tool_version))
     try:
-        currentService = rst.startService()
+        currentService = rst.startService(config, default_list)
     except Exception as ex:
+        rsvLogger.debug('Exception caught while creating Service', exc_info=1)
         rsvLogger.error("Service could not be started: {}".format(ex))
         return 1, None, 'Service Exception'
 
@@ -467,7 +467,7 @@ def main(arglist=None, direct_parser=None):
     rsvLogger.info('System Info: ' + sysDescription)
     rsvLogger.info('Profile:' + config['profile'])
     rsvLogger.info('\n'.join(
-        ['{}: {}'.format(x, config[x]) for x in sorted(list(config.keys() - set(['systeminfo', 'targetip', 'password', 'description', 'profile'])))]))
+        ['{}: {}'.format(x, config[x]) for x in sorted(list(config.keys() - set(['systeminfo', 'targetip', 'password', 'description']))) if config[x] not in ['', None]]))
     rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))
 
     # Interop Profile handling
@@ -505,7 +505,7 @@ def main(arglist=None, direct_parser=None):
     for profile in profiles:
         profileName = profile.get('ProfileName')
         if 'Single' in rst.config.get('payloadmode'):
-            success, counts, resultsNew, xlinks, topobj = validateSingleURI(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
+            success, counts, resultsNew, xlinks, topobj = validateSingleURI(rst.config.get('payloadfilepath'), profile, 'Target', expectedJson=jsonData)
         elif 'Tree' in rst.config.get('payloadmode'):
             success, counts, resultsNew, xlinks, topobj = validateURITree(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
         else:

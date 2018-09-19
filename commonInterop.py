@@ -5,7 +5,7 @@
 
 import traverseService as rst
 from enum import Enum
-from collections import Counter, OrderedDict
+from collections import Counter
 
 rsvLogger = rst.getLogger()
 
@@ -140,9 +140,6 @@ def checkComparison(val, compareType, target):
     """
     rsvLogger.info('Testing a comparison \n\t' + str((val, compareType, target)))
     vallist = val if isinstance(val, list) else [val]
-    vallist = [(val if val is not None else 'DNE') for val in vallist]
-    target = [(val if val is not None else 'DNE') for val in target]
-    input((vallist, target))
     paramPass = False
     if compareType is None:
         rsvLogger.error('CompareType not available in payload')
