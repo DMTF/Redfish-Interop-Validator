@@ -360,11 +360,12 @@ class PropType:
         self.actionList = []
         self.propPattern = None
         self.additional = False
+        self.expectedURI = None
 
         # get all properties and actions in Type chain
         success, currentSchemaObj, baseType = True, self.schemaObj, self.fulltype
         try:
-            newPropList, newActionList, self.additional, self.propPattern = getTypeDetails(
+            newPropList, newActionList, self.additional, self.propPattern, self.expectedURI = getTypeDetails(
                 currentSchemaObj, baseType)
 
             self.propList.extend(newPropList)
@@ -375,6 +376,8 @@ class PropType:
                 self.parent = PropType(baseType, currentSchemaObj)
                 if not self.additional:
                     self.additional = self.parent.additional
+                if self.expectedURI is None:
+                    self.expectedURI = self.parent.expectedURI
         except Exception as ex:
             rst.traverseLogger.debug('Exception caught while creating new PropType', exc_info=1)
             rst.traverseLogger.error(
@@ -439,6 +442,26 @@ class PropType:
             node = node.parent
         raise StopIteration
 
+    def compareURI(self, uri, my_id):
+        expected_uris = self.expectedURI
+        uri = uri.rstrip('/')
+        if expected_uris is not None:
+            regex = re.compile(r"{.*?}")
+            for e in expected_uris:
+                e_left, e_right = tuple(e.rsplit('/', 1))
+                e_left = regex.sub('[a-zA-Z0-9_.-]+', e_left)
+                if regex.match(e_right):
+                    if my_id is None:
+                        rst.traverseLogger.warn('No Id provided by payload')
+                    e_right = str(my_id)
+                e_compare_to = '/'.join([e_left, e_right])
+                success = re.match(e_compare_to, uri) is not None
+                if success:
+                    break
+        else:
+            success = True
+        return success
+
 
 def getTypeDetails(schemaObj, SchemaAlias):
     """
@@ -464,7 +487,7 @@ def getTypeDetails(schemaObj, SchemaAlias):
         uri = schemaObj.origin
         rst.traverseLogger.error('getTypeDetails: Schema namespace {} not found in schema file {}. Will not be able to gather type details.'
                              .format(SchemaNamespace, uri))
-        return PropertyList, ActionList, False, PropertyPattern
+        return PropertyList, ActionList, False, PropertyPattern, '.*'
 
     element = innerschema.find(['EntityType', 'ComplexType'], attrs={'Name': SchemaType}, recursive=False)
 
@@ -472,7 +495,7 @@ def getTypeDetails(schemaObj, SchemaAlias):
         uri = schemaObj.origin
         rst.traverseLogger.error('getTypeDetails: Element {} not found in schema namespace {}. Will not be able to gather type details.'
                              .format(SchemaType, SchemaNamespace))
-        return PropertyList, ActionList, False, PropertyPattern
+        return PropertyList, ActionList, False, PropertyPattern, '.*'
 
     rst.traverseLogger.debug("___")
     rst.traverseLogger.debug(element.get('Name'))
@@ -483,6 +506,9 @@ def getTypeDetails(schemaObj, SchemaAlias):
         'Annotation', attrs={'Term': 'OData.AdditionalProperties'})
     additionalElementOther = element.find(
         'Annotation', attrs={'Term': 'Redfish.DynamicPropertyPatterns'})
+    uriElement = element.find(
+        'Annotation', attrs={'Term': 'Redfish.Uris'})
+
     if additionalElement is not None:
         additional = additionalElement.get('Bool', False)
         if additional in ['false', 'False', False]:
@@ -491,6 +517,7 @@ def getTypeDetails(schemaObj, SchemaAlias):
             additional = True
     else:
         additional = False
+
     if additionalElementOther is not None:
         # create PropertyPattern dict containing pattern and type for DynamicPropertyPatterns validation
         rst.traverseLogger.debug('getTypeDetails: Redfish.DynamicPropertyPatterns found, element = {}, SchemaAlias = {}'
@@ -508,6 +535,16 @@ def getTypeDetails(schemaObj, SchemaAlias):
             PropertyPattern['Pattern'] = pattern
             PropertyPattern['Type'] = prop_type
         additional = True
+
+    expectedURI = None
+    if uriElement is not None:
+        try:
+            all_strings = uriElement.find('Collection').find_all('String')
+            expectedURI = [e.contents[0].rstrip('/') for e in all_strings]
+        except Exception as e:
+            rst.traverseLogger.debug('Exception caught while checking URI', exc_info=1)
+            rst.traverseLogger.warn('Could not gather info from Redfish.Uris annotation')
+            expectedURI = None
 
     # get properties
     usableProperties = element.find_all(['NavigationProperty', 'Property'], recursive=False)
@@ -532,7 +569,7 @@ def getTypeDetails(schemaObj, SchemaAlias):
         ActionList.append(
              PropAction(newPropOwner, newProp, act))
 
-    return PropertyList, ActionList, additional, PropertyPattern
+    return PropertyList, ActionList, additional, PropertyPattern, expectedURI
 
 
 def getTypeObject(typename, schemaObj):
@@ -573,7 +610,7 @@ class PropItem:
             self.attr = self.propDict['attrs']
 
         except Exception as ex:
-            rst.traverseLogger.info('Exception caught while creating new PropItem', exc_info=1)
+            rst.traverseLogger.debug('Exception caught while creating new PropItem', exc_info=1)
             rst.traverseLogger.error(
                     '{}:{} :  Could not get details on this property ({})'.format(str(propOwner), str(propChild), str(ex)))
             self.propDict = None

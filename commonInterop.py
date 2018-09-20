@@ -3,32 +3,20 @@
 # Copyright 2016 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
-import io
-import os
-import sys
-import re
-from datetime import datetime
-from collections import Counter, OrderedDict
-import logging
-import json
 import traverseService as rst
-import jsonschema
-import argparse
 from enum import Enum
-from io import StringIO
-
-from commonProfile import getProfiles, checkProfileAgainstSchema
-from traverseService import AuthenticationError
-from tohtml import renderHtml, writeHtml
+from collections import Counter
 
 rsvLogger = rst.getLogger()
 
 config = {'WarnRecommended': False}
 
+
 class sEnum(Enum):
     FAIL = 'FAIL'
     PASS = 'PASS'
     WARN = 'WARN'
+
 
 class msgInterop:
     def __init__(self, name, entry, expected, actual, success):
@@ -153,6 +141,8 @@ def checkComparison(val, compareType, target):
     rsvLogger.info('Testing a comparison \n\t' + str((val, compareType, target)))
     vallist = val if isinstance(val, list) else [val]
     paramPass = False
+    if compareType is None:
+        rsvLogger.error('CompareType not available in payload')
     if compareType == "AnyOf":
         for item in vallist:
             paramPass = item in target
@@ -271,10 +261,15 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
         # decoded tuple is designed just for this piece, since there is
         # no parent in dictionaries
         comparePropName = entry["CompareProperty"]
-        while comparePropName not in decodeditem and decoded is not None:
+        while (decodeditem is None or comparePropName not in decodeditem) and decoded is not None:
             decodeditem, decoded = decoded
+        if decodeditem is None:
+            rsvLogger.error('Could not acquire expected CompareProperty {}'.format(comparePropName) )
+            return False
         compareProp = decodeditem.get(comparePropName, 'DNE')
-        return checkComparison(compareProp, entry["Comparison"], entry.get("CompareValues", []))[1]
+        # compatability with old version, deprecate with versioning
+        compareType = entry.get("CompareType", entry.get("Comparison"))
+        return checkComparison(compareProp, compareType, entry.get("CompareValues", []))[1]
 
 
 def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, chkCondition=False):
