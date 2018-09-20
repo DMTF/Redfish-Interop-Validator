@@ -14,7 +14,7 @@ import traverseService as rst
 import argparse
 from io import StringIO
 
-from commonProfile import getProfiles, checkProfileAgainstSchema
+from commonProfile import getProfiles, checkProfileAgainstSchema, hashProfile
 from traverseService import AuthenticationError
 from tohtml import renderHtml, writeHtml
 from metadata import setup_schema_pack
@@ -485,6 +485,11 @@ def main(arglist=None, direct_parser=None):
 
     # Combine profiles
     profiles = getProfiles(profile, './')
+
+    rsvLogger.info('\nProfile Hashes: ')
+    for profile in profiles:
+        profileName = profile.get('ProfileName')
+        rsvLogger.info('profile: {}, dict md5 hash: {}'.format(profileName, hashProfile(profile) ))
 
     # Start main
     status_code = 1

@@ -9,6 +9,7 @@ import os
 import re
 import json
 import collections
+import hashlib
 
 import traverseService as rst
 rsvLogger = rst.getLogger()
@@ -16,7 +17,9 @@ rsvLogger = rst.getLogger()
 from urllib.request import urlopen
 import re
 
-
+def hashProfile(profile):
+    md5 = hashlib.md5(json.dumps(profile, sort_keys=True).encode())
+    return md5.hexdigest()
 
 def checkProfileAgainstSchema(profile, schema):
     """
@@ -39,7 +42,7 @@ def checkProfileAgainstSchema(profile, schema):
 
 extension = 'json'
 versionpattern = 'v[0-9]_[0-9]_[0-9]'
-defaultrepository = 'http://redfish.dmtf.org/profiles' 
+defaultrepository = 'http://redfish.dmtf.org/profiles'
 
 def getListingVersions(filename, dirname):
     pattern = '\.' + versionpattern + '\.'
@@ -66,7 +69,7 @@ def dict_merge(dct, merge_dct):
             else:
                 dct[k] = merge_dct[k]
 
-def updateWithProfile(profile, data): 
+def updateWithProfile(profile, data):
     dict_merge(data, profile)
     return data
 
@@ -84,7 +87,6 @@ def getProfileFromRepo(profilename, repo=None):
         filepattern = re.compile(pattern.join(profilename.split('.')))
 
         filelist = filepattern.findall(string)
-        print(filelist)
 
         profilename = None
         for filename in filelist:
@@ -93,6 +95,8 @@ def getProfileFromRepo(profilename, repo=None):
                 profilename = filename
                 continue
             profilename = max(profilename, filename)
+        if profilename is None:
+            return None
 
         remotefile = urlopen(repo + '/' + profilename)
         return remotefile.read()
@@ -116,7 +120,7 @@ def getProfiles(profile, dirname, chain=None):
 
         requiredProfiles = profile['RequiredProfiles']
         for item in requiredProfiles:
-            targetName = item  
+            targetName = item
             rp = requiredProfiles[targetName]
             targetVersionUnformatted = rp.get('MinVersion', '1.0.0')
             targetVersion = 'v{}_{}_{}'.format(*tuple(targetVersionUnformatted.split('.')))
@@ -125,13 +129,12 @@ def getProfiles(profile, dirname, chain=None):
 
             # get max filename
             repo = rp.get('Repository')
-            data = getProfileFromRepo(targetFileBlank, repo) 
+            data = getProfileFromRepo(targetFileBlank, repo)
 
             if data is None:
                 targetList = sorted(list(getListingVersions(targetFileBlank, dirname)))
                 if len(targetList) > 0:
-                    rsvLogger.info(targetFile)
-                    for item in targetList: 
+                    for item in targetList:
                         if targetFile is None:
                             targetFile = item
                         targetFile = max(targetFile, item)
@@ -149,10 +152,3 @@ def getProfiles(profile, dirname, chain=None):
             alldata.extend(getProfiles(data, dirname, chain))
     return alldata
 
-
-def combineProfile(profile, dirname, chain=None):
-
-    data = combineProfile(data, dirname, chain=chain)
-    profile = updateWithProfile(profile, data)
-
-    return profile
