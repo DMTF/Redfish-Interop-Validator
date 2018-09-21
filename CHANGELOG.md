@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.7] - 2018-09-21
+- Various bug fixes
+- Added tool versioning
+- Added profile names and hashes to test output
+
 ## [1.0.6] - 2018-09-07
 - More updates to leverage common code with the Redfish-Service-Validator tool
 

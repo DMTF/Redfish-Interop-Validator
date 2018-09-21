@@ -141,6 +141,6 @@ There is a verbose log file that may be referenced to diagnose tool or schema pr
 ## Release Process
 
 1. Update `CHANGELOG.md` with the list of changes since the last release
-2. TODO: Add version string in the tool somewhere
+2. Update the `tool_version` variable in `RedfishInteropValidator.py` to reflect the new tool version
 3. Push changes to Github
 4. Create a new release in Github
