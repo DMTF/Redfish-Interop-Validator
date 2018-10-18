@@ -346,7 +346,7 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
 #############################################################
 
 
-validatorconfig = {'payloadmode': 'Default', 'payloadfilepath': None, 'logpath': './logs'}
+validatorconfig = {'payloadmode': 'Default', 'payloadfilepath': None, 'logpath': './logs', 'writecheck': False}
 
 def main(arglist=None, direct_parser=None):
     """
@@ -399,6 +399,8 @@ def main(arglist=None, direct_parser=None):
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
+    # todo: write patches
+    argget.add_argument('--writecheck', action='store_true', help='(unimplemented) specify to allow WriteRequirement checks')
 
     args = argget.parse_args(arglist)
 
@@ -427,6 +429,8 @@ def main(arglist=None, direct_parser=None):
     # Set interop config items
     config['WarnRecommended'] = rst.config.get('warnrecommended', args.warnrecommended)
     commonInterop.config['WarnRecommended'] = config['WarnRecommended']
+    config['WriteCheck'] = rst.config.get('writecheck', args.writecheck)
+    commonInterop.config['WriteCheck'] = config['WriteCheck']
     config['profile'] = args.profile
     config['schema'] = args.schema
 
