@@ -9,7 +9,7 @@ from collections import Counter
 
 rsvLogger = rst.getLogger()
 
-config = {'WarnRecommended': False}
+config = {'WarnRecommended': False, 'WriteCheck': False}
 
 
 class sEnum(Enum):
@@ -113,6 +113,10 @@ def validateWriteRequirement(propObj, entry, itemname):
     rsvLogger.info('writeable \n\t' + str(entry))
     permission = 'Read'
     expected = "OData.Permission/ReadWrite" if entry else "Any"
+    if not config['WriteCheck']:
+        paramPass = True
+        return msgInterop('WriteRequirement', entry, expected, permission, paramPass),\
+            paramPass
     if entry:
         targetProp = findPropItemforString(propObj, itemname.replace('#', ''))
         propAttr = None
@@ -175,22 +179,30 @@ def checkComparison(val, compareType, target):
         else:
             paramPass = False
 
-    if compareType == "Equal":
-        paramPass = val == target
-    if compareType == "NotEqual":
-        paramPass = val != target
-    if compareType == "GreaterThan":
-        paramPass = val > target
-    if compareType == "GreaterThanOrEqual":
-        paramPass = val >= target
-    if compareType == "LessThan":
-        paramPass = val < target
-    if compareType == "LessThanOrEqual":
-        paramPass = val <= target
     if compareType == "Absent":
         paramPass = val == 'DNE'
     if compareType == "Present":
         paramPass = val != 'DNE'
+
+    if isinstance(target, list):
+        if len(target) >= 1:
+            target = target[0]
+        else:
+            target = 'DNE'
+
+    if target != 'DNE':
+        if compareType == "Equal":
+            paramPass = val == target
+        if compareType == "NotEqual":
+            paramPass = val != target
+        if compareType == "GreaterThan":
+            paramPass = val > target
+        if compareType == "GreaterThanOrEqual":
+            paramPass = val >= target
+        if compareType == "LessThan":
+            paramPass = val < target
+        if compareType == "LessThanOrEqual":
+            paramPass = val <= target
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
         rsvLogger.error('\tNoPass')
