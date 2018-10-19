@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.0.8] - 2018-19
+- Fixed how single entry comparisons were performed
+
 ## [1.0.7] - 2018-09-21
 - Various bug fixes
 - Added tool versioning
