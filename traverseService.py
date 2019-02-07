@@ -1,6 +1,6 @@
 # Copyright Notice:
 # Copyright 2016-2018 DMTF. All rights reserved.
-# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Service-Validator/blob/master/LICENSE.md
+# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
 import requests
 import sys
@@ -18,7 +18,7 @@ import configparser
 from urllib.parse import urlparse, urlunparse
 
 import metadata as md
-from commonRedfish import createContext, getNamespace, getNamespaceUnversioned, getType, getVersion, navigateJsonFragment
+from commonRedfish import createContext, getNamespace, getNamespaceUnversioned, getType, navigateJsonFragment
 import rfSchema
 
 traverseLogger = logging.getLogger(__name__)
@@ -86,6 +86,7 @@ defaultconfig = {
         'preferonline': False,
         'linklimit': {'LogEntry': 20},
         'sample': 0,
+        'usessl': True,
         'timeout': 30,
         'schema_pack': None,
         'forceauth': False,
@@ -105,6 +106,7 @@ customval = {
 configSet = False
 
 config = dict(defaultconfig)
+
 
 def startService(config, defaulted=[]):
     """startService
@@ -297,6 +299,8 @@ class rfService():
         # with Version, get default and compare to user defined values
         default_config_target = defaultconfig_by_version.get(target_version, dict())
         override_with = {k: default_config_target[k] for k in default_config_target if k in default_entries}
+        if len(override_with) > 0:
+            traverseLogger.info('CONFIG: RedfishVersion {} has augmented these tool defaults {}'.format(target_version, override_with))
         self.config.update(override_with)
 
         self.active = True
@@ -401,6 +405,7 @@ class rfService():
         # rs-assertion: must have application/json or application/xml
         traverseLogger.debug('callingResourceURI {}with authtype {} and ssl {}: {} {}'.format(
             'out of service ' if not inService else '', AuthType, UseSSL, URILink, headers))
+        response = None
         try:
             if payload is not None and CacheMode == 'Prefer':
                 return True, payload, -1, 0
@@ -459,22 +464,24 @@ class rfService():
                                               .format(URILink, statusCode, responses[statusCode], cred_type, AuthType))
 
         except requests.exceptions.SSLError as e:
-            traverseLogger.error("SSLError on {}".format(URILink))
+            traverseLogger.error("SSLError on {}: {}".format(URILink, repr(e)))
             traverseLogger.debug("output: ", exc_info=True)
         except requests.exceptions.ConnectionError as e:
-            traverseLogger.error("ConnectionError on {}".format(URILink))
+            traverseLogger.error("ConnectionError on {}: {}".format(URILink, repr(e)))
             traverseLogger.debug("output: ", exc_info=True)
         except requests.exceptions.Timeout as e:
             traverseLogger.error("Request has timed out ({}s) on resource {}".format(timeout, URILink))
             traverseLogger.debug("output: ", exc_info=True)
         except requests.exceptions.RequestException as e:
-            traverseLogger.error("Request has encounted a problem when getting resource {}".format(URILink))
-            traverseLogger.warning("output: ", exc_info=True)
+            traverseLogger.error("Request has encounted a problem when getting resource {}: {}".format(URILink, repr(e)))
+            traverseLogger.debug("output: ", exc_info=True)
         except AuthenticationError as e:
             raise e  # re-raise exception
-        except Exception:
-            traverseLogger.error("A problem when getting resource has occurred {}".format(URILink))
-            traverseLogger.warning("output: ", exc_info=True)
+        except Exception as e:
+            traverseLogger.error("A problem when getting resource {} has occurred: {}".format(URILink, repr(e)))
+            traverseLogger.debug("output: ", exc_info=True)
+            if response and response.text:
+                traverseLogger.debug("payload: {}".format(response.text))
 
         if payload is not None and CacheMode == 'Fallback':
             return True, payload, -1, 0
@@ -507,13 +514,14 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
                 '{}:  URI could not be acquired: {}'.format(uri, status))
             return None
     else:
-        jsondata, rtime = jsondata, 0
+        success, jsondata, status, rtime = True, jsondata, -1, 0
 
     if not isinstance(jsondata, dict):
         if not isComplex:
             traverseLogger.error("Resource no longer a dictionary...")
         else:
             traverseLogger.debug("ComplexType does not have val")
+        return success, None, status
         return None
 
     acquiredtype = jsondata.get('@odata.type', typename)
@@ -535,7 +543,7 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
     # Get Schema object
     schemaObj = rfSchema.getSchemaObject(acquiredtype, context)
     if schemaObj is None:
-        traverseLogger.error("ResourceObject creation: No schema XML for {} {} {}".format(typename, acquiredtype, context))
+        traverseLogger.error("ResourceObject creation: No schema XML for {} {}".format(acquiredtype, context))
         return None
 
     forceType = False
@@ -577,7 +585,9 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
             else:
                 traverseLogger.debug('Acquired resource thru AutoExpanded means {}'.format(uri_item))
                 traverseLogger.info('Regetting resource from URI {}'.format(uri_item))
-                return createResourceObject(name, uri_item, None, typename, context, parent, isComplex)
+                new_payload = createResourceObject(name, uri_item, None, typename, context, parent, isComplex)
+                if new_payload is None:
+                    traverseLogger.warn('Could not acquire resource, reverting to original payload...')
         else:
             if original_jsondata is None:
                 traverseLogger.warn('Acquired Resource.Resource type with fragment, could cause issues  {}'.format(uri_item))
@@ -587,7 +597,6 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
             pass
         else:
             traverseLogger.warn('@odata.id should not have a fragment'.format(odata_id))
-
 
     elif 'Resource.ReferenceableMember' in allTypes:
         if fragment is not '':
@@ -599,9 +608,9 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
         else:
             traverseLogger.warn('@odata.id should have a fragment'.format(odata_id))
 
-
     newResource = ResourceObj(name, uri, jsondata, typename, original_context, parent, isComplex, forceType=forceType)
     newResource.rtime = rtime
+    newResource.status = status
 
     return newResource
 
@@ -612,6 +621,7 @@ class ResourceObj:
         self.parent = parent
         self.uri, self.name = uri, name
         self.rtime = 0
+        self.status = -1
         self.isRegistry = False
         self.errorIndex = {
         }
@@ -719,7 +729,7 @@ class ResourceObj:
             prop_type = propTypeObj.propPattern.get('Type', 'Resource.OemObject')
 
             regex = re.compile(prop_pattern)
-            for key in [k for k in self.jsondata if k not in propertyList and regex.match(k)]:
+            for key in [k for k in self.jsondata if k not in propertyList and regex.fullmatch(k)]:
                 val = self.jsondata.get(key)
                 value_obj = rfSchema.PropItem(propTypeObj.schemaObj, propTypeObj.fulltype, key, val, customType=prop_type)
                 self.additionalList.append(value_obj)
@@ -731,11 +741,15 @@ class ResourceObj:
 
             if self.errorIndex['bad_uri_schema_uri']:
                 traverseLogger.error('{}: URI not in Redfish.Uris: {}'.format(uri, self.typename))
+                if my_id != uri.rsplit('/', 1)[-1]:
+                    traverseLogger.error('Id {} in payload doesn\'t seem to match URI'.format(my_id))
             else:
                 traverseLogger.debug('{} in Redfish.Uris: {}'.format(uri, self.typename))
 
             if self.errorIndex['bad_uri_schema_odata']:
                 traverseLogger.error('{}: odata_id not in Redfish.Uris: {}'.format(odata_id, self.typename))
+                if my_id != uri.rsplit('/', 1)[-1]:
+                    traverseLogger.error('Id {} in payload doesn\'t seem to match URI'.format(my_id))
             else:
                 traverseLogger.debug('{} in Redfish.Uris: {}'.format(odata_id, self.typename))
 

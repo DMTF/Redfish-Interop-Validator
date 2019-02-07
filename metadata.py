@@ -19,7 +19,7 @@ EDM_TAGS = ['Action', 'Annotation', 'Collection', 'ComplexType', 'EntityContaine
 EDMX_TAGS = ['DataServices', 'Edmx', 'Include', 'Reference']
 
 
-live_zip_uri = 'http://redfish.dmtf.org/schemas/DSP8010_2018.1.zip'
+live_zip_uri = 'http://redfish.dmtf.org/schemas/DSP8010_2018.3.zip'
 
 
 def setup_schema_pack(uri, local_dir, proxies, timeout):
@@ -27,6 +27,8 @@ def setup_schema_pack(uri, local_dir, proxies, timeout):
     if uri == 'latest':
         uri = live_zip_uri
     try:
+        if not os.path.isdir(local_dir):
+            os.makedirs(local_dir)
         response = requests.get(uri, timeout=timeout, proxies=proxies)
         expCode = [200]
         elapsed = response.elapsed.total_seconds()
