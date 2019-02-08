@@ -25,7 +25,7 @@ rsvLogger = rst.getLogger()
 VERBO_NUM = 15
 logging.addLevelName(VERBO_NUM, "VERBO")
 
-tool_version = '1.0.8'
+tool_version = '1.0.9'
 
 def verboseout(self, message, *args, **kws):
     if self.isEnabledFor(VERBO_NUM):

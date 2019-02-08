@@ -1,6 +1,10 @@
 # Change Log
 
-## [1.0.8] - 2018-19
+## [1.0.9] - 2019-02-08
+- Updated schema pack to 2018.3
+- Fixed handling of the Redfish.Revisions term
+
+## [1.0.8] - 2018-10-19
 - Fixed how single entry comparisons were performed
 
 ## [1.0.7] - 2018-09-21
