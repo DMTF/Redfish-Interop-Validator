@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.1.0] - 2019-04-12
+- Added missing @odata.context initialization for Message Registries
+
 ## [1.0.9] - 2019-02-08
 - Updated schema pack to 2018.3
 - Fixed handling of the Redfish.Revisions term
