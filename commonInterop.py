@@ -3,6 +3,7 @@
 # Copyright 2016 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
+import re
 import traverseService as rst
 from enum import Enum
 from collections import Counter
@@ -223,26 +224,40 @@ def validateMembers(members, entry, annotation):
     return mincount, mincountpass
 
 
-def validateMinVersion(fulltype, entry):
+def validateMinVersion(version, entry):
     """
     Checks for the minimum version of a resource's type
     """
-    fulltype = fulltype.replace('#', '')
-    rsvLogger.info('Testing minVersion \n\t' + str((fulltype, entry)))
-    # If fulltype doesn't contain version as is, try it as v#_#_#
-    versionSplit = entry.split('.')
-    versionNew = 'v'
-    for x in versionSplit:
-        versionNew = versionNew + x + '_'
-    versionNew = versionNew[:-1]
+    rsvLogger.info('Testing minVersion \n\t' + str((version, entry)))
+    # If version doesn't contain version as is, try it as v#_#_#
+    entry_split = entry.split('.')
     # get version from payload
-    v_payload = rst.getNamespace(fulltype).split('.', 1)[-1]
+    if(re.match('#([a-zA-Z0-9_.-]*\.)+[a-zA-Z0-9_.-]*', version) is not None):
+        v_payload = rst.getNamespace(version).split('.', 1)[-1]
+        v_payload = v_payload.replace('v', '')
+        if ('_' in v_payload):
+            payload_split = v_payload.split('_')
+        else:
+            payload_split = v_payload.split('.')
+    else:
+        payload_split = version.split('.')
+
+    paramPass = True
+    print(entry_split, payload_split)
+    for a, b in zip(entry_split, payload_split):
+        b = 0 if b is None else b
+        a = 0 if a is None else a
+        if (b > a):
+            break
+        if (b < a):
+            paramPass = False
+            break
+
     # use string comparison, given version numbering is accurate to regex
-    paramPass = v_payload >= (versionNew if 'v' in v_payload else entry)
     rsvLogger.info('\tpass ' + str(paramPass))
     if not paramPass:
         rsvLogger.error('\tNo Pass')
-    return msgInterop('MinVersion', '{} ({})'.format(entry, versionNew), '<=', fulltype, paramPass),\
+    return msgInterop('MinVersion', '{} ({})'.format(entry, payload_split), '<=', version, paramPass),\
         paramPass
 
 
