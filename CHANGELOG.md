@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.1.1] - 2019-05-10
+- Made fixes to version comparision testing
+
 ## [1.1.0] - 2019-04-12
 - Added missing @odata.context initialization for Message Registries
 
