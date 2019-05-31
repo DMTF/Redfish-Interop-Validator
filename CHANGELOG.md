@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.1.2] - 2019-05-31
+- Updated schema pack to 2019.1
+
 ## [1.1.1] - 2019-05-10
 - Made fixes to version comparison testing
 
