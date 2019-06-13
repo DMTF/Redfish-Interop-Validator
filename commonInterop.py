@@ -37,24 +37,24 @@ def validateRequirement(entry, decodeditem, conditional=False):
     Validates Requirement entry
     """
     propDoesNotExist = (decodeditem == 'DNE')
-    rsvLogger.info('Testing ReadRequirement \n\texpected:' + str(entry) + ', exists: ' + str(not propDoesNotExist))
+    rsvLogger.debug('Testing ReadRequirement \n\texpected:' + str(entry) + ', exists: ' + str(not propDoesNotExist))
     # If we're not mandatory, pass automatically, else fail
     # However, we have other entries "IfImplemented" and "Conditional"
     # note: Mandatory is default!! if present in the profile.  Make sure this is made sure.
     originalentry = entry
-    if entry == "IfImplemented" or (entry == "Conditional" and conditional):
+    if entry == "Conditional" and conditional:
         entry = "Mandatory"
+    if entry == "IfImplemented":
+        rsvLogger.debug('\tItem cannot be tested for Implementation')
     paramPass = not entry == "Mandatory" or \
         entry == "Mandatory" and not propDoesNotExist
     if entry == "Recommended" and propDoesNotExist:
         rsvLogger.info('\tItem is recommended but does not exist')
         if config['WarnRecommended']:
-            rsvLogger.error('\tItem is recommended but does not exist, escalating to WARN')
+            rsvLogger.warn('\tItem is recommended but does not exist, escalating to WARN')
             paramPass = sEnum.WARN
 
-    rsvLogger.info('\tpass ' + str(paramPass))
-    if not paramPass:
-        rsvLogger.error('\tNoPass')
+    rsvLogger.debug('\tpass ' + str(paramPass))
     return msgInterop('ReadRequirement', originalentry, 'Must Exist' if entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
         paramPass
 
@@ -71,11 +71,9 @@ def validateMinCount(alist, length, annotation=0):
     """
     Validates Mincount annotation
     """
-    rsvLogger.info('Testing minCount \n\texpected:' + str(length) + ', val:' + str(annotation))
+    rsvLogger.debug('Testing minCount \n\texpected:' + str(length) + ', val:' + str(annotation))
     paramPass = len(alist) >= length or annotation >= length
-    rsvLogger.info('\tpass ' + str(paramPass))
-    if not paramPass:
-        rsvLogger.error('\tNoPass')
+    rsvLogger.debug('\tpass ' + str(paramPass))
     return msgInterop('MinCount', length, '<=', annotation if annotation > len(alist) else len(alist), paramPass),\
         paramPass
 
@@ -84,14 +82,12 @@ def validateSupportedValues(enumlist, annotation):
     """
     Validates SupportedVals annotation
     """
-    rsvLogger.info('Testing supportedValues \n\t:' + str(enumlist) + ', exists:' + str(annotation))
+    rsvLogger.debug('Testing supportedValues \n\t:' + str(enumlist) + ', exists:' + str(annotation))
     for item in enumlist:
         paramPass = item in annotation
         if not paramPass:
             break
-    rsvLogger.info('\tpass ' + str(paramPass))
-    if not paramPass:
-        rsvLogger.error('\tNoPass')
+    rsvLogger.debug('\tpass ' + str(paramPass))
     return msgInterop('SupportedValues', enumlist, 'included in...', annotation, paramPass),\
         paramPass
 
@@ -111,7 +107,7 @@ def validateWriteRequirement(propObj, entry, itemname):
     """
     Validates if a property is WriteRequirement or not
     """
-    rsvLogger.info('writeable \n\t' + str(entry))
+    rsvLogger.debug('writeable \n\t' + str(entry))
     permission = 'Read'
     expected = "OData.Permission/ReadWrite" if entry else "Any"
     if not config['WriteCheck']:
@@ -132,9 +128,7 @@ def validateWriteRequirement(propObj, entry, itemname):
     else:
         paramPass = True
 
-    rsvLogger.info('\tpass ' + str(paramPass))
-    if not paramPass:
-        rsvLogger.error('\tNoPass')
+    rsvLogger.debug('\tpass ' + str(paramPass))
     return msgInterop('WriteRequirement', entry, expected, permission, paramPass),\
         paramPass
 
@@ -143,7 +137,7 @@ def checkComparison(val, compareType, target):
     """
     Validate a given comparison option, given a value and a target set
     """
-    rsvLogger.info('Testing a comparison \n\t' + str((val, compareType, target)))
+    rsvLogger.verboseout('Testing a comparison \n\t' + str((val, compareType, target)))
     vallist = val if isinstance(val, list) else [val]
     paramPass = False
     if compareType is None:
@@ -204,9 +198,7 @@ def checkComparison(val, compareType, target):
             paramPass = val < target
         if compareType == "LessThanOrEqual":
             paramPass = val <= target
-    rsvLogger.info('\tpass ' + str(paramPass))
-    if not paramPass:
-        rsvLogger.error('\tNoPass')
+    rsvLogger.debug('\tpass ' + str(paramPass))
     return msgInterop('Comparison', target, compareType, val, paramPass),\
         paramPass
 
@@ -215,7 +207,7 @@ def validateMembers(members, entry, annotation):
     """
     Validate an entry of Members and its count annotation
     """
-    rsvLogger.info('Testing members \n\t' + str((members, entry, annotation)))
+    rsvLogger.debug('Testing members \n\t' + str((members, entry, annotation)))
     if not validateRequirement('Mandatory', members):
         return False
     if "MinCount" in entry:
@@ -228,7 +220,7 @@ def validateMinVersion(version, entry):
     """
     Checks for the minimum version of a resource's type
     """
-    rsvLogger.info('Testing minVersion \n\t' + str((version, entry)))
+    rsvLogger.debug('Testing minVersion \n\t' + str((version, entry)))
     # If version doesn't contain version as is, try it as v#_#_#
     entry_split = entry.split('.')
     # get version from payload
@@ -243,7 +235,6 @@ def validateMinVersion(version, entry):
         payload_split = version.split('.')
 
     paramPass = True
-    print(entry_split, payload_split)
     for a, b in zip(entry_split, payload_split):
         b = 0 if b is None else b
         a = 0 if a is None else a
@@ -254,9 +245,7 @@ def validateMinVersion(version, entry):
             break
 
     # use string comparison, given version numbering is accurate to regex
-    rsvLogger.info('\tpass ' + str(paramPass))
-    if not paramPass:
-        rsvLogger.error('\tNo Pass')
+    rsvLogger.debug('\tpass ' + str(paramPass))
     return msgInterop('MinVersion', '{} ({})'.format(entry, payload_split), '<=', version, paramPass),\
         paramPass
 
@@ -265,7 +254,7 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
     """
     Returns boolean if entry's conditional is true or false
     """
-    rsvLogger.info('Evaluating conditionalRequirements')
+    rsvLogger.debug('Evaluating conditionalRequirements')
     if "SubordinateToResource" in entry:
         isSubordinate = False
         # iterate through parents via resourceObj
@@ -275,11 +264,11 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
             if resourceParent is not None:
                 parentType = resourceParent.typeobj.stype
                 isSubordinate = parentType == expectedParent
-                rsvLogger.info('\tsubordinance ' +
+                rsvLogger.debug('\tsubordinance ' +
                                str(parentType) + ' ' + str(isSubordinate))
                 resourceParent = resourceParent.parent
             else:
-                rsvLogger.info('no parent')
+                rsvLogger.debug('no parent')
                 isSubordinate = False
         return isSubordinate
     if "CompareProperty" in entry:
@@ -309,15 +298,17 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
     if entry is None or len(entry) == 0:
         rsvLogger.debug('there are no requirements for this prop')
     else:
-        rsvLogger.info('propRequirement with value: ' + str(decodeditem if not isinstance(
+        rsvLogger.debug('propRequirement with value: ' + str(decodeditem if not isinstance(
             decodeditem, dict) else 'dict'))
     # If we're working with a list, then consider MinCount, Comparisons, then execute on each item
     # list based comparisons include AnyOf and AllOf
     if isinstance(decodeditem, list):
-        rsvLogger.info("inside of a list: " + itemname)
+        rsvLogger.debug("inside of a list: " + itemname)
         if "MinCount" in entry:
             msg, success = validateMinCount(decodeditem, entry["MinCount"],
                                 decoded[0].get(itemname.split('.')[-1] + '@odata.count', 0))
+            if not success:
+                rsvLogger.error("MinCount failed")
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
         for k, v in entry.get('PropertyRequirements', {}).items():
@@ -349,6 +340,8 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
             msg, success = validateWriteRequirement(propResourceObj, entry["WriteRequirement"], itemname)
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
+            if not success:
+                rsvLogger.error("WriteRequirement failed")
         if "ConditionalRequirements" in entry:
             innerList = entry["ConditionalRequirements"]
             for item in innerList:
@@ -368,16 +361,21 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
                     decoded[0].get(itemname.split('.')[-1] + '@Redfish.AllowableValues', []))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
+            if not success:
+                rsvLogger.error("MinSupportValues failed")
         if "Comparison" in entry and not chkCondition and\
                 entry["Comparison"] not in ["AnyOf", "AllOf"]:
-            msg, success = checkComparison(decodeditem, entry["Comparison"], entry.get("Values",[]))
+            msg, success = checkComparison(decodeditem,
+                    entry["Comparison"], entry.get("Values",[]))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
+            if not success:
+                rsvLogger.error("Comparison failed")
         if "PropertyRequirements" in entry:
             innerDict = entry["PropertyRequirements"]
             if isinstance(decodeditem, dict):
                 for item in innerDict:
-                    rsvLogger.info('inside complex ' + itemname + '.' + item)
+                    rsvLogger.debug('inside complex ' + itemname + '.' + item)
                     complexMsgs, complexCounts = validatePropertyRequirement(
                         propResourceObj, innerDict[item], (decodeditem.get(item, 'DNE'), decodedtuple), item)
                     msgs.extend(complexMsgs)
@@ -394,7 +392,7 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
     decodeditem, decoded = decodedtuple
     counts = Counter()
     msgs = []
-    rsvLogger.info('actionRequirement \n\tval: ' + str(decodeditem if not isinstance(
+    rsvLogger.verboseout('actionRequirement \n\tval: ' + str(decodeditem if not isinstance(
         decodeditem, dict) else 'dict') + ' ' + str(entry))
     if "ReadRequirement" in entry:
         # problem: if dne, skip
@@ -466,7 +464,6 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
             rsvLogger.info('### Validating PropertyRequirements for {}'.format(item))
             pmsgs, pcounts = validatePropertyRequirement(
                 propResourceObj, innerDict[item], (decoded.get(item, 'DNE'), decodedtuple), item)
-            rsvLogger.info(pcounts)
             counts.update(pcounts)
             msgs.extend(pmsgs)
     if "ActionRequirements" in interopDict:
@@ -475,10 +472,8 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
         decodedInnerTuple = (actionsJson, decodedtuple)
         for item in innerDict:
             actionName = '#' + propResourceObj.typeobj.stype + '.' + item
-            rsvLogger.info(actionName)
             amsgs, acounts = validateActionRequirement(propResourceObj, innerDict[item], (actionsJson.get(
                 actionName, 'DNE'), decodedInnerTuple), actionName)
-            rsvLogger.info(acounts)
             counts.update(acounts)
             msgs.extend(amsgs)
     if "CreateResource" in interopDict:
@@ -498,6 +493,6 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
             counts['pass'] += 1
         elif item.success == sEnum.FAIL:
             counts['fail.{}'.format(item.name)] += 1
-    rsvLogger.info(counts)
+        counts['totaltests'] += 1
     return msgs, counts
 

@@ -151,21 +151,21 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick):
             namespace = getNamespace(prop_type)
             type_name = getType(prop_type)
 
-        infos = [str(val.get(x)) for x in ['uri', 'samplemapped'] if val.get(x) not in ['',None]]
-        infos.append(rtime)
-        infos.append(type_name)
-        uriTag = tr(th(infoBlock(infos, '&ensp;'), 'class="titlerow bluebg"'))
+        infos_a = [str(val.get(x)) for x in ['uri', 'samplemapped'] if val.get(x) not in ['',None]]
+        infos_a.append(rtime)
+        infos_a.append(type_name)
+        uriTag = tr(th(infoBlock(infos_a, '&ensp;'), 'class="titlerow bluebg"'))
         entry.append(uriTag)
 
         # info block
-        infos = [str(val.get(x)) for x in ['uri'] if val.get(x) not in ['',None]]
-        infos.append(rtime)
-        infos.append(div('Show Results', attr='class="button warn" onClick="document.getElementById(\'resNum{}\').classList.toggle(\'resultsShow\');"'.format(cnt)))
-        buttonTag = td(infoBlock(infos), 'class="title" style="width:30%"')
+        infos_b = [str(val.get(x)) for x in ['uri'] if val.get(x) not in ['',None]]
+        infos_b.append(rtime)
+        infos_b.append(div('Show Results', attr='class="button warn" onClick="document.getElementById(\'resNum{}\').classList.toggle(\'resultsShow\');"'.format(cnt)))
+        buttonTag = td(infoBlock(infos_b), 'class="title" style="width:30%"')
 
-        infos = [str(val.get(x)) for x in ['context', 'origin', 'fulltype']]
-        infos = {y: x for x,y in zip(infos, ['Context', 'File Origin', 'Resource Type'])}
-        infosTag = td(infoBlock(infos), 'class="titlesub log" style="width:40%"')
+        infos_content = [str(val.get(x)) for x in ['context', 'origin', 'fulltype']]
+        infos_c = {y: x for x,y in zip(infos_content, ['Context', 'File Origin', 'Resource Type'])}
+        infosTag = td(infoBlock(infos_c), 'class="titlesub log" style="width:40%"')
 
         success = val['success']
         if success:
@@ -181,26 +181,21 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick):
             rhead = wrapTag(''.join(rhead), *x)
         entry.append(rhead)
 
-        htmlStr = '<tr><td class="results" id=\'resNum{}\'><table><tr><td><table><tr><th style="width:15%"> Name</th> <th>Entry Value</th> <th>must be</th> <th>Service Value</th> <th style="width:10%">Success</th> <tr>'.format(cnt)
-        if results[item]['messages'] is not None:
-            for i in results[item]['messages']:
-                htmlStr += '<tr>'
-                htmlStr += '<td>' + str(i.name) + '</td>'
-                htmlStr += '<td>' + str(i.entry) + '</td>'
-                htmlStr += '<td>' + str(i.expected) + '</td>'
-                htmlStr += '<td>' + str(i.actual) + '</td>'
-                htmlStr += '<td class="{} center">{}</td>'.format(str(i.success.value).lower(), str(i.success.value))
-                htmlStr += '</tr>'
-        htmlStr += '</table></td></tr>'
-
         # actual table
-        rows = [(i.name, i.entry, i.expected, i.actual, str(i.success.value)) for i in val['messages']]
+        rows = [(str(i.name),
+            str(i.entry), str(i.expected), str(i.actual), str(i.success.value)) for i in val['messages']]
         titles = ['Property Name', 'Value', 'Expected', 'Actual', 'Result']
         widths = ['15','30','30','10','15']
         tableHeader = tableBlock(rows, titles, widths, ffunc=applySuccessColor)
 
         #    lets wrap table and errors and warns into one single column table
         tableHeader = tr(td((tableHeader)))
+
+        rsvLogger.info(','.join(infos_a))
+        rsvLogger.info(','.join(infos_content))
+        rsvLogger.info(','.join(titles))
+        rsvLogger.info('\n'.join([','.join(x) for x in rows]))
+        rsvLogger.info('--\n')
 
         # warns and errors
         errors = val['errors']

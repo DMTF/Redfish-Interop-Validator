@@ -543,7 +543,7 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
     # Get Schema object
     schemaObj = rfSchema.getSchemaObject(acquiredtype, context)
     if schemaObj is None:
-        traverseLogger.error("ResourceObject creation: No schema XML for {} {}".format(acquiredtype, context))
+        traverseLogger.warn("ResourceObject creation: No schema XML for {} {}".format(acquiredtype, context))
         return None
 
     forceType = False
@@ -553,13 +553,13 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
     # get highest type if type is invalid
     if schemaObj.getTypeTagInSchema(acquiredtype) is None:
         if schemaObj.getTypeTagInSchema(getNamespaceUnversioned(acquiredtype)) is not None:
-            traverseLogger.error("Namespace version of type appears missing from SchemaXML, attempting highest type: {}".format(acquiredtype))
+            traverseLogger.warn("Namespace version of type appears missing from SchemaXML, attempting highest type: {}".format(acquiredtype))
             acquiredtype = schemaObj.getHighestType(acquiredtype, parent_type)
             typename = acquiredtype
-            traverseLogger.error("New namespace: {}".format(typename))
+            traverseLogger.warn("New namespace: {}".format(typename))
             forceType = True
         else:
-            traverseLogger.error("getResourceObject: Namespace appears nonexistent in SchemaXML: {} {}".format(acquiredtype, context))
+            traverseLogger.warn("getResourceObject: Namespace appears nonexistent in SchemaXML: {} {}".format(acquiredtype, context))
             return None
 
     # check odata.id if it corresponds
@@ -706,7 +706,7 @@ class ResourceObj:
         if acquiredtype is typename and not forceType:
             acquiredtype = self.schemaObj.getHighestType(typename, parent_type)
             if not isComplex:
-                traverseLogger.warning(
+                traverseLogger.debug(
                     'No @odata.type present, assuming highest type {} {}'.format(typename, acquiredtype))
 
         # Check if we provide a valid type (todo: regex)
