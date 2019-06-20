@@ -340,7 +340,6 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
             'counts':rcounts,\
             'messages':rmessages, 'errors':rerror.getvalue(), 'warns': '',\
             'rtime':'', 'context':'', 'fulltype':''}
-    print(len(allLinks))
     finalResults.update(results)
     rerror.close()
 
@@ -404,6 +403,7 @@ def main(arglist=None, direct_parser=None):
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
+    argget.add_argument('--csv_report', action='store_true', help='print a csv report at the end of the log')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
     # todo: write patches
     argget.add_argument('--writecheck', action='store_true', help='(unimplemented) specify to allow WriteRequirement checks')
@@ -576,7 +576,7 @@ def main(arglist=None, direct_parser=None):
             fails += finalCounts[key]
 
     rsvLogger.info('Rendering HTML Log')
-    html_str = renderHtml(results, finalCounts, tool_version, startTick, nowTick)
+    html_str = renderHtml(results, finalCounts, tool_version, startTick, nowTick, args.csv_report)
 
     lastResultsPage = datetime.strftime(startTick, os.path.join(logpath, "InteropHtmlLog%m_%d_%Y_%H%M%S.html"))
 

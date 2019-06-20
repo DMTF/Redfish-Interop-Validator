@@ -64,7 +64,7 @@ def applyInfoSuccessColor(num, entry):
     return div(entry, attr=style)
 
 
-def renderHtml(results, finalCounts, tool_version, startTick, nowTick):
+def renderHtml(results, finalCounts, tool_version, startTick, nowTick, printCSV):
     # Render html
     config = rst.config
     config_str = ', '.join(sorted(list(config.keys() - set(['systeminfo', 'targetip', 'password', 'description']))))
@@ -191,11 +191,12 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick):
         #    lets wrap table and errors and warns into one single column table
         tableHeader = tr(td((tableHeader)))
 
-        rsvLogger.info(','.join(infos_a))
-        rsvLogger.info(','.join(infos_content))
-        rsvLogger.info(','.join(titles))
-        rsvLogger.info('\n'.join([','.join(x) for x in rows]))
-        rsvLogger.info('--\n')
+        if(printCSV):
+            rsvLogger.info(','.join(infos_a))
+            rsvLogger.info(','.join(infos_content))
+            rsvLogger.info(','.join(titles))
+            rsvLogger.info('\n'.join([','.join(x) for x in rows]))
+            rsvLogger.info(',')
 
         # warns and errors
         errors = val['errors']
