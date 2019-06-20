@@ -63,7 +63,7 @@ def checkPayloadConformance(uri, decoded):
         else:
             paramPass = True
         if not paramPass:
-            rsvLogger.error(key + "@odata item not conformant: " + decoded[key])
+            rsvLogger.verboseout(key + " @odata item not conformant: " + decoded[key])
             success = False
         messages[key] = (decoded[key], 'odata',
                          'Exists',
@@ -109,7 +109,6 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     """
     # rs-assertion: 9.4.1
     # Initial startup here
-    # Initial startup here
     lc = setupLoggingCaptures()
     next(lc)
 
@@ -141,8 +140,8 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     successPayload, odataMessages = checkPayloadConformance(URI, jsondata if successGet else {})
 
     if not successPayload:
-        counts['failPayloadError'] += 1
-        rsvLogger.error(str(URI) + ': payload error, @odata property non-conformant',)
+        counts['failPayloadWarn'] += 1
+        rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
 
     # Generate dictionary of property info
     try:
@@ -173,7 +172,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     results[uriName]['fulltype'] = propResourceObj.typeobj.fulltype
     results[uriName]['success'] = True
 
-    rsvLogger.info("\t URI {}, Type ({}), GET SUCCESS (time: {})".format(URI, propResourceObj.typeobj.stype, propResourceObj.rtime))
+    rsvLogger.debug("\t URI {}, Type ({}), GET SUCCESS (time: {})".format(URI, propResourceObj.typeobj.stype, propResourceObj.rtime))
 
     uriName, SchemaFullType, jsondata = propResourceObj.name, propResourceObj.typeobj.fulltype, propResourceObj.jsondata
     SchemaNamespace, SchemaType = rst.getNamespace(
@@ -185,16 +184,16 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         rsvLogger.debug(
                 '\nNo Such Type in sample {} {}.{}, skipping'.format(URI, SchemaNamespace, SchemaType))
     else:
-        rsvLogger.info("\n*** %s, %s", uriName, URI)
+        rsvLogger.info("\n*** %s, %s", URI, SchemaType)
         rsvLogger.debug("\n*** %s, %s, %s", expectedType,
                         expectedSchema is not None, expectedJson is not None)
         objRes = objRes.get(SchemaType)
-        rsvLogger.info(SchemaType)
         try:
             propMessages, propCounts = commonInterop.validateInteropResource(
                 propResourceObj, objRes, jsondata)
             messages = messages.extend(propMessages)
             counts.update(propCounts)
+            rsvLogger.info('{} of {} tests passed.'.format(counts['pass'] + counts['warn'], counts['totaltests']))
         except Exception:
             rsvLogger.exception("Something went wrong")
             rsvLogger.error(
@@ -224,7 +223,7 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
     rmessages = []
     rerror = StringIO()
 
-    objRes = dict(profile.get('Resources'))
+    resource_info = dict(profile.get('Resources'))
 
     # Validate top URI
     validateSuccess, counts, results, links, thisobj = \
@@ -238,7 +237,7 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
         serviceVersion = profile.get("Protocol")
         if serviceVersion is not None:
             serviceVersion = serviceVersion.get('MinVersion', '1.0.0')
-            msg, mpss = commonInterop.validateMinVersion(thisobj.jsondata.get("RedfishVersion", "0"), serviceVersion)
+            msg, m_success = commonInterop.validateMinVersion(thisobj.jsondata.get("RedfishVersion", "0"), serviceVersion)
             rmessages.append(msg)
 
         currentLinks = [(l, links[l], thisobj) for l in links]
@@ -276,30 +275,30 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
                 SchemaType = rst.getType(linkobj.typeobj.fulltype)
 
                 # Check schema level for requirements
-                if SchemaType in objRes:
+                if SchemaType in resource_info:
                     traverseLogger.info("Checking service requirement for {}".format(SchemaType))
-                    req = objRes[SchemaType].get("ReadRequirement", "Mandatory")
+                    req = resource_info[SchemaType].get("ReadRequirement", "Mandatory")
                     msg, pss = commonInterop.validateRequirement(req, None)
-                    if pss and not objRes[SchemaType].get('mark', False):
+                    if pss and not resource_info[SchemaType].get('mark', False):
                         rmessages.append(msg)
                         msg.name = SchemaType + '.' + msg.name
-                        objRes[SchemaType]['mark'] = True
+                        resource_info[SchemaType]['mark'] = True
 
-                    if "ConditionalRequirements" in objRes[SchemaType]:
-                        innerList = objRes[SchemaType]["ConditionalRequirements"]
+                    if "ConditionalRequirements" in resource_info[SchemaType]:
+                        innerList = resource_info[SchemaType]["ConditionalRequirements"]
                         newList = list()
                         for condreq in innerList:
                             condtrue = commonInterop.checkConditionalRequirement(linkobj, condreq, (linkobj.jsondata, None), None)
                             if condtrue:
-                                msg, cpss = commonInterop.validateRequirement(condreq.get("ReadRequirement", "Mandatory"), None)
-                                if cpss:
+                                msg, success = commonInterop.validateRequirement(condreq.get("ReadRequirement", "Mandatory"), None)
+                                if success:
                                     rmessages.append(msg)
                                     msg.name = SchemaType + '.Conditional.' + msg.name
                                 else:
                                     newList.append(condreq)
                             else:
                                 newList.append(condreq)
-                        objRes[SchemaType]["ConditionalRequirements"] = newList
+                        resource_info[SchemaType]["ConditionalRequirements"] = newList
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
@@ -313,17 +312,24 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
         traverseLogger.info("We are not validating root, warn only")
     else:
         resultEnum = commonInterop.sEnum.FAIL
-    for left in objRes:
-        if not objRes[left].get('mark', False):
-            req = objRes[left].get("ReadRequirement", "Mandatory")
+    for item in resource_info:
+        if item == rst.getType(thisobj.typeobj.fulltype):
+            continue
+        if not resource_info[item].get('mark', False):
+            req = resource_info[item].get("ReadRequirement", "Mandatory")
             rmessages.append(
-                    commonInterop.msgInterop(left + '.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', resultEnum))
-        if "ConditionalRequirements" in objRes[left]:
-            innerList = objRes[left]["ConditionalRequirements"]
+                    commonInterop.msgInterop(item + '.ReadRequirement', req,
+                        'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
+                        resultEnum if req == "Mandatory" else commonInterop.sEnum.PASS))
+        if "ConditionalRequirements" in resource_info[item]:
+            innerList = resource_info[item]["ConditionalRequirements"]
             for condreq in innerList:
                 req = condreq.get("ReadRequirement", "Mandatory")
                 rmessages.append(
-                    commonInterop.msgInterop(left + '.Conditional.ReadRequirement', req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE', resultEnum))
+                    commonInterop.msgInterop(item + '.Conditional.ReadRequirement',
+                        req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
+                        resultEnum if req == "Mandatory" else commonInterop.sEnum.PASS))
+
 
     for item in rmessages:
         if item.success == commonInterop.sEnum.WARN:
@@ -337,7 +343,6 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
             'counts':rcounts,\
             'messages':rmessages, 'errors':rerror.getvalue(), 'warns': '',\
             'rtime':'', 'context':'', 'fulltype':''}
-    print(len(allLinks))
     finalResults.update(results)
     rerror.close()
 
@@ -401,6 +406,7 @@ def main(arglist=None, direct_parser=None):
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
+    argget.add_argument('--csv_report', action='store_true', help='print a csv report at the end of the log')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
     # todo: write patches
     argget.add_argument('--writecheck', action='store_true', help='(unimplemented) specify to allow WriteRequirement checks')
@@ -572,7 +578,8 @@ def main(arglist=None, direct_parser=None):
         if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
             fails += finalCounts[key]
 
-    html_str = renderHtml(results, finalCounts, tool_version, startTick, nowTick)
+    rsvLogger.info('Rendering HTML Log')
+    html_str = renderHtml(results, finalCounts, tool_version, startTick, nowTick, args.csv_report)
 
     lastResultsPage = datetime.strftime(startTick, os.path.join(logpath, "InteropHtmlLog%m_%d_%Y_%H%M%S.html"))
 
