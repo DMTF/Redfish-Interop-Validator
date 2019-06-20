@@ -282,21 +282,32 @@ def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
                 rsvLogger.info('no parent')
                 isSubordinate = False
         return isSubordinate
-    if "CompareProperty" in entry:
+    elif "CompareProperty" in entry:
         decodeditem, decoded = decodedtuple
         # find property in json payload by working backwards thru objects
         # decoded tuple is designed just for this piece, since there is
         # no parent in dictionaries
         comparePropName = entry["CompareProperty"]
+        if "CompareType" not in entry:
+            rsvLogger.error("Invalid Profile - CompareType is required for CompareProperty but not found")
+            raise ValueError('CompareType missing with CompareProperty')
+        if "CompareValues" not in entry and entry['CompareType'] not in ['Absent', 'Present']:
+            rsvLogger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
+            raise ValueError('CompareValues missing with CompareProperty')
+        if "CompareValues" in entry and entry['CompareType'] in ['Absent', 'Present']:
+            rsvLogger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
         while (decodeditem is None or comparePropName not in decodeditem) and decoded is not None:
             decodeditem, decoded = decoded
         if decodeditem is None:
-            rsvLogger.error('Could not acquire expected CompareProperty {}'.format(comparePropName) )
+            rsvLogger.error('Could not acquire expected CompareProperty {}'.format(comparePropName))
             return False
         compareProp = decodeditem.get(comparePropName, 'DNE')
         # compatability with old version, deprecate with versioning
         compareType = entry.get("CompareType", entry.get("Comparison"))
         return checkComparison(compareProp, compareType, entry.get("CompareValues", []))[1]
+    else:
+        rsvLogger.error("Invalid Profile - No conditional given")
+        raise ValueError('No conditional given for Comparison')
 
 
 def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, chkCondition=False):
@@ -352,16 +363,21 @@ def validatePropertyRequirement(propResourceObj, entry, decodedtuple, itemname, 
         if "ConditionalRequirements" in entry:
             innerList = entry["ConditionalRequirements"]
             for item in innerList:
-                if checkConditionalRequirement(propResourceObj, item, decodedtuple, itemname):
-                    rsvLogger.info("\tCondition DOES apply")
-                    conditionalMsgs, conditionalCounts = validatePropertyRequirement(
-                        propResourceObj, item, decodedtuple, itemname, chkCondition = True)
-                    counts.update(conditionalCounts)
-                    for item in conditionalMsgs:
-                        item.name = item.name.replace('.', '.Conditional.', 1)
-                    msgs.extend(conditionalMsgs)
-                else:
-                    rsvLogger.info("\tCondition does not apply")
+                try:
+                    if checkConditionalRequirement(propResourceObj, item, decodedtuple, itemname):
+                        rsvLogger.info("\tCondition DOES apply")
+                        conditionalMsgs, conditionalCounts = validatePropertyRequirement(
+                            propResourceObj, item, decodedtuple, itemname, chkCondition = True)
+                        counts.update(conditionalCounts)
+                        for item in conditionalMsgs:
+                            item.name = item.name.replace('.', '.Conditional.', 1)
+                        msgs.extend(conditionalMsgs)
+                    else:
+                        rsvLogger.info("\tCondition does not apply")
+                except ValueError as e:
+                    rsvLogger.info("\tCondition was skipped due to payload error")
+                    counts['errorProfileComparisonError'] += 1
+
         if "MinSupportValues" in entry:
             msg, success = validateSupportedValues(
                     decodeditem, entry["MinSupportValues"],
@@ -462,6 +478,7 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
             if not isvalid:
                 msgs.append(vmsg)
                 vmsg.name = '{}.{}'.format(item, vmsg.name)
+                counts['errorProfileValidityError'] += 1
                 continue
             rsvLogger.info('### Validating PropertyRequirements for {}'.format(item))
             pmsgs, pcounts = validatePropertyRequirement(
