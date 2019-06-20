@@ -5,6 +5,7 @@
 
 import re
 import traverseService as rst
+from commonRedfish import compareRedfishURI
 from enum import Enum
 from collections import Counter
 
@@ -441,6 +442,18 @@ def validateActionRequirement(propResourceObj, entry, decodedtuple, actionname):
     return msgs, counts
 
 
+def validateInteropURI(r_obj, entry):
+    """
+    Checks for the minimum version of a resource's type
+    """
+    rsvLogger.debug('Testing URI \n\t' + str((r_obj.uri, entry)))
+
+    my_id, my_uri = r_obj.jsondata.get('Id'), r_obj.uri
+    paramPass = compareRedfishURI(entry, my_uri, my_id)
+    return msgInterop('InteropURI', '{}'.format(entry), 'Matches', my_uri, paramPass),\
+        paramPass
+
+
 def validateInteropResource(propResourceObj, interopDict, decoded):
     """
     Base function that validates a single Interop Resource by its entry
@@ -453,6 +466,10 @@ def validateInteropResource(propResourceObj, interopDict, decoded):
     decodedtuple = (decoded, None)
     if "MinVersion" in interopDict:
         msg, success = validateMinVersion(propResourceObj.typeobj.fulltype, interopDict['MinVersion'])
+        msgs.append(msg)
+    if "URIs" in interopDict:
+        rsvLogger.info('Validating URIs')
+        msg, success = validateInteropURI(propResourceObj, interopDict['URIs'])
         msgs.append(msg)
     if "PropertyRequirements" in interopDict:
         # problem, unlisted in 0.9.9a
