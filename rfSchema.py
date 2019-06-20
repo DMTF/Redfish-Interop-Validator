@@ -10,7 +10,7 @@ import re
 import difflib
 import os.path
 
-from commonRedfish import getType, getNamespace, getNamespaceUnversioned, getVersion
+from commonRedfish import getType, getNamespace, getNamespaceUnversioned, getVersion, compareRedfishURI
 import traverseService as rst
 from urllib.parse import urlparse, urlunparse
 
@@ -479,23 +479,8 @@ class PropType:
 
     def compareURI(self, uri, my_id):
         expected_uris = self.expectedURI
-        if expected_uris is not None:
-            regex = re.compile(r"{.*?}")
-            for e in expected_uris:
-                e_left, e_right = tuple(e.rsplit('/', 1))
-                _uri_left, uri_right = tuple(uri.rsplit('/', 1))
-                e_left = regex.sub('[a-zA-Z0-9_.-]+', e_left)
-                if regex.match(e_right):
-                    if my_id is None:
-                        rst.traverseLogger.warn('No Id provided by payload')
-                    e_right = str(my_id)
-                e_compare_to = '/'.join([e_left, e_right])
-                success = re.fullmatch(e_compare_to, uri) is not None
-                if success:
-                    break
-        else:
-            success = True
-        return success
+        return compareRedfishURI(expected_uris, uri, my_id)
+
 
 
 def getTypeDetails(schemaObj, SchemaAlias):

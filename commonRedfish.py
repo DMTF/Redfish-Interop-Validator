@@ -12,6 +12,25 @@ import traverseService as rst
 
 versionpattern = 'v[0-9]_[0-9]_[0-9]'
 
+def compareRedfishURI(expected_uris, uri, my_id):
+    if expected_uris is not None:
+        regex = re.compile(r"{.*?}")
+        for e in expected_uris:
+            e_left, e_right = tuple(e.rsplit('/', 1))
+            _uri_left, uri_right = tuple(uri.rsplit('/', 1))
+            e_left = regex.sub('[a-zA-Z0-9_.-]+', e_left)
+            if regex.match(e_right):
+                if my_id is None:
+                    rst.traverseLogger.warn('No Id provided by payload')
+                e_right = str(my_id)
+            e_compare_to = '/'.join([e_left, e_right])
+            success = re.fullmatch(e_compare_to, uri) is not None
+            if success:
+                break
+    else:
+        success = True
+    return success
+
 
 def navigateJsonFragment(decoded, URILink):
     traverseLogger = rst.getLogger()

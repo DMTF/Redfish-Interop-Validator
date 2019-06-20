@@ -248,7 +248,10 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
             for linkName, link, parent in currentLinks:
                 linkURI, autoExpand, linkType, linkSchema, innerJson = link
 
-                if linkURI in allLinks or linkType == 'Resource.Item':
+                if linkURI is None:
+                    continue
+
+                if linkURI.rstrip('/') in allLinks or linkType == 'Resource.Item':
                     continue
 
                 if refLinks is not currentLinks and ('Links' in linkName.split('.') or 'RelatedItem' in linkName.split('.') or 'Redundancy' in linkName.split('.')):
@@ -262,7 +265,7 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
                     linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
                         validateSingleURI(linkURI, profile, linkURI, linkType, linkSchema, parent=parent)
 
-                allLinks.add(linkURI)
+                allLinks.add(linkURI.rstrip('/'))
 
                 if not linkSuccess:
                     continue
@@ -305,7 +308,7 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
 
     # interop service level checks
     finalResults = OrderedDict()
-    if URI != "/redfish/v1":
+    if URI not in ["/redfish/v1", "/redfish/v1/"]:
         resultEnum = commonInterop.sEnum.WARN
         traverseLogger.info("We are not validating root, warn only")
     else:
