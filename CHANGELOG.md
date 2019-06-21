@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.1.3] - 2019-06-21
+- Added support for new URIs requirement added to 1.1.0 of the profile specification
+- Made fixes to the handling of the `CompareProperty` term
+- Made fix to the handling of `IfImplemented` to not treat it as mandatory
+- Made fix to tracking of Service Root requirements
+- Made enhancements to debug log output
+
 ## [1.1.2] - 2019-05-31
 - Updated schema pack to 2019.1
 
