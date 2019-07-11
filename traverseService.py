@@ -652,7 +652,7 @@ class ResourceObj:
                 traverseLogger.debug('{}: @odata.id missing, but not required for Registry resource'
                                      .format(self.uri))
             else:
-                traverseLogger.error('{}: Json does not contain @odata.id'.format(self.uri))
+                traverseLogger.log('SERVICE', '{}: Json does not contain @odata.id'.format(self.uri))
 
         # Get our real type (check for version)
         acquiredtype = typename if forceType else jsondata.get('@odata.type', typename)
@@ -691,7 +691,7 @@ class ResourceObj:
                 elif isComplex:
                     pass
                 else:
-                    traverseLogger.error('{}:  Json does not contain @odata.context'.format(uri))
+                    traverseLogger.debug('{}:  Json does not contain @odata.context'.format(uri))
 
         self.context = context
 

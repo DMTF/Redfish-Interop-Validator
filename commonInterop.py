@@ -251,6 +251,40 @@ def validateMinVersion(version, entry):
         paramPass
 
 
+def checkConditionalRequirementResourceLevel(resource_infos, entry, itemname):
+    """
+    Returns boolean if entry's conditional is true or false
+    """
+    rsvLogger.debug('Evaluating conditionalRequirements')
+    if "SubordinateToResource" in entry:
+        isSubordinate = False
+        # unsupported?
+        return isSubordinate
+    elif "CompareProperty" in entry:
+        # find property in json payload by working backwards thru objects
+        # decoded tuple is designed just for this piece, since there is
+        # no parent in dictionaries
+        if "CompareType" not in entry:
+            rsvLogger.error("Invalid Profile - CompareType is required for CompareProperty but not found")
+            raise ValueError('CompareType missing with CompareProperty')
+        if "CompareValues" not in entry and entry['CompareType'] not in ['Absent', 'Present']:
+            rsvLogger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
+            raise ValueError('CompareValues missing with CompareProperty')
+        if "CompareValues" in entry and entry['CompareType'] in ['Absent', 'Present']:
+            rsvLogger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
+        # compatability with old version, deprecate with versioning
+
+        present = resource_infos[entry]['mark']
+        compareType = entry.get("CompareType", entry.get("Comparison"))
+
+        # only supports absent and present
+
+        return checkComparison('DNE' if not present else '[Object]', compareType, None)[1]
+    else:
+        rsvLogger.error("Invalid Profile - No conditional given")
+        raise ValueError('No conditional given for Comparison')
+
+
 def checkConditionalRequirement(propResourceObj, entry, decodedtuple, itemname):
     """
     Returns boolean if entry's conditional is true or false
