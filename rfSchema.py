@@ -600,7 +600,7 @@ def getTypeObject(typename, schemaObj):
     typename = typename.strip('#')
     if schemaObj.getTypeTagInSchema(typename) is None:
         if schemaObj.getTypeTagInSchema(getNamespaceUnversioned(typename)) is None:
-            rst.traverseLogger.error("getTypeObject: Namespace appears nonexistent in SchemaXML: {} {}".format(typename, schemaObj.origin))
+            rst.traverseLogger.log("SERVICE", "getTypeObject: Namespace appears nonexistent in SchemaXML: {} {}".format(typename, schemaObj.origin))
             return None
 
     acquiredtype = schemaObj.getHighestType(typename)

@@ -25,7 +25,11 @@ rsvLogger = rst.getLogger()
 VERBO_NUM = 15
 logging.addLevelName(VERBO_NUM, "VERBO")
 
+SERVICE_NUM = 10
+logging.addLevelName(SERVICE_NUM, "SERVICE")
+
 tool_version = '1.1.3'
+
 
 def verboseout(self, message, *args, **kws):
     if self.isEnabledFor(VERBO_NUM):
@@ -313,14 +317,17 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
     else:
         resultEnum = commonInterop.sEnum.FAIL
     for item in resource_info:
+
         if item == rst.getType(thisobj.typeobj.fulltype):
             continue
+
         if not resource_info[item].get('mark', False):
             req = resource_info[item].get("ReadRequirement", "Mandatory")
             rmessages.append(
                     commonInterop.msgInterop(item + '.ReadRequirement', req,
                         'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
                         resultEnum if req == "Mandatory" else commonInterop.sEnum.PASS))
+
         if "ConditionalRequirements" in resource_info[item]:
             innerList = resource_info[item]["ConditionalRequirements"]
             for condreq in innerList:
@@ -329,7 +336,6 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
                     commonInterop.msgInterop(item + '.Conditional.ReadRequirement',
                         req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
                         resultEnum if req == "Mandatory" else commonInterop.sEnum.PASS))
-
 
     for item in rmessages:
         if item.success == commonInterop.sEnum.WARN:
@@ -349,9 +355,9 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
     return validateSuccess, counts, finalResults, refLinks, thisobj
 
 
-#############################################################
-#########          Script starts here              ##########
-#############################################################
+#####################################################
+#          Script starts here              ##########
+#####################################################
 
 
 validatorconfig = {'payloadmode': 'Default', 'payloadfilepath': None, 'logpath': './logs', 'writecheck': False}
