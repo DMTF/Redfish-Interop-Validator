@@ -33,9 +33,11 @@ class msgInterop:
         self.parent = None
 
 
-def validateRequirement(entry, decodeditem, conditional=False):
+def validateRequirement(entry, decodeditem=None, conditional=False):
     """
     Validates Requirement entry
+
+    By default, only the first parameter is necessary and will always Pass if none given
     """
     propDoesNotExist = (decodeditem == 'DNE')
     rsvLogger.debug('Testing ReadRequirement \n\texpected:' + str(entry) + ', exists: ' + str(not propDoesNotExist))
@@ -251,14 +253,14 @@ def validateMinVersion(version, entry):
         paramPass
 
 
-def checkConditionalRequirementResourceLevel(resource_infos, entry, itemname):
+def checkConditionalRequirementResourceLevel(r_exists, entry, itemname):
     """
     Returns boolean if entry's conditional is true or false
     """
     rsvLogger.debug('Evaluating conditionalRequirements')
     if "SubordinateToResource" in entry:
         isSubordinate = False
-        # unsupported?
+        rsvLogger.warn('SubordinateToResource not supported')
         return isSubordinate
     elif "CompareProperty" in entry:
         # find property in json payload by working backwards thru objects
@@ -274,7 +276,7 @@ def checkConditionalRequirementResourceLevel(resource_infos, entry, itemname):
             rsvLogger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
         # compatability with old version, deprecate with versioning
 
-        present = resource_infos[entry]['mark']
+        present = r_exists.get(entry.get('CompareProperty'), False)
         compareType = entry.get("CompareType", entry.get("Comparison"))
 
         # only supports absent and present
