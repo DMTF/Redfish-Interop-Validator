@@ -224,8 +224,9 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
 
     # Resource level validation
     rcounts = Counter()
-    rmessages = []
     rerror = StringIO()
+    rmessages = []
+    r_exists = {}
 
     resource_info = dict(profile.get('Resources'))
 
@@ -278,31 +279,7 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
                 results.update(linkResults)
                 SchemaType = rst.getType(linkobj.typeobj.fulltype)
 
-                # Check schema level for requirements
-                if SchemaType in resource_info:
-                    traverseLogger.info("Checking service requirement for {}".format(SchemaType))
-                    req = resource_info[SchemaType].get("ReadRequirement", "Mandatory")
-                    msg, pss = commonInterop.validateRequirement(req, None)
-                    if pss and not resource_info[SchemaType].get('mark', False):
-                        rmessages.append(msg)
-                        msg.name = SchemaType + '.' + msg.name
-                        resource_info[SchemaType]['mark'] = True
-
-                    if "ConditionalRequirements" in resource_info[SchemaType]:
-                        innerList = resource_info[SchemaType]["ConditionalRequirements"]
-                        newList = list()
-                        for condreq in innerList:
-                            condtrue = commonInterop.checkConditionalRequirement(linkobj, condreq, (linkobj.jsondata, None), None)
-                            if condtrue:
-                                msg, success = commonInterop.validateRequirement(condreq.get("ReadRequirement", "Mandatory"), None)
-                                if success:
-                                    rmessages.append(msg)
-                                    msg.name = SchemaType + '.Conditional.' + msg.name
-                                else:
-                                    newList.append(condreq)
-                            else:
-                                newList.append(condreq)
-                        resource_info[SchemaType]["ConditionalRequirements"] = newList
+                r_exists[SchemaType] = True
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
@@ -311,31 +288,45 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
 
     # interop service level checks
     finalResults = OrderedDict()
+    traverseLogger.info('Service Level Checks')
     if URI not in ["/redfish/v1", "/redfish/v1/"]:
         resultEnum = commonInterop.sEnum.WARN
         traverseLogger.info("We are not validating root, warn only")
     else:
         resultEnum = commonInterop.sEnum.FAIL
-    for item in resource_info:
 
+    for item in resource_info:
         if item == rst.getType(thisobj.typeobj.fulltype):
             continue
 
-        if not resource_info[item].get('mark', False):
-            req = resource_info[item].get("ReadRequirement", "Mandatory")
-            rmessages.append(
-                    commonInterop.msgInterop(item + '.ReadRequirement', req,
-                        'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
-                        resultEnum if req == "Mandatory" else commonInterop.sEnum.PASS))
+        exists = r_exists.get(item, False)
 
         if "ConditionalRequirements" in resource_info[item]:
             innerList = resource_info[item]["ConditionalRequirements"]
             for condreq in innerList:
-                req = condreq.get("ReadRequirement", "Mandatory")
-                rmessages.append(
-                    commonInterop.msgInterop(item + '.Conditional.ReadRequirement',
-                        req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
+                if commonInterop.checkConditionalRequirementResourceLevel(r_exists, condreq, item):
+                    traverseLogger.info('Service Conditional for {} applies'.format(item))
+                    req = condreq.get("ReadRequirement", "Mandatory")
+                    rmessages.append(
+                        commonInterop.msgInterop(item + '.Conditional.ReadRequirement',
+                            req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE' if not exists else 'Exists',
+                            resultEnum if not exists and req == "Mandatory" else commonInterop.sEnum.PASS))
+                else:
+                    traverseLogger.info('Service Conditional for {} does not apply'.format(item))
+
+        req = resource_info[item].get("ReadRequirement", "Mandatory")
+
+        if not exists:
+            rmessages.append(
+                    commonInterop.msgInterop(item + '.ReadRequirement', req,
+                        'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
                         resultEnum if req == "Mandatory" else commonInterop.sEnum.PASS))
+        else:
+            rmessages.append(
+                    commonInterop.msgInterop(item + '.ReadRequirement', req,
+                        'Must Exist' if req == "Mandatory" else 'Any', 'Exists',
+                        commonInterop.sEnum.PASS))
+
 
     for item in rmessages:
         if item.success == commonInterop.sEnum.WARN:
