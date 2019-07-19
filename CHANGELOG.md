@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.1.4] - 2019-07-19
+- Downgraded several messages not related to interop profile conformance to be informational
+- Fixes to handling of conditional requirements to not produce false errors
+
 ## [1.1.3] - 2019-06-21
 - Added support for new URIs requirement added to 1.1.0 of the profile specification
 - Made fixes to the handling of the `CompareProperty` term
