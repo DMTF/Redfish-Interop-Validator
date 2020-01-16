@@ -1,4 +1,4 @@
-Copyright 2017-2018 DMTF. All rights reserved.
+Copyright 2017-2020 DMTF. All rights reserved.
 
 # Redfish Interop Validator
 
@@ -30,7 +30,7 @@ There is no dependency based on Windows or Linux OS. The result logs are generat
 
 ## Installation
 
-The RedfishInteropValidator.py into the desired tool root directory.  Create the following subdirectories in the tool root directory: "config", "logs", "SchemaFiles".  Place the example config.ini file in the "config" directory.  Place the CSDL Schema files to be used by the tool in the root of the schema directory, or the directory given in config.ini.
+Place the RedfishInteropValidator.py tool into the desired tool root directory.  Create the following subdirectories in the tool root directory: "config" and "logs".  Place the example config.ini file in the "config" directory.  The Interop Validator requires access to Redfish schema CSDL files.  The path for these files is specified in the config.ini file with 'MetadataFilePath' under [Options].  The file path should be created and all schema CSDL .xml files must be placed there.  Note - the schema files for the latest Redfish release can be found in the 'csdl' folder of DSP8010, which is available at https://www.dmtf.org/dsp/DSP8010.
 
 ## Execution Steps
 
