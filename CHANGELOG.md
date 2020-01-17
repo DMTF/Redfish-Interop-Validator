@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.1.5] - 2020-01-17
+- Added htmlLogScraper.py to generate a CSV style report
+
 ## [1.1.4] - 2019-07-19
 - Downgraded several messages not related to interop profile conformance to be informational
 - Fixes to handling of conditional requirements to not produce false errors
