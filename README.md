@@ -20,11 +20,11 @@ The Redfish Interop Validator is based on Python 3 and the client system is requ
 
 You may install the prerequisites by running:
 
-pip3 install -r requirements.txt
+`pip3 install -r requirements.txt`
 
 If you have a previous beautifulsoup4 installation, please use the following command:
 
-pip3 install beautifulsoup4 --upgrade
+`pip3 install beautifulsoup4 --upgrade`
 
 There is no dependency based on Windows or Linux OS. The result logs are generated in HTML format and an appropriate browser (Chrome, Firefox, IE, etc.) is required to view the logs on the client system.
 
@@ -40,23 +40,23 @@ Modify the config\config.ini file to enter the system details under below sectio
 
 [SystemInformation]
 
-TargetIP = <<IPv4 address of the system under test>>
+TargetIP = (IPv4 address of the system under test)
 
-UserName = <<User ID of Administrator on the system>>
+UserName = (User ID of Administrator on the system)
 
-Password = <<Password of the Administrator>>
+Password = (Password of the Administrator)
 
-AuthType = <<Type of authorization for above credentials (None,Basic,Session)>>
+AuthType = (Type of authorization for above credentials (None,Basic,Session))
 
 The Tool has an option to ignore SSL certificate check if certificate is not installed on the client system. The certificate check can be switched on or off using the below parameter of the config.ini file. By default the parameter is set to ‘Off’.  UseSSL determines whether or not the https protocol is used.  If it is `Off`, it will also disable certification.
 
 [Options]
 
-UseSSL = <<On / Off>>
+UseSSL = (On / Off)
 
-CertificateCheck = <<On / Off>>
+CertificateCheck = (On / Off)
 
-CertificateBundle = 
+CertificateBundle = Applied for SSL communications 
 
 Other  attributes under the “[Options]” section have schema specific implementations as described below
 
@@ -90,17 +90,21 @@ WarnRecommended - Warn on recommended requirements rather than Pass
 
 Once the above details are updated for the system under test, the Redfish Interop Validator can be triggered from a command prompt by typing the below command, with the option of verbosity:
 
-python3 RedfishInteropValidator.py profileName -c config/config.ini (-v)
+`python3 RedfishInteropValidator.py profileName -c config/config.ini (-v)`
 
 With or without a configuration file, a profile must be specified via the commandline.
 
 Alternatively, all of these options are available through the command line. __A configuration file overrides every option specified in the command line, such that -c should not be specified.__  In order to review these options, please run the command:
 
-python3 RedfishInteropValidator.py -h (-v)
+`python3 RedfishInteropValidator.py -h (-v)`
 
 In order to run without a configuration file, the option --ip must be specified.
 
-python3 RedfishInteropValidator.py profileName --ip host:port [...]
+`python3 RedfishInteropValidator.py profileName --ip host:port [...]`
+
+In order to print a csv report out to the text log, the command --csv_report may be added to the command line.  To convert a previous HTML log into a csv file, use the following command:
+
+`python3 tohtml.py htmllogfile`
 
 ## Execution flow
 
