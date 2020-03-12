@@ -33,7 +33,7 @@ class msgInterop:
         self.parent = None
 
 
-def validateRequirement(profile_entry, rf_payload_item=None, conditional=False):
+def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, parent_object_tuple=None):
     """
     Validates Requirement profile_entry
 
@@ -44,7 +44,18 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False):
     # If we're not mandatory, pass automatically, else fail
     # However, we have other entries "IfImplemented" and "Conditional"
     # note: Mandatory is default!! if present in the profile.  Make sure this is made sure.
-    originalprofile_entry = profile_entry
+    original_profile_entry = profile_entry
+
+    if profile_entry == "IfPopulated":
+        my_status = 'Enabled'
+        if parent_object_tuple:
+            my_state = parent_object_tuple[0].get('Status')
+            my_status = my_state.get('State') if my_state else my_status
+        if my_status != 'Absent':
+            profile_entry = 'Mandatory'
+        else:
+            profile_entry = 'Recommended'
+
     if profile_entry == "Conditional" and conditional:
         profile_entry = "Mandatory"
     if profile_entry == "IfImplemented":
@@ -58,7 +69,7 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False):
             paramPass = sEnum.WARN
 
     rsvLogger.debug('\tpass ' + str(paramPass))
-    return msgInterop('ReadRequirement', originalprofile_entry, 'Must Exist' if profile_entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
+    return msgInterop('ReadRequirement', original_profile_entry, 'Must Exist' if profile_entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
         paramPass
 
 
@@ -380,7 +391,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
         # problem: if dne, skip?
 
         # Read Requirement is default mandatory if not present
-        msg, success = validateRequirement(profile_entry.get('ReadRequirement', 'Mandatory'), rf_payload_item)
+        msg, success = validateRequirement(profile_entry.get('ReadRequirement', 'Mandatory'), rf_payload_item, parent_object_tuple=rf_payload)
         msgs.append(msg)
         msg.name = itemname + '.' + msg.name
 
