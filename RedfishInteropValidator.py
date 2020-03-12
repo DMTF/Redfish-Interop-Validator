@@ -37,43 +37,6 @@ def verboseout(self, message, *args, **kws):
 logging.Logger.verboseout = verboseout
 
 
-def checkPayloadConformance(uri, decoded):
-    """
-    checks for @odata entries and their conformance
-    These are not checked in the normal loop
-    """
-    messages = dict()
-    success = True
-    for key in [k for k in decoded if '@odata' in k]:
-        paramPass = False
-        if key == '@odata.id':
-            paramPass = isinstance(decoded[key], str)
-            paramPass = re.match(
-                '(\/.*)+(#([a-zA-Z0-9_.-]*\.)+[a-zA-Z0-9_.-]*)?', decoded[key]) is not None
-            pass
-        elif key == '@odata.count':
-            paramPass = isinstance(decoded[key], int)
-            pass
-        elif key == '@odata.context':
-            paramPass = isinstance(decoded[key], str)
-            paramPass = re.match(
-                '(\/.*)+#([a-zA-Z0-9_.-]*\.)[a-zA-Z0-9_.-]*', decoded[key]) is not None
-            pass
-        elif key == '@odata.type':
-            paramPass = isinstance(decoded[key], str)
-            paramPass = re.match(
-                '#([a-zA-Z0-9_.-]*\.)+[a-zA-Z0-9_.-]*', decoded[key]) is not None
-            pass
-        else:
-            paramPass = True
-        if not paramPass:
-            rsvLogger.verboseout(key + " @odata item not conformant: " + decoded[key])
-            success = False
-        messages[key] = (decoded[key], 'odata',
-                         'Exists',
-                         'PASS' if paramPass else 'FAIL')
-    return success, messages
-
 
 def setupLoggingCaptures():
     class WarnFilter(logging.Filter):
@@ -141,11 +104,6 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         successGet, jsondata, status, rtime = rst.callResourceURI(URI)
     else:
         successGet, jsondata = True, expectedJson
-    successPayload, odataMessages = checkPayloadConformance(URI, jsondata if successGet else {})
-
-    if not successPayload:
-        counts['failPayloadWarn'] += 1
-        rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
 
     # Generate dictionary of property info
     try:
@@ -162,6 +120,12 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         counts['exceptionResource'] += 1
         results[uriName]['warns'], results[uriName]['errors'] = next(lc)
         return False, counts, results, None, None
+
+    successPayload, odataMessages = propResourceObj.checkPayloadConformance()
+
+    if not successPayload:
+        counts['failPayloadWarn'] += 1
+        rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
     counts['passGet'] += 1
 
     # if URI was sampled, get the notation text from rst.uri_sample_map
@@ -296,7 +260,8 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
         resultEnum = commonInterop.sEnum.FAIL
 
     for item in resource_info:
-        if item == rst.getType(thisobj.typeobj.fulltype):
+        # thisobj does not exist if we didn't find the first resource
+        if thisobj and item == rst.getType(thisobj.typeobj.fulltype):
             continue
 
         exists = r_exists.get(item, False)
@@ -305,28 +270,29 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
             innerList = resource_info[item]["ConditionalRequirements"]
             for condreq in innerList:
                 if commonInterop.checkConditionalRequirementResourceLevel(r_exists, condreq, item):
-                    traverseLogger.info('Service Conditional for {} applies'.format(item))
+                    traverseLogger.info(
+                        'Service Conditional for {} applies'.format(item))
                     req = condreq.get("ReadRequirement", "Mandatory")
                     rmessages.append(
                         commonInterop.msgInterop(item + '.Conditional.ReadRequirement',
-                            req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE' if not exists else 'Exists',
-                            resultEnum if not exists and req == "Mandatory" else commonInterop.sEnum.PASS))
+                                                 req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE' if not exists else 'Exists',
+                                                 resultEnum if not exists and req == "Mandatory" else commonInterop.sEnum.PASS))
                 else:
-                    traverseLogger.info('Service Conditional for {} does not apply'.format(item))
+                    traverseLogger.info(
+                        'Service Conditional for {} does not apply'.format(item))
 
         req = resource_info[item].get("ReadRequirement", "Mandatory")
 
         if not exists:
             rmessages.append(
-                    commonInterop.msgInterop(item + '.ReadRequirement', req,
-                        'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
-                        resultEnum if req == "Mandatory" else commonInterop.sEnum.PASS))
+                commonInterop.msgInterop(item + '.ReadRequirement', req,
+                                         'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
+                                         resultEnum if req == "Mandatory" else commonInterop.sEnum.PASS))
         else:
             rmessages.append(
-                    commonInterop.msgInterop(item + '.ReadRequirement', req,
-                        'Must Exist' if req == "Mandatory" else 'Any', 'Exists',
-                        commonInterop.sEnum.PASS))
-
+                commonInterop.msgInterop(item + '.ReadRequirement', req,
+                                         'Must Exist' if req == "Mandatory" else 'Any', 'Exists',
+                                         commonInterop.sEnum.PASS))
 
     for item in rmessages:
         if item.success == commonInterop.sEnum.WARN:
@@ -336,10 +302,10 @@ def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=Non
         elif item.success == commonInterop.sEnum.FAIL:
             rcounts['fail.{}'.format(item.name)] += 1
 
-    finalResults['n/a'] = {'uri': "Service Level Requirements", 'success':rcounts.get('fail', 0) == 0,\
-            'counts':rcounts,\
-            'messages':rmessages, 'errors':rerror.getvalue(), 'warns': '',\
-            'rtime':'', 'context':'', 'fulltype':''}
+    finalResults['n/a'] = {'uri': "Service Level Requirements", 'success': rcounts.get('fail', 0) == 0,
+                           'counts': rcounts,
+                           'messages': rmessages, 'errors': rerror.getvalue(), 'warns': '',
+                           'rtime': '', 'context': '', 'fulltype': ''}
     finalResults.update(results)
     rerror.close()
 
