@@ -1,5 +1,9 @@
 # Change Log
 
+## [1.1.6] - 2020-03-13
+- Added support for `IfPopulated` expressions
+- Added support for `@Redfish.ActionInfo` on actions
+
 ## [1.1.5] - 2020-01-17
 - Added htmlLogScraper.py to generate a CSV style report
 
