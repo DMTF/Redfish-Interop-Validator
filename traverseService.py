@@ -1,5 +1,5 @@
 # Copyright Notice:
-# Copyright 2016-2018 DMTF. All rights reserved.
+# Copyright 2016-2020 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
 import requests
@@ -340,7 +340,6 @@ class rfService():
             traverseLogger.warn("This URI is empty!")
             return False, None, -1, 0
 
-        URILink = URILink.rstrip('/')
         config = currentService.config
         proxies = currentService.proxies
         ConfigIP, UseSSL, AuthType, ChkCert, ChkCertBundle, timeout, Token = config['targetip'], config['usessl'], config['authtype'], \
@@ -521,7 +520,6 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
             traverseLogger.error("Resource no longer a dictionary...")
         else:
             traverseLogger.debug("ComplexType does not have val")
-        return success, None, status
         return None
 
     acquiredtype = jsondata.get('@odata.type', typename)
@@ -541,7 +539,7 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
             context = createContext(acquiredtype)
 
     # Get Schema object
-    schemaObj = rfSchema.getSchemaObject(acquiredtype, context)
+    schemaObj = rfSchema.getSchemaObject(acquiredtype, createContext(acquiredtype))
     if schemaObj is None:
         traverseLogger.warn("ResourceObject creation: No schema XML for {} {}".format(acquiredtype, context))
         return None
@@ -582,6 +580,8 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
         if fragment is '':
             if original_jsondata is None:
                 traverseLogger.debug('Acquired resource OK {}'.format(uri_item))
+            elif os.path.isfile(uri_item):
+                traverseLogger.info('Acquired resource is File OK {}'.format(uri_item))
             else:
                 traverseLogger.debug('Acquired resource thru AutoExpanded means {}'.format(uri_item))
                 traverseLogger.info('Regetting resource from URI {}'.format(uri_item))
@@ -627,10 +627,12 @@ class ResourceObj:
         }
 
         oem = config.get('oemcheck', True)
+        acquiredtype = typename if forceType else jsondata.get('@odata.type', typename)
 
         # Check if this is a Registry resource
         parent_type = parent.typename if parent is not None and parent is not None else None
-        if parent_type is not None and getType(parent_type) == 'MessageRegistryFile':
+        if parent_type is not None and getType(parent_type) == 'MessageRegistryFile' or\
+                getType(acquiredtype) in ['MessageRegistry', 'AttributeRegistry', 'PrivilegeRegistry']:
             traverseLogger.debug('{} is a Registry resource'.format(self.uri))
             self.isRegistry = True
             self.context = None
@@ -655,7 +657,6 @@ class ResourceObj:
                 traverseLogger.log('SERVICE', '{}: Json does not contain @odata.id'.format(self.uri))
 
         # Get our real type (check for version)
-        acquiredtype = typename if forceType else jsondata.get('@odata.type', typename)
         if acquiredtype is None:
             traverseLogger.error(
                 '{}:  Json does not contain @odata.type or NavType'.format(uri))
@@ -696,7 +697,7 @@ class ResourceObj:
         self.context = context
 
         # Get Schema object
-        self.schemaObj = rfSchema.getSchemaObject(acquiredtype, self.context)
+        self.schemaObj = rfSchema.getSchemaObject(acquiredtype, createContext(acquiredtype))
 
         if self.schemaObj is None:
             traverseLogger.error("ResourceObject creation: No schema XML for {} {} {}".format(typename, acquiredtype, self.context))
@@ -760,7 +761,7 @@ class ResourceObj:
         if successService:
             self.additionalList.extend(annotationProps)
 
-        # list illegitimate properties together
+        # list illegitimate properties to get
         self.unknownProperties = [k for k in self.jsondata if k not in propertyList +
                 [prop.payloadName for prop in self.additionalList] and '@odata' not in k]
 
@@ -778,44 +779,56 @@ class ResourceObj:
         allprops = self.propertyList + self.additionalList[:min(len(self.additionalList), 100)]
         return allprops
 
-    def checkPayloadConformance(self):
+    @staticmethod
+    def checkPayloadConformance(jsondata, uri):
         """
         checks for @odata entries and their conformance
         These are not checked in the normal loop
         """
         messages = dict()
-        decoded = self.jsondata
+        decoded = jsondata
         success = True
         for key in [k for k in decoded if '@odata' in k]:
             paramPass = False
+
             if key == '@odata.id':
                 paramPass = isinstance(decoded[key], str)
                 paramPass = re.match(
                     '(\/.*)+(#([a-zA-Z0-9_.-]*\.)+[a-zA-Z0-9_.-]*)?', decoded[key]) is not None
-                pass
+                if not paramPass:
+                    traverseLogger.warn("{} {}: Expected format is /path/to/uri, but received: {}".format(uri, key, decoded[key]))
+                else:
+                    if decoded[key] != uri:
+                        traverseLogger.warn("{} {}: Expected @odata.id to match URI link {}".format(uri, key, decoded[key]))
             elif key == '@odata.count':
                 paramPass = isinstance(decoded[key], int)
-                pass
+                if not paramPass:
+                    traverseLogger.warn("{} {}: Expected an integer, but received: {}".format(uri, key, decoded[key]))
             elif key == '@odata.context':
                 paramPass = isinstance(decoded[key], str)
                 paramPass = re.match(
                     '(\/.*)+#([a-zA-Z0-9_.-]*\.)[a-zA-Z0-9_.-]*', decoded[key]) is not None
-                pass
+                if not paramPass:
+                    traverseLogger.warn("{} {}: Expected format is /redfish/v1/$metadata#ResourceType, but received: {}".format(uri, key, decoded[key]))
+                    messages[key] = (decoded[key], 'odata',
+                                    'Exists',
+                                    'WARN')
+                    continue
             elif key == '@odata.type':
                 paramPass = isinstance(decoded[key], str)
                 paramPass = re.match(
                     '#([a-zA-Z0-9_.-]*\.)+[a-zA-Z0-9_.-]*', decoded[key]) is not None
-                pass
+                if not paramPass:
+                    traverseLogger.warn("{} {}: Expected format is #Namespace.Type, but received: {}".format(uri, key, decoded[key]))
             else:
                 paramPass = True
-            if not paramPass:
-                traverseLogger.verboseout(key + " @odata item not conformant: " + decoded[key])
-                success = False
+
+            success = success and paramPass
+            
             messages[key] = (decoded[key], 'odata',
                             'Exists',
                             'PASS' if paramPass else 'FAIL')
         return success, messages
-
 
 
 def enumerate_collection(items, cTypeName, linklimits, sample_size):
@@ -883,25 +896,26 @@ def getAllLinks(jsonData, propList, schemaObj, prefix='', context='', linklimits
         traverseLogger.error("Generating links requires a dict")
     refDict = schemaObj.refs
     try:
-        for propx in propList:
-            propDict = propx.propDict
+        for prop_item in propList:
+            propDict = prop_item.propDict
             if propDict is None:
                 continue
 
             isNav = propDict.get('isNav', False)
-            key = propx.name
+            key = prop_item.name
             item = getType(key).split(':')[-1]
 
-            insideItem = propx.val if propx.exists else None
+            insideItem = prop_item.val if prop_item.exists else None
             autoExpand = propDict.get('OData.AutoExpand', None) is not None or\
                 propDict.get('OData.AutoExpand'.lower(), None) is not None
             cType = propDict.get('isCollection')
-            ownerNS = propx.propOwner.split('.')[0]
-            ownerType = propx.propOwner.split('.')[-1]
+            ownerNS = prop_item.propOwner.split('.')[0]
+            ownerType = prop_item.propOwner.split('.')[-1]
 
             if isNav:
                 if insideItem is not None:
                     if cType is not None:
+                        # if is collection
                         cTypeName = getType(cType)
                         cSchema = refDict.get(getNamespace(cType), (None, None))[1]
                         if cSchema is None:

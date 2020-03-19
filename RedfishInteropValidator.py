@@ -105,6 +105,13 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     else:
         successGet, jsondata = True, expectedJson
 
+    if jsondata is not None:
+        successPayload, odataMessages = rst.ResourceObj.checkPayloadConformance(jsondata, URI)
+
+        if not successPayload:
+            counts['failPayloadWarn'] += 1
+            rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
+
     # Generate dictionary of property info
     try:
         propResourceObj = rst.createResourceObject(
@@ -121,11 +128,6 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         results[uriName]['warns'], results[uriName]['errors'] = next(lc)
         return False, counts, results, None, None
 
-    successPayload, odataMessages = propResourceObj.checkPayloadConformance()
-
-    if not successPayload:
-        counts['failPayloadWarn'] += 1
-        rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
     counts['passGet'] += 1
 
     # if URI was sampled, get the notation text from rst.uri_sample_map
@@ -338,6 +340,7 @@ def main(arglist=None, direct_parser=None):
     argget.add_argument('--verbose_checks', action="store_const", const=VERBO_NUM, default=logging.INFO,
             help='Show all checks in logging (parameter-only)')
     argget.add_argument('--nooemcheck', action='store_const', const=True, default=None, help='Don\'t check OEM items')
+    argget.add_argument('--csv_report', action='store_true', help='print a csv report at the end of the log')
 
     # service
     argget.add_argument('-i', '--ip', type=str, help='ip to test on [host:port]')
@@ -369,7 +372,6 @@ def main(arglist=None, direct_parser=None):
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
-    argget.add_argument('--csv_report', action='store_true', help='print a csv report at the end of the log')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
     # todo: write patches
     argget.add_argument('--writecheck', action='store_true', help='(unimplemented) specify to allow WriteRequirement checks')
@@ -490,7 +492,7 @@ def main(arglist=None, direct_parser=None):
         elif 'Tree' in rst.config.get('payloadmode'):
             success, counts, resultsNew, xlinks, topobj = validateURITree(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
         else:
-            success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1', 'ServiceRoot', profile, expectedJson=jsonData)
+            success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1/', 'ServiceRoot', profile, expectedJson=jsonData)
 
         if results is None:
             results = resultsNew
