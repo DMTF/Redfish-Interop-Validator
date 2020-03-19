@@ -1,5 +1,5 @@
 # Copyright Notice:
-# Copyright 2016-2018 DMTF. All rights reserved.
+# Copyright 2016-2020 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
 from collections import namedtuple
@@ -10,7 +10,7 @@ import re
 import difflib
 import os.path
 
-from commonRedfish import getType, getNamespace, getNamespaceUnversioned, getVersion, compareRedfishURI
+from commonRedfish import getType, getNamespace, getNamespaceUnversioned, getVersion, compareMinVersion, splitVersionString
 import traverseService as rst
 from urllib.parse import urlparse, urlunparse
 
@@ -350,16 +350,17 @@ class rfSchema:
             if limit is not None:
                 if getVersion(newNamespace) is None:
                     continue
-                if getVersion(newNamespace) > limit:
+                if compareMinVersion(newNamespace, limit):
                     continue
             if schema.find(['EntityType', 'ComplexType'], attrs={'Name': getType(acquiredtype)}, recursive=False):
-                typelist.append(newNamespace)
+                typelist.append(splitVersionString(newNamespace))
 
-        for ns in reversed(sorted(typelist)):
-            rst.traverseLogger.debug(
-                "{}   {}".format(ns, getType(acquiredtype)))
-            acquiredtype = ns + '.' + getType(acquiredtype)
-            return acquiredtype
+        if len(typelist) > 1:
+            for ns in reversed(sorted(typelist)):
+                rst.traverseLogger.debug(
+                    "{}   {}".format(ns, getType(acquiredtype)))
+                acquiredtype = getNamespaceUnversioned(acquiredtype) + '.v{}_{}_{}'.format(*ns) + '.' + getType(acquiredtype)
+                return acquiredtype
         return acquiredtype
 
 
@@ -376,6 +377,17 @@ def getSchemaObject(typename, uri, metadata=None):
     success, soup, origin = getSchemaDetails(typename, uri)
 
     return rfSchema(soup, uri, origin, metadata=metadata, name=typename) if success else None
+
+
+def get_fuzzy_property(newProp, jsondata, allPropList=[]):
+    pname = newProp
+    possibleMatch = difflib.get_close_matches(newProp, [s for s in jsondata], 1, 0.70)
+    if len(possibleMatch) > 0 and possibleMatch[0] not in [s[2] for s in allPropList if s[2] != newProp]:
+        val = jsondata.get(possibleMatch[0], 'n/a')
+        if val != 'n/a':
+            pname = possibleMatch[0]
+            rst.traverseLogger.error('{} was not found in payload, attempting closest match: {}'.format(newProp, pname))
+    return pname
 
 
 class PropType:
@@ -422,16 +434,14 @@ class PropType:
         self.initiated = True
 
     def getTypeChain(self):
-        if self.fulltype is None:
-            raise StopIteration
-        else:
+        if self.fulltype is not None:
             node = self
             tlist = []
             while node is not None:
                 tlist.append(node.fulltype)
                 yield node.fulltype
                 node = node.parent
-            raise StopIteration
+        return
 
     def getLinksFromType(self, jsondata, context, propList=None, oemCheck=True, linklimits={}, sample=None):
         node = self
@@ -459,13 +469,11 @@ class PropType:
             pname = newProp
             # if our val is empty, do fuzzy check for property that exists in payload but not in all properties
             if val == 'n/a':
-                possibleMatch = difflib.get_close_matches(newProp, [s for s in jsondata], 1, 0.70)
-                if len(possibleMatch) > 0 and possibleMatch[0] not in [s[2] for s in allPropList if s[2] != newProp]:
-                    val = jsondata.get(possibleMatch[0], 'n/a')
-                    if val != 'n/a':
-                        pname = possibleMatch[0]
-                        rst.traverseLogger.error('{} was not found in payload, attempting closest match: {}'.format(newProp, pname))
-            props.append(PropItem(schemaObj, newPropOwner, newProp, val, topVersion, payloadName=pname))
+                pname = get_fuzzy_property(newProp, jsondata, allPropList)
+            validTypes = [getNamespace(x) for x in self.getTypeChain()]
+            if (topVersion in validTypes):
+                validTypes = validTypes[validTypes.index(topVersion):]
+            props.append(PropItem(schemaObj, newPropOwner, newProp, val, topVersion, payloadName=pname, versionList=validTypes))
 
         return props
 
@@ -475,12 +483,27 @@ class PropType:
             for prop in node.actionList:
                 yield prop
             node = node.parent
-        raise StopIteration
+        return
 
     def compareURI(self, uri, my_id):
         expected_uris = self.expectedURI
-        return compareRedfishURI(expected_uris, uri, my_id)
-
+        if expected_uris is not None:
+            regex = re.compile(r"{.*?}")
+            for e in expected_uris:
+                e_left, e_right = tuple(e.rsplit('/', 1))
+                _uri_left, uri_right = tuple(uri.rsplit('/', 1))
+                e_left = regex.sub('[a-zA-Z0-9_.-]+', e_left)
+                if regex.match(e_right):
+                    if my_id is None:
+                        rst.traverseLogger.warn('No Id provided by payload')
+                    e_right = str(my_id)
+                e_compare_to = '/'.join([e_left, e_right])
+                success = re.fullmatch(e_compare_to, uri) is not None
+                if success:
+                    break
+        else:
+            success = True
+        return success
 
 
 def getTypeDetails(schemaObj, SchemaAlias):
@@ -614,14 +637,14 @@ def getTypeObject(typename, schemaObj):
 
 
 class PropItem:
-    def __init__(self, schemaObj, propOwner, propChild, val, topVersion=None, customType=None, payloadName=None):
+    def __init__(self, schemaObj, propOwner, propChild, val, topVersion=None, customType=None, payloadName=None, versionList=None):
         try:
             self.name = propOwner + ':' + propChild
             self.propOwner, self.propChild = propOwner, propChild
             self.val = val
-            self.valid = topVersion is None or \
-                    (getNamespaceUnversioned(propOwner) in topVersion and getNamespace(propOwner) <= topVersion)\
-                    or getNamespaceUnversioned(propOwner) not in topVersion
+            self.valid = topVersion is None or\
+                    versionList is None or\
+                    (getNamespace( propOwner ) in versionList)
             self.exists = val != 'n/a'
             self.payloadName = payloadName if payloadName is not None else propChild
             self.propDict = getPropertyDetails(

@@ -1,6 +1,6 @@
 # Copyright Notice:
-# Copyright 2018 DMTF. All rights reserved.
-# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Service-Validator/blob/master/LICENSE.md
+# Copyright 2018-2020 DMTF. All rights reserved.
+# License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
 import os
 import time
@@ -19,13 +19,13 @@ EDM_TAGS = ['Action', 'Annotation', 'Collection', 'ComplexType', 'EntityContaine
 EDMX_TAGS = ['DataServices', 'Edmx', 'Include', 'Reference']
 
 
-live_zip_uri = 'http://redfish.dmtf.org/schemas/DSP8010_2019.1.zip'
+live_zip_uri = 'http://redfish.dmtf.org/schemas/DSP8010_2019.4.zip'
 
 
 def setup_schema_pack(uri, local_dir, proxies, timeout):
-    rst.traverseLogger.info('Unpacking schema pack...')
     if uri == 'latest':
         uri = live_zip_uri
+    rst.traverseLogger.info('Unpacking schema pack... {}'.format(uri))
     try:
         if not os.path.isdir(local_dir):
             os.makedirs(local_dir)

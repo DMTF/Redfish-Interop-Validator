@@ -6,11 +6,17 @@
 
 if __name__ != '__main__':
     import traverseService as rst
-    from commonRedfish import *
+    from commonRedfish import getNamespace, getType
+else:
+    import argparse
+    from bs4 import BeautifulSoup
+    import os, csv
 import RedfishLogo as logo
+from types import SimpleNamespace
+from collections import Counter, OrderedDict
 import html
-import csv,os, argparse
-from bs4 import BeautifulSoup
+import json
+
 
 def wrapTag(string, tag='div', attr=None):
     string = str(string)
@@ -226,13 +232,13 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, printCSV)
     return wrapTag(wrapTag(htmlStrTop + wrapTag(htmlStrBodyHeader + htmlPage, 'table'), 'body'), 'html')
 
 
-
 def writeHtml(string, path):
     with open(path, 'w', encoding='utf-8') as f:
         f.write(string)
 
+
 def htmlLogScraper(htmlReport):
-    outputLogName = (htmlReport.split('\\')[1].split('.html')[0])
+    outputLogName = os.path.split(htmlReport)[0]
     output = open(f'./logs/{outputLogName}.csv','w',newline='')
     csv_output = csv.writer(output)
     csv_output.writerow(['URI','Status','Response Time','Context','File Origin','Resource Type','Property Name','Value','Expected','Actual','Result'])
@@ -270,7 +276,9 @@ def htmlLogScraper(htmlReport):
     for table in properties:
         tableToStr = str(table)
         tableID = tableToStr.split('id=')[1].split('>')[0].strip('"')
-        tableBody = table.find_all('table')[1]
+        if len(table.find_all('table')) == 0:
+            continue
+        tableBody = table.find_all('table')[-1]
         tableRows = tableBody.find_all('tr')[1:] #get rows from property tables excluding header
         for tr in tableRows:
             td = tr.find_all('td')
@@ -279,6 +287,7 @@ def htmlLogScraper(htmlReport):
                 if v == tableID:
                     data.append(k+'*'.join(row))
     csv_output.writerows([x.split('*') for x in data]) #using * for csv splitting since some values have commas
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Get an excel sheet of details shown in the HTML reports for the Redfish Interoperability Validator')

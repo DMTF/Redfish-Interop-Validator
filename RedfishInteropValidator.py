@@ -338,6 +338,7 @@ def main(arglist=None, direct_parser=None):
     argget.add_argument('--verbose_checks', action="store_const", const=VERBO_NUM, default=logging.INFO,
             help='Show all checks in logging (parameter-only)')
     argget.add_argument('--nooemcheck', action='store_const', const=True, default=None, help='Don\'t check OEM items')
+    argget.add_argument('--csv_report', action='store_true', help='print a csv report at the end of the log')
 
     # service
     argget.add_argument('-i', '--ip', type=str, help='ip to test on [host:port]')
@@ -369,7 +370,6 @@ def main(arglist=None, direct_parser=None):
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
-    argget.add_argument('--csv_report', action='store_true', help='print a csv report at the end of the log')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
     # todo: write patches
     argget.add_argument('--writecheck', action='store_true', help='(unimplemented) specify to allow WriteRequirement checks')
