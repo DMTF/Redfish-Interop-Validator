@@ -105,6 +105,12 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     else:
         successGet, jsondata = True, expectedJson
 
+    successPayload, odataMessages = rst.ResourceObj.checkPayloadConformance(jsondata, URI)
+
+    if not successPayload:
+        counts['failPayloadWarn'] += 1
+        rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
+
     # Generate dictionary of property info
     try:
         propResourceObj = rst.createResourceObject(
@@ -121,11 +127,6 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         results[uriName]['warns'], results[uriName]['errors'] = next(lc)
         return False, counts, results, None, None
 
-    successPayload, odataMessages = propResourceObj.checkPayloadConformance()
-
-    if not successPayload:
-        counts['failPayloadWarn'] += 1
-        rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
     counts['passGet'] += 1
 
     # if URI was sampled, get the notation text from rst.uri_sample_map
@@ -490,7 +491,7 @@ def main(arglist=None, direct_parser=None):
         elif 'Tree' in rst.config.get('payloadmode'):
             success, counts, resultsNew, xlinks, topobj = validateURITree(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
         else:
-            success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1', 'ServiceRoot', profile, expectedJson=jsonData)
+            success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1/', 'ServiceRoot', profile, expectedJson=jsonData)
 
         if results is None:
             results = resultsNew
