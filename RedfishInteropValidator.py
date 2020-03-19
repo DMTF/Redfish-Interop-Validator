@@ -105,11 +105,12 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     else:
         successGet, jsondata = True, expectedJson
 
-    successPayload, odataMessages = rst.ResourceObj.checkPayloadConformance(jsondata, URI)
+    if jsondata is not None:
+        successPayload, odataMessages = rst.ResourceObj.checkPayloadConformance(jsondata, URI)
 
-    if not successPayload:
-        counts['failPayloadWarn'] += 1
-        rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
+        if not successPayload:
+            counts['failPayloadWarn'] += 1
+            rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
 
     # Generate dictionary of property info
     try:
