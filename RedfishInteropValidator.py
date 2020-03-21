@@ -28,7 +28,7 @@ logging.addLevelName(VERBO_NUM, "VERBO")
 SERVICE_NUM = 10
 logging.addLevelName(SERVICE_NUM, "SERVICE")
 
-tool_version = '1.1.6'
+tool_version = '1.1.7'
 
 
 def verboseout(self, message, *args, **kws):

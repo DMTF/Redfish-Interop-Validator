@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.1.7] - 2020-03-21
+- Resynched common validation code with the Service Validator
+
 ## [1.1.6] - 2020-03-13
 - Added support for `IfPopulated` expressions
 - Added support for `@Redfish.ActionInfo` on actions
