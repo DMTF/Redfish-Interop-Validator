@@ -138,7 +138,7 @@ Upon validation of a resource, the following types of tests may occur:
  
 ## Conformance Logs - Summary and Detailed Conformance Report
 
-The Redfish Interop Validator generates an html report under the "logs" folder, named as  The report gives the detailed view of the individual properties checked, with the Pass/Fail/Skip/Warning status for each resource checked for conformance.
+The Redfish Interop Validator generates reports in the "logs" folder: a text version named "InteropLog_MM_DD_YYYY_HHMMSS.txt" and an html version named "InteropHtmlLog_MM_DD_YYYY_HHMMSS.html". The reports give the detailed view of the individual properties checked, with the Pass/Fail/Skip/Warning status for each resource checked for conformance.
 
 There is a verbose log file that may be referenced to diagnose tool or schema problems when the stdout print out is insufficient, located in logs/ConformanceLog_MM_DD_YYYY_HHMMSS.html
 
