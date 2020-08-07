@@ -8,7 +8,7 @@ import traverseService as rst
 from enum import Enum
 from collections import Counter
 
-rsvLogger = rst.getLogger()
+from RedfishInteropValidator import rsvLogger
 
 config = {'WarnRecommended': False, 'WriteCheck': False}
 
