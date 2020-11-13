@@ -370,7 +370,7 @@ def main(arglist=None, direct_parser=None):
     argget.add_argument('--suffix', type=str, help='suffix of local schema files (for version differences)')
 
     # Config information unique to Interop Validator
-    argget.add_argument('profile', type=str, default='sample.json', help='interop profile with which to validate service against')
+    argget.add_argument('profile', type=str, default='sample.json', nargs='+', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
     # todo: write patches
@@ -443,29 +443,33 @@ def main(arglist=None, direct_parser=None):
     # start printing
     rsvLogger.info('ConfigURI: ' + ConfigURI)
     rsvLogger.info('System Info: ' + sysDescription)
-    rsvLogger.info('Profile:' + config['profile'])
+    rsvLogger.info('Profile:' + ' '.join(config['profile']))
     rsvLogger.info('\n'.join(
         ['{}: {}'.format(x, config[x]) for x in sorted(list(config.keys() - set(['systeminfo', 'targetip', 'password', 'description']))) if config[x] not in ['', None]]))
     rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))
 
     # Interop Profile handling
-    profile = schema = None
+    my_profiles = []
     success = True
-    with open(args.profile) as f:
-        profile = json.loads(f.read())
-        if args.schema is not None:
-            with open(args.schema) as f:
-                schema = json.loads(f.read())
+    for filename in args.profile:
+        with open(filename) as f:
+            my_profiles.append((filename, json.loads(f.read())))
+    if args.schema is not None:
+        with open(args.schema) as f:
+            schema = json.loads(f.read())
+            for name, profile in my_profiles:
                 success = checkProfileAgainstSchema(profile, schema)
-    if not success:
-        rsvLogger.info("Profile did not conform to the given schema...")
-        return 1
+                if not success:
+                    rsvLogger.info("Profile {} did not conform to the given schema...".format(name))
+                    return 1, None, 'Profile Did Not Conform'
 
     # Combine profiles
-    profiles = getProfiles(profile, './')
+    all_profiles = []
+    for name, profile in my_profiles:
+        all_profiles.extend(getProfiles(profile, './'))
 
     rsvLogger.info('\nProfile Hashes: ')
-    for profile in profiles:
+    for profile in all_profiles:
         profileName = profile.get('ProfileName')
         rsvLogger.info('profile: {}, dict md5 hash: {}'.format(profileName, hashProfile(profile) ))
 
@@ -485,7 +489,7 @@ def main(arglist=None, direct_parser=None):
             return 1
 
     results = None
-    for profile in profiles:
+    for profile in all_profiles:
         profileName = profile.get('ProfileName')
         if 'Single' in rst.config.get('payloadmode'):
             success, counts, resultsNew, xlinks, topobj = validateSingleURI(rst.config.get('payloadfilepath'), profile, 'Target', expectedJson=jsonData)
@@ -498,12 +502,14 @@ def main(arglist=None, direct_parser=None):
             results = resultsNew
         else:
             for item in resultsNew:
-                innerCounts = results[item]['counts']
-                innerCounts.update(resultsNew[item]['counts'])
+                for x in resultsNew[item]['messages']:
+                    x.name = profileName + ' -- ' + x.name
                 if item in results:
-                    for x in resultsNew[item]['messages']:
-                        x.name = profileName + ' -- ' + x.name
+                    innerCounts = results[item]['counts']
+                    innerCounts.update(resultsNew[item]['counts'])
                     results[item]['messages'].extend(resultsNew[item]['messages'])
+                else:
+                    results[item] = resultsNew[item]
             #resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
             #results.update(resultsNew)
 

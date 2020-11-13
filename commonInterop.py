@@ -192,6 +192,7 @@ def checkComparison(val, compareType, target):
     if compareType == "Present":
         paramPass = val != 'DNE'
 
+    original_target = target
     if isinstance(target, list):
         if len(target) >= 1:
             target = target[0]
@@ -212,7 +213,7 @@ def checkComparison(val, compareType, target):
         if compareType == "LessThanOrEqual":
             paramPass = val <= target
     rsvLogger.debug('\tpass ' + str(paramPass))
-    return msgInterop('Comparison', target, compareType, val, paramPass),\
+    return msgInterop('Comparison', original_target, compareType, val, paramPass),\
         paramPass
 
 
