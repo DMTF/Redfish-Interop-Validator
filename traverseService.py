@@ -768,7 +768,7 @@ class ResourceObj:
         self.links = OrderedDict()
 
         sample = config.get('sample')
-        linklimits = config.get('linklimits', {})
+        linklimits = config.get('linklimit', {})
         self.links.update(self.typeobj.getLinksFromType(self.jsondata, self.context, self.propertyList, oem, linklimits, sample))
 
         self.links.update(getAllLinks(
