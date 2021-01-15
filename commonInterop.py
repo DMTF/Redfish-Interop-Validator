@@ -493,12 +493,13 @@ def validateActionRequirement(propResourceObj, profile_entry, rf_payload_tuple, 
                 values_array = rf_payload_item.get(str(k) + '@Redfish.AllowableValues', 'DNE')
             if values_array == 'DNE':
                 rsvLogger.warn('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(k))
+                msg = msgInterop('', item, '-', '-', sEnum.WARN)
+                msg.name = "{}.{}.{}".format(actionname, k, msg.name)
+                msgs.append(msg)
             else:
                 msg, success = validateRequirement(item.get('ReadRequirement', "Mandatory"), values_array)
                 msgs.append(msg)
                 msg.name = "{}.{}.{}".format(actionname, k, msg.name)
-                if values_array == 'DNE':
-                    continue
                 if "ParameterValues" in item:
                     msg, success = validateSupportedValues(
                             item["ParameterValues"], values_array)
