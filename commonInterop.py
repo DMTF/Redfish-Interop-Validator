@@ -96,6 +96,7 @@ def validateSupportedValues(enumlist, annotation):
     Validates SupportedVals annotation
     """
     rsvLogger.debug('Testing supportedValues \n\t:' + str(enumlist) + ', exists:' + str(annotation))
+    paramPass = True
     for item in enumlist:
         paramPass = item in annotation
         if not paramPass:
@@ -490,29 +491,33 @@ def validateActionRequirement(propResourceObj, profile_entry, rf_payload_tuple, 
                     values_array = my_action[0].get('AllowableValues')
             if values_array is None:
                 values_array = rf_payload_item.get(str(k) + '@Redfish.AllowableValues', 'DNE')
-            msg, success = validateRequirement(item.get('ReadRequirement', "Mandatory"), values_array)
-            msgs.append(msg)
-            msg.name = "{}.{}.{}".format(actionname, k, msg.name)
             if values_array == 'DNE':
-                continue
-            if "ParameterValues" in item:
-                msg, success = validateSupportedValues(
-                        item["ParameterValues"], values_array)
+                rsvLogger.warn('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(k))
+                msg = msgInterop('', item, '-', '-', sEnum.WARN)
+                msg.name = "{}.{}.{}".format(actionname, k, msg.name)
+                msgs.append(msg)
+            else:
+                msg, success = validateRequirement(item.get('ReadRequirement', "Mandatory"), values_array)
                 msgs.append(msg)
                 msg.name = "{}.{}.{}".format(actionname, k, msg.name)
-            if "RecommendedValues" in item:
-                msg, success = validateSupportedValues(
-                        item["RecommendedValues"], values_array)
-                msg.name = msg.name.replace('Supported', 'Recommended')
-                if config['WarnRecommended'] and not success:
-                    rsvLogger.warn('\tRecommended parameters do not all exist, escalating to WARN')
-                    msg.success = sEnum.WARN
-                elif not success:
-                    rsvLogger.warn('\tRecommended parameters do not all exist, but are not Mandatory')
-                    msg.success = sEnum.PASS
+                if "ParameterValues" in item:
+                    msg, success = validateSupportedValues(
+                            item["ParameterValues"], values_array)
+                    msgs.append(msg)
+                    msg.name = "{}.{}.{}".format(actionname, k, msg.name)
+                if "RecommendedValues" in item:
+                    msg, success = validateSupportedValues(
+                            item["RecommendedValues"], values_array)
+                    msg.name = msg.name.replace('Supported', 'Recommended')
+                    if config['WarnRecommended'] and not success:
+                        rsvLogger.warn('\tRecommended parameters do not all exist, escalating to WARN')
+                        msg.success = sEnum.WARN
+                    elif not success:
+                        rsvLogger.warn('\tRecommended parameters do not all exist, but are not Mandatory')
+                        msg.success = sEnum.PASS
 
-                msgs.append(msg)
-                msg.name = "{}.{}.{}".format(actionname, k, msg.name)
+                    msgs.append(msg)
+                    msg.name = "{}.{}.{}".format(actionname, k, msg.name)
     # consider requirement before anything else, what if action
     # if the action doesn't exist, you can't check parameters
     # if it doesn't exist, what should not be checked for action
