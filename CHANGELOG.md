@@ -1,5 +1,8 @@
 # Change Log
 
+## [1.1.8] - 2021-06-18
+- Corrected conditional requirements to properly account for all values specified
+
 ## [1.1.7] - 2020-03-21
 - Resynched common validation code with the Service Validator
 
