@@ -104,7 +104,7 @@ def main(argslist=None, configfile=None):
             my_config.write(f)
 
     from urllib.parse import urlparse, urlunparse
-    scheme, netloc, path, params, query, fragment = urlparse(args.ip)
+    scheme, netloc, _, _, _, _ = urlparse(args.ip)
     if scheme not in ['http', 'https']:
         my_logger.error('IP is missing http or https')
         return 1, None, 'IP Incomplete'
@@ -154,57 +154,71 @@ def main(argslist=None, configfile=None):
     # Combine profiles
     all_profiles = []
     for name, profile in my_profiles:
-        all_profiles.extend(getProfiles(profile, './'))
+        all_profiles.append(profile)
+        # all_profiles.extend(getProfiles(profile, './'))
 
     my_logger.info('\nProfile Hashes: ')
     for profile in all_profiles:
         profileName = profile.get('ProfileName')
-        my_logger.info('profile: {}, dict md5 hash: {}'.format(profileName, hashProfile(profile) ))
+        my_logger.info('profile: {}, dict md5 hash: {}'.format(profileName, hashProfile(profile)))
 
     # Start main
-    # status_code = 1
-    # jsonData = None
-    # if rst.config.get('payloadmode') not in ['Tree', 'Single', 'SingleFile', 'TreeFile', 'Default']:
-    #     rst.config['payloadmode'] = 'Default'
-    #     my_logger.error('PayloadMode or path invalid, using Default behavior')
-    # if 'File' in rst.config.get('payloadmode'):
-    #     if rst.config.get('payloadfilepath') is not None and os.path.isfile(rst.config.get('payloadfilepath')):
-    #         with open(rst.config.get('payloadfilepath')) as f:
-    #             jsonData = json.load(f)
-    #             f.close()
-    #     else:
-    #         my_logger.error('File not found {}'.format(rst.config.get('payloadfilepath')))
-    #         return 1
+    status_code = 1
+    jsonData = None
 
-    results = []
-    # for profile in all_profiles:
-    #     profileName = profile.get('ProfileName')
-    #     if 'Single' in rst.config.get('payloadmode'):
-    #         success, counts, resultsNew, xlinks, topobj = validateSingleURI(rst.config.get('payloadfilepath'), profile, 'Target', expectedJson=jsonData)
-    #     elif 'Tree' in rst.config.get('payloadmode'):
-    #         success, counts, resultsNew, xlinks, topobj = validateURITree(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
-    #     else:
-    #         success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1/', 'ServiceRoot', profile, expectedJson=jsonData)
+    if args.payload:
+        pmode, ppath = args.payload
+    else:
+        pmode, ppath = 'Default', ''
+    pmode = pmode.lower()
 
-    #     if results is None:
-    #         results = resultsNew
-    #     else:
-    #         for item in resultsNew:
-    #             for x in resultsNew[item]['messages']:
-    #                 x.name = profileName + ' -- ' + x.name
-    #             if item in results:
-    #                 innerCounts = results[item]['counts']
-    #                 innerCounts.update(resultsNew[item]['counts'])
-    #                 results[item]['messages'].extend(resultsNew[item]['messages'])
-    #             else:
-    #                 results[item] = resultsNew[item]
-    #         #resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
-    #         #results.update(resultsNew)
+    if pmode not in ['tree', 'single', 'singlefile', 'treefile', 'default']:
+        pmode = 'Default'
+        my_logger.warn('PayloadMode or path invalid, using Default behavior')
+    if 'file' in pmode:
+        if ppath is not None and os.path.isfile(ppath):
+            with open(ppath) as f:
+                jsonData = json.load(f)
+                f.close()
+        else:
+            my_logger.error('File not found for payload: {}'.format(ppath))
+            return 1, None, 'File not found for payload: {}'.format(ppath)
+    try:
+        from validateResource import validateSingleURI, validateURITree
+        results = None
+        for profile in all_profiles:
+            if 'single' in pmode:
+                success, counts, resultsNew, xlinks, topobj = validateSingleURI(ppath, profile, 'Target', expectedJson=jsonData)
+            elif 'tree' in pmode:
+                success, counts, resultsNew, xlinks, topobj = validateURITree(ppath, profile, 'Target', expectedJson=jsonData)
+            else:
+                success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1/', profile, 'ServiceRoot', expectedJson=jsonData)
+            profileName = profile.get('ProfileName')
+            if results is None:
+                results = resultsNew
+            else:
+                for item in resultsNew:
+                    for x in resultsNew[item]['messages']:
+                        x.name = profileName + ' -- ' + x.name
+                    if item in results:
+                        innerCounts = results[item]['counts']
+                        innerCounts.update(resultsNew[item]['counts'])
+                        results[item]['messages'].extend(resultsNew[item]['messages'])
+                    else:
+                        results[item] = resultsNew[item]
+                    # resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
+                    # results.update(resultsNew)
+    except traverseInterop.AuthenticationError as e:
+        # log authentication error and terminate program
+        my_logger.error('{}'.format(e))
+        return 1, None, 'Failed to authenticate with the service'
+
+
 
     from collections import Counter
     finalCounts = Counter()
     nowTick = datetime.now()
-    my_logger.info('Elapsed time: {}'.format(str(nowTick-startTick).rsplit('.', 1)[0]))
+    my_logger.info('Elapsed time: {}'.format(str(nowTick - startTick).rsplit('.', 1)[0]))
 
     for item in results:
         innerCounts = results[item]['counts']
@@ -237,7 +251,7 @@ def main(argslist=None, configfile=None):
 
     # finalCounts.update(metadata.get_counter())
 
-    # fails = 0
+    fails = 0
     # for key in [key for key in finalCounts.keys()]:
     #     if finalCounts[key] == 0:
     #         del finalCounts[key]

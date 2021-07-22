@@ -16,6 +16,8 @@ from collections import Counter, OrderedDict
 import html
 import json
 
+my_logger = logging.getLogger()
+my_logger.setLevel(logging.DEBUG)
 
 def wrapTag(string, tag='div', attr=None):
     string = str(string)
@@ -71,11 +73,9 @@ def applyInfoSuccessColor(num, entry):
     return div(entry, attr=style)
 
 
-def renderHtml(results, finalCounts, tool_version, startTick, nowTick, printCSV):
+def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config, printCSV):
     # Render html
-    config = rst.config
     config_str = ', '.join(sorted(list(config.keys() - set(['systeminfo', 'targetip', 'password', 'description']))))
-    rsvLogger = rst.getLogger()
     sysDescription, ConfigURI = (config['systeminfo'], config['targetip'])
     logpath = config['logpath']
 
@@ -143,7 +143,6 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, printCSV)
 
     htmlStrBodyHeader += tr(td(htmlStrTotal))
 
-    htmlPage = rst.currentService.metadata.to_html()
     for cnt, item in enumerate(results):
         entry = []
         val = results[item]
