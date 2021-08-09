@@ -21,9 +21,6 @@ my_logger.addHandler(standard_out)
 logging.addLevelName(logging.INFO - 1, "VERBOSE1")
 logging.addLevelName(logging.INFO - 2, "VERBOSE2")
 
-from common.profile import getProfiles, checkProfileAgainstSchema, hashProfile
-import common.interop as interop
-
 #####################################################
 #          Script starts here              ##########
 #####################################################
@@ -137,6 +134,8 @@ def main(argslist=None, configfile=None):
     my_logger.info('Description of service: {}'.format(args.description))
 
     # Interop Profile handling
+    from common.profile import getProfiles, checkProfileAgainstSchema, hashProfile
+
     my_profiles = []
     success = True
     for filename in args.profile:
@@ -188,11 +187,11 @@ def main(argslist=None, configfile=None):
         results = None
         for profile in all_profiles:
             if 'single' in pmode:
-                success, counts, resultsNew, xlinks, topobj = validateSingleURI(ppath, profile, 'Target', expectedJson=jsonData)
+                success, _, resultsNew, _, _ = validateSingleURI(ppath, profile, 'Target', expectedJson=jsonData)
             elif 'tree' in pmode:
-                success, counts, resultsNew, xlinks, topobj = validateURITree(ppath, profile, 'Target', expectedJson=jsonData)
+                success, _, resultsNew, _, _ = validateURITree(ppath, profile, 'Target', expectedJson=jsonData)
             else:
-                success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1/', profile, 'ServiceRoot', expectedJson=jsonData)
+                success, _, resultsNew, _, _ = validateURITree('/redfish/v1/', profile, 'ServiceRoot', expectedJson=jsonData)
             profileName = profile.get('ProfileName')
             if results is None:
                 results = resultsNew

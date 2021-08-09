@@ -11,10 +11,7 @@ else:
     from bs4 import BeautifulSoup
     import os, csv
 import RedfishLogo as logo
-from types import SimpleNamespace
-from collections import Counter, OrderedDict
-import html
-import json
+import logging
 
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
