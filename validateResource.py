@@ -115,13 +115,13 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     # verify odata type
     objRes = profile.get('Resources')
 
-    my_logger.log(logging.INFO - 1, "\n*** %s, %s", uriName, URI)
+    my_logger.log(logging.INFO - 1, "*** %s, %s", uriName, URI)
     uriName, SchemaFullType, jsondata = uriName, uriName, propResourceObj.jsondata
     SchemaType = getType(jsondata.get('@odata.type', 'NoType'))
     if SchemaType not in objRes:
         # my_logger.info('\nNo Such Type in sample {} {}, skipping'.format(URI, SchemaType))
         # Get all links available
-        links = getURIsInProperty(jsondata)
+        links = getURIsInProperty(jsondata, uriName)
         return True, counts, results, links, propResourceObj
 
     # my_logger.info("\n*** %s", URI)
@@ -158,8 +158,9 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     results[uriName]['fulltype'] = propResourceObj.typename
     results[uriName]['success'] = True
 
-    my_logger.info("\n*** %s, %s", URI, SchemaType)
-    my_logger.debug("\n*** %s, %s, %s", expectedType, expectedSchema is not None, expectedJson is not None)
+    my_logger.info('\n')
+    my_logger.info("*** %s, %s", URI, SchemaType)
+    my_logger.debug("*** %s, %s, %s", expectedType, expectedSchema is not None, expectedJson is not None)
     my_logger.info("\t Type (%s), GET SUCCESS (time: %s)", propResourceObj.typename, propResourceObj.rtime)
     objRes = objRes.get(SchemaType)
     try:
@@ -175,7 +176,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     my_logger.info('%s, %s\n', SchemaFullType, counts)
 
     # Get all links available
-    links = getURIsInProperty(propResourceObj.jsondata)
+    links = getURIsInProperty(propResourceObj.jsondata, uriName)
 
     results[uriName]['warns'], results[uriName]['errors'] = get_my_capture(my_logger, whandler), get_my_capture(my_logger, ehandler)
 
@@ -184,20 +185,25 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 import re
 urlCheck = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
 
-def getURIsInProperty(property, name='Parent'):
+def getURIsInProperty(property, name='Root'):
     my_links = {}
     if isinstance(property, dict):
         for x, y in property.items():
-            my_links.update(getURIsInProperty(y, "{}:{}".format(name, x)))
+            if isinstance(y, str) and x.lower() in ['@odata.id']:
+                my_link = getURIfromOdata(y)
+                if my_link: my_links[name] = my_link
+            else:
+                my_links.update(getURIsInProperty(y, "{}:{}".format(name, x)))
     if isinstance(property, list):
         for n, x in enumerate(property):
-            my_links.update(getURIsInProperty(x, "{}#{}".format(x, n)))
-    if isinstance(property, str):
-        if any([x.lower() in name for x in ['@odata.id']]):
-            if '.json' not in property[:-5]:
-                if '/redfish/v1' in property or urlCheck.match(property):
-                    my_links[name] = property
+            my_links.update(getURIsInProperty(x, "{}#{}".format(name, n)))
     return my_links
+
+def getURIfromOdata(property):
+    if '.json' not in property[:-5]:
+        if '/redfish/v1' in property or urlCheck.match(property):
+            return property
+    return None
             
 def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=None, expectedJson=None):
     """name

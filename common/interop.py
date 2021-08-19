@@ -592,7 +592,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
         rf_payloadInnerTuple = (actionsJson, rf_payload_tuple)
         for item in innerDict:
             my_type = propResourceObj.jsondata.get('@odata.type', 'NoType')
-            actionName = '#' + my_type + '.' + item
+            actionName = my_type + '.' + item
             amsgs, acounts = validateActionRequirement(propResourceObj, innerDict[item], (actionsJson.get(
                 actionName, 'DNE'), rf_payloadInnerTuple), actionName)
             counts.update(acounts)

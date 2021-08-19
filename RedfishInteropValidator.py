@@ -242,30 +242,24 @@ def main(argslist=None, configfile=None):
 
         finalCounts.update(results[item]['counts'])
 
-    # import tohtml
-    # error_lines, finalCounts = tohtml.count_errors(results)
-
-    # for line in error_lines:
-    #     my_logger.error(line)
-
-    # finalCounts.update(metadata.get_counter())
+    import tohtml
 
     fails = 0
-    # for key in [key for key in finalCounts.keys()]:
-    #     if finalCounts[key] == 0:
-    #         del finalCounts[key]
-    #         continue
-    #     if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
-    #         fails += finalCounts[key]
+    for key in [key for key in finalCounts.keys()]:
+        if finalCounts[key] == 0:
+            del finalCounts[key]
+            continue
+        if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
+            fails += finalCounts[key]
 
-    # html_str = tohtml.renderHtml(results, tool_version, startTick, nowTick, currentService)
+    html_str = tohtml.renderHtml(results, finalCounts, tool_version, startTick, nowTick, currentService.config)
 
     lastResultsPage = datetime.strftime(startTick, os.path.join(logpath, "ConformanceHtmlLog_%m_%d_%Y_%H%M%S.html"))
 
-    # tohtml.writeHtml(html_str, lastResultsPage)
+    tohtml.writeHtml(html_str, lastResultsPage)
 
     # success = success and not (fails > 0)
-    # my_logger.info("\n".join('{}: {}   '.format(x, y) for x, y in sorted(finalCounts.items())))
+    my_logger.info("\n".join('{}: {}   '.format(x, y) for x, y in sorted(finalCounts.items())))
 
     # dump cache info to debug log
     my_logger.debug('callResourceURI() -> {}'.format(currentService.callResourceURI.cache_info()))
