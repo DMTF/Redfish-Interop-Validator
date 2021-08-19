@@ -8,7 +8,7 @@ from enum import Enum
 from collections import Counter
 
 import logging
-from common.redfish import getType, getNamespace
+from common.redfish import getNamespaceUnversioned, getType, getNamespace
 from traverseInterop import callResourceURI
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
@@ -449,7 +449,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
     return msgs, counts
 
 
-def validateActionRequirement(propResourceObj, profile_entry, rf_payload_tuple, actionname):
+def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     """
     Validate Requirements for one action
     """
@@ -591,9 +591,14 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
         actionsJson = rf_payload.get('Actions', {})
         rf_payloadInnerTuple = (actionsJson, rf_payload_tuple)
         for item in innerDict:
-            my_type = propResourceObj.jsondata.get('@odata.type', 'NoType')
+            my_type = getNamespaceUnversioned(propResourceObj.jsondata.get('@odata.type', 'NoType'))
             actionName = my_type + '.' + item
-            amsgs, acounts = validateActionRequirement(propResourceObj, innerDict[item], (actionsJson.get(
+            if actionName in actionsJson:
+                my_logger.warning('{} should be #{}'.format(actionName, actionName))
+            else:
+                actionName = '#' + my_type + '.' + item
+            
+            amsgs, acounts = validateActionRequirement(innerDict[item], (actionsJson.get(
                 actionName, 'DNE'), rf_payloadInnerTuple), actionName)
             counts.update(acounts)
             msgs.extend(amsgs)

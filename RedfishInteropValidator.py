@@ -76,7 +76,7 @@ def main(argslist=None, configfile=None):
         os.makedirs(logpath)
 
     fmt = logging.Formatter('%(levelname)s - %(message)s')
-    file_handler = logging.FileHandler(datetime.strftime(startTick, os.path.join(logpath, "ConformanceLog_%m_%d_%Y_%H%M%S.txt")))
+    file_handler = logging.FileHandler(datetime.strftime(startTick, os.path.join(logpath, "InteropLog_%m_%d_%Y_%H%M%S.txt")))
     file_handler.setLevel(min(logging.INFO if not args.debugging else logging.DEBUG, standard_out.level))
     file_handler.setFormatter(fmt)
     my_logger.addHandler(file_handler)
@@ -254,7 +254,7 @@ def main(argslist=None, configfile=None):
 
     html_str = tohtml.renderHtml(results, finalCounts, tool_version, startTick, nowTick, currentService.config)
 
-    lastResultsPage = datetime.strftime(startTick, os.path.join(logpath, "ConformanceHtmlLog_%m_%d_%Y_%H%M%S.html"))
+    lastResultsPage = datetime.strftime(startTick, os.path.join(logpath, "InteropHtmlLog_%m_%d_%Y_%H%M%S.html"))
 
     tohtml.writeHtml(html_str, lastResultsPage)
 

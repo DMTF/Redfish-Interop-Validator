@@ -180,6 +180,13 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     results[uriName]['warns'], results[uriName]['errors'] = get_my_capture(my_logger, whandler), get_my_capture(my_logger, ehandler)
 
+    pass_val = len(results[uriName]['errors']) == 0
+    for key in counts:
+        if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
+            pass_val = False
+            break
+    my_logger.info("\t {}".format('PASS' if pass_val else' FAIL...'))
+
     return True, counts, results, links, propResourceObj
 
 import re
