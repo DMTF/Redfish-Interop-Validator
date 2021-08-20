@@ -13,10 +13,11 @@ This tool is designed to accept a profile conformant to the schematics specified
 ## Pre-requisites
 
 The Redfish Interop Validator is based on Python 3 and the client system is required to have the Python framework installed before the tool can be installed and executed on the system. Additionally, the following packages are required to be installed and accessible from the python environment:
-* beautifulsoup4  - https://pypi.python.org/pypi/beautifulsoup4/ (must be >= 4.6.0)
 * requests  - https://github.com/kennethreitz/requests (Documentation is available at http://docs.python-requests.org/)
-* lxml - https://pypi.python.org/pypi/lxml
 * jsonschema
+
+If you wish to convert your logs:
+* beautifulsoup4  - https://pypi.python.org/pypi/beautifulsoup4/ (must be >= 4.6.0)
 
 You may install the prerequisites by running:
 
@@ -30,11 +31,11 @@ There is no dependency based on Windows or Linux OS. The result logs are generat
 
 ## Installation
 
-Place the RedfishInteropValidator.py tool into the desired tool root directory.  Create the following subdirectories in the tool root directory: "config" and "logs".  Place the example config.ini file in the "config" directory.  The Interop Validator requires access to Redfish schema CSDL files.  The path for these files is specified in the config.ini file with 'MetadataFilePath' under [Options].  The file path should be created and all schema CSDL .xml files must be placed there.  Note - the schema files for the latest Redfish release can be found in the 'csdl' folder of DSP8010, which is available at https://www.dmtf.org/dsp/DSP8010.
+Place the RedfishInteropValidator.py tool into the desired tool root directory.  Create the following subdirectories in the tool root directory: "config" and "logs".  Place the example config.ini file in the "config" directory.  
 
 ## Execution Steps
 
-The Redfish Interop Validator is designed to execute as a purely command line interface tool with no intermediate inputs expected during tool execution. However, the tool requires various inputs regarding system details, DMTF schema files etc. which are consumed by the tool during execution to generate the conformance report logs. Below are the step by step instructions on setting up the tool for execution on any identified Redfish device for conformance test:
+The Redfish Interop Validator is designed to execute as a purely command line interface tool with no intermediate inputs expected during tool execution.  Below are the step by step instructions on setting up the tool for execution on any identified Redfish device for conformance test:
 
 Modify the config\example.ini file to enter the system details under below section
 
@@ -70,7 +71,6 @@ payload         | string  | Option to test a specific payload or resource tree (
 logdir          | string  | Place to save logs and run configs
 nooemcheck      | boolean | Whether to check Oem items on service
 debugging       | boolean | Whether to print debug to log
-schema_directory| string  | Where schema is located/saved on system
 
 ### Payload options
 The payload option takes two parameters as "option uri"
@@ -92,9 +92,8 @@ To convert a previous HTML log into a csv file, use the following command:
 
 * 1.	Redfish Interop Validator starts with the Service root Resource Schema by querying the service with the service root URI and getting all the device information, the resources supported and their links. Once the response of the Service root query is verified against a given profile (given the profile contains specifications for ServiceRoot), the tool traverses through all the collections and Navigation properties returned by the service.
 * 2.	For each navigation property/Collection of resource returned, it does following operations:
-** i.	Reads all the Navigation/collection of resources from the respective resource collection schema file.
-** ii.	Reads the schema file related to the particular resource, collects all the information about individual properties from the resource schema file and stores them into a dictionary
-** iii.	Queries the service with the individual resource uri and validates all Resource returned by the service that are included in the profile specified to the tool.
+** i.	Reads all the Navigation/collection of resources.
+** ii.	Queries the service with the individual resource uri and validates all Resource returned by the service that are included in the profile specified to the tool.
 * 3.	Step 2 repeats till all the URIs and resources are covered.
 
 Upon validation of a resource, the following types of tests may occur:
@@ -122,7 +121,7 @@ Upon validation of a resource, the following types of tests may occur:
 
 The Redfish Interop Validator generates reports in the "logs" folder: a text version named "InteropLog_MM_DD_YYYY_HHMMSS.txt" and an html version named "InteropHtmlLog_MM_DD_YYYY_HHMMSS.html". The reports give the detailed view of the individual properties checked, with the Pass/Fail/Skip/Warning status for each resource checked for conformance.
 
-There is a verbose log file that may be referenced to diagnose tool or schema problems when the stdout print out is insufficient, located in logs/ConformanceLog_MM_DD_YYYY_HHMMSS.html
+There is a verbose log file that may be referenced to diagnose tool problems when the stdout print out is insufficient, located in logs/ConformanceLog_MM_DD_YYYY_HHMMSS.html
 
 ## Release Process
 
