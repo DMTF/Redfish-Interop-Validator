@@ -191,11 +191,14 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
 import re
 urlCheck = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
+allowable_annotations = ['@odata.id']
 
 def getURIsInProperty(property, name='Root'):
     my_links = {}
     if isinstance(property, dict):
         for x, y in property.items():
+            if '@' in x and x.lower() not in allowable_annotations:
+                continue
             if isinstance(y, str) and x.lower() in ['@odata.id']:
                 my_link = getURIfromOdata(y)
                 if my_link: my_links[name] = my_link
@@ -207,12 +210,12 @@ def getURIsInProperty(property, name='Root'):
     return my_links
 
 def getURIfromOdata(property):
-    if '.json' not in property[:-5]:
+    if '.json' not in property[:-5].lower():
         if '/redfish/v1' in property or urlCheck.match(property):
             return property
     return None
             
-def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=None, expectedJson=None):
+def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=None, expectedJson=None, check_oem=True):
     """name
     Validates a Tree of URIs, traversing from the first given
     """
@@ -248,15 +251,16 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             newLinks = list()
             for linkName, link, parent in currentLinks:
                 assert(isinstance(link, str))
-                if link is None:
+                if link is None or link.rstrip('/') in allLinks:
                     continue
-
-                if link.rstrip('/') in allLinks:
-                    continue
-
+            
                 if '#' in link:
                     # if link.rsplit('#', 1)[0] not in allLinks:
                     #     refLinks.append((linkName, link, parent))
+                    continue
+
+                if 'Oem' in linkName and not check_oem:
+                    my_logger.info('Skipping Oem Link')
                     continue
 
                 if refLinks is not currentLinks and ('Links' in linkName.split('.') or 'RelatedItem' in linkName.split('.') or 'Redundancy' in linkName.split('.')):

@@ -102,7 +102,7 @@ def getProfileFromRepo(profilename, repo=None):
         return None
 
 
-def getProfiles(profile, dirname, chain=None):
+def getProfiles(profile, dirname, chain=None, online=False):
     alldata = [profile]
     if 'RequiredProfiles' not in profile:
         my_logger.debug('No such item RequiredProfiles')
@@ -126,7 +126,10 @@ def getProfiles(profile, dirname, chain=None):
 
             # get max filename
             repo = rp.get('Repository')
-            data = getProfileFromRepo(targetFileBlank, repo)
+            if online:
+                data = getProfileFromRepo(targetFileBlank, repo)
+            else:
+                data = None
 
             if data is None:
                 targetList = sorted(list(getListingVersions(targetFileBlank, dirname)))

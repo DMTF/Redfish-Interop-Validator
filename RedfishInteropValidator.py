@@ -55,6 +55,7 @@ def main(argslist=None, configfile=None):
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', nargs='+', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
+    argget.add_argument('--no_online_profiles', action='store_false', dest='online_profiles', help='Don\'t acquire profiles automatically from online')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
 
     # todo: write patches
@@ -153,8 +154,7 @@ def main(argslist=None, configfile=None):
     # Combine profiles
     all_profiles = []
     for name, profile in my_profiles:
-        all_profiles.append(profile)
-        # all_profiles.extend(getProfiles(profile, './'))
+        all_profiles.extend(getProfiles(profile, './', online=args.online_profiles))
 
     my_logger.info('\nProfile Hashes: ')
     for profile in all_profiles:
@@ -189,9 +189,9 @@ def main(argslist=None, configfile=None):
             if 'single' in pmode:
                 success, _, resultsNew, _, _ = validateSingleURI(ppath, profile, 'Target', expectedJson=jsonData)
             elif 'tree' in pmode:
-                success, _, resultsNew, _, _ = validateURITree(ppath, profile, 'Target', expectedJson=jsonData)
+                success, _, resultsNew, _, _ = validateURITree(ppath, profile, 'Target', expectedJson=jsonData, check_oem=args.oemcheck)
             else:
-                success, _, resultsNew, _, _ = validateURITree('/redfish/v1/', profile, 'ServiceRoot', expectedJson=jsonData)
+                success, _, resultsNew, _, _ = validateURITree('/redfish/v1/', profile, 'ServiceRoot', expectedJson=jsonData, check_oem=args.oemcheck)
             profileName = profile.get('ProfileName')
             if results is None:
                 results = resultsNew
