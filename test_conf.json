@@ -1,5 +1,5 @@
 {
   "test": {
-    "command": "$interpreter RedfishInteropValidator.py --ip $target_system $nochkcert -u $username -p $password --logdir $output_subdir --schema profiles/RedfishInteroperabilityProfile.v1_0_0.json profiles/SampleProfile.json"
+    "command": "$interpreter RedfishInteropValidator.py --ip $target_system -u $username -p $password --logdir $output_subdir --schema profiles/RedfishInteroperabilityProfile.v1_0_0.json profiles/SampleProfile.json"
   }
 }

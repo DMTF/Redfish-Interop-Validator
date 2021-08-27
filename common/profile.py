@@ -4,41 +4,39 @@
 # License: BSD 3-Clause License. For full text see link:
 # https://github.com/DMTF/Redfish-Service-Validator/LICENSE.md
 
-import jsonschema
 import os
 import re
 import json
-import collections
-import hashlib
+import logging
 
-import traverseService as rst
-rsvLogger = rst.getLogger()
+my_logger = logging.getLogger()
+my_logger.setLevel(logging.DEBUG)
 
 from urllib.request import urlopen
-import re
 
 def hashProfile(profile):
-    md5 = hashlib.md5(json.dumps(profile, sort_keys=True).encode())
-    return md5.hexdigest()
+    from hashlib import md5
+    my_md5 = md5(json.dumps(profile, sort_keys=True).encode())
+    return my_md5.hexdigest()
 
 def checkProfileAgainstSchema(profile, schema):
     """
     Checks if a profile is conformant
     """
     # what is required in a profile? use the json schema
+    import jsonschema
     try:
         jsonschema.validate(profile, schema)
     except jsonschema.ValidationError as e:
-        rsvLogger.exception(e)
-        rsvLogger.info('ValidationError')
+        my_logger.exception(e)
+        my_logger.info('ValidationError')
         return False
     except jsonschema.SchemaError as e:
-        rsvLogger.exception(e)
-        rsvLogger.info('SchemaError')
+        my_logger.exception(e)
+        my_logger.info('SchemaError')
         return False
     # consider @odata.type, with regex
     return True
-
 
 extension = 'json'
 versionpattern = 'v[0-9]_[0-9]_[0-9]'
@@ -62,9 +60,10 @@ def dict_merge(dct, merge_dct):
         :param merge_dct: dct merged into dct
         :return: None
         """
+        from collections import Mapping
         for k in merge_dct:
             if (k in dct and isinstance(dct[k], dict)
-                    and isinstance(merge_dct[k], collections.Mapping)):
+                    and isinstance(merge_dct[k], Mapping)):
                 dict_merge(dct[k], merge_dct[k])
             else:
                 dct[k] = merge_dct[k]
@@ -75,22 +74,20 @@ def updateWithProfile(profile, data):
 
 def getProfileFromRepo(profilename, repo=None):
     try:
-        if rst.config['servicemode'] or rst.config['localonlymode']:
-            return None
         if repo is None:
             repo = 'http://redfish.dmtf.org/profiles'
 
-        urlpath =urlopen(repo)
+        urlpath = urlopen(repo)
         string = urlpath.read().decode('utf-8')
 
-        pattern = '\.' + versionpattern + '\.'
+        pattern = r'\.{}\.'.format(versionpattern)
         filepattern = re.compile(pattern.join(profilename.split('.')))
 
         filelist = filepattern.findall(string)
 
         profilename = None
         for filename in filelist:
-            filename=filename[:-1]
+            filename = filename[:-1]
             if profilename is None:
                 profilename = filename
                 continue
@@ -105,16 +102,16 @@ def getProfileFromRepo(profilename, repo=None):
         return None
 
 
-def getProfiles(profile, dirname, chain=None):
+def getProfiles(profile, dirname, chain=None, online=False):
     alldata = [profile]
     if 'RequiredProfiles' not in profile:
-        rsvLogger.debug('No such item RequiredProfiles')
+        my_logger.debug('No such item RequiredProfiles')
     else:
         profileName = profile.get('ProfileName')
         if chain is None:
             chain = []
         if profileName in chain:
-            rsvLogger.error('Suspected duplicate/cyclical import error: {} {}'.format(chain, profileName))
+            my_logger.error('Suspected duplicate/cyclical import error: {} {}'.format(chain, profileName))
             return []
         chain.append(profileName)
 
@@ -129,7 +126,10 @@ def getProfiles(profile, dirname, chain=None):
 
             # get max filename
             repo = rp.get('Repository')
-            data = getProfileFromRepo(targetFileBlank, repo)
+            if online:
+                data = getProfileFromRepo(targetFileBlank, repo)
+            else:
+                data = None
 
             if data is None:
                 targetList = sorted(list(getListingVersions(targetFileBlank, dirname)))
@@ -144,9 +144,9 @@ def getProfiles(profile, dirname, chain=None):
                     filehandle.close()
                     data = json.loads(data)
                     if targetVersion > fileVersion:
-                        rsvLogger.warn('File version smaller than target MinVersion')
+                        my_logger.warn('File version smaller than target MinVersion')
                 else:
-                    rsvLogger.error('Could not acquire this profile {} {}'.format(targetName, repo))
+                    my_logger.error('Could not acquire this profile {} {}'.format(targetName, repo))
                     continue
 
             alldata.extend(getProfiles(data, dirname, chain))

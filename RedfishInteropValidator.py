@@ -5,450 +5,138 @@
 
 import os
 import sys
-import re
-from datetime import datetime
-from collections import Counter, OrderedDict
+import argparse
 import logging
 import json
-import traverseService as rst
-import argparse
-from io import StringIO
-
-from commonProfile import getProfiles, checkProfileAgainstSchema, hashProfile
-from traverseService import AuthenticationError
-from tohtml import renderHtml, writeHtml
-from metadata import setup_schema_pack
-import commonInterop
-
-rsvLogger = rst.getLogger()
-
-VERBO_NUM = 15
-logging.addLevelName(VERBO_NUM, "VERBO")
-
-SERVICE_NUM = 10
-logging.addLevelName(SERVICE_NUM, "SERVICE")
+from datetime import datetime
 
 tool_version = '1.1.8'
 
+my_logger = logging.getLogger()
+my_logger.setLevel(logging.DEBUG)
+standard_out = logging.StreamHandler(sys.stdout)
+standard_out.setLevel(logging.INFO)
+my_logger.addHandler(standard_out)
 
-def verboseout(self, message, *args, **kws):
-    if self.isEnabledFor(VERBO_NUM):
-        self._log(VERBO_NUM, message, args, **kws)
-logging.Logger.verboseout = verboseout
-
-
-
-def setupLoggingCaptures():
-    class WarnFilter(logging.Filter):
-        def filter(self, rec):
-            return rec.levelno == logging.WARN
-
-    errorMessages = StringIO()
-    warnMessages = StringIO()
-    fmt = logging.Formatter('%(levelname)s - %(message)s')
-    errh = logging.StreamHandler(errorMessages)
-    errh.setLevel(logging.ERROR)
-    errh.setFormatter(fmt)
-
-    warnh = logging.StreamHandler(warnMessages)
-    warnh.setLevel(logging.WARN)
-    warnh.addFilter(WarnFilter())
-    warnh.setFormatter(fmt)
-
-    rsvLogger.addHandler(errh)
-    rsvLogger.addHandler(warnh)
-
-    yield
-
-    rsvLogger.removeHandler(errh)
-    rsvLogger.removeHandler(warnh)
-    warnstrings = warnMessages.getvalue()
-    warnMessages.close()
-    errorstrings = errorMessages.getvalue()
-    errorMessages.close()
-
-    yield warnstrings, errorstrings
-
-
-def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchema=None, expectedJson=None, parent=None):
-    """
-    Validates a single URI that is given, returning its ResourceObject, counts and links
-    """
-    # rs-assertion: 9.4.1
-    # Initial startup here
-    lc = setupLoggingCaptures()
-    next(lc)
-
-    # Start
-    counts = Counter()
-    results = OrderedDict()
-    messages = []
-
-    results[uriName] = {'uri': URI, 'success': False, 'counts': counts,
-                        'messages': messages, 'errors': '', 'warns': '',
-                        'rtime': '', 'context': '', 'fulltype': ''}
-
-    # check for @odata mandatory stuff
-    # check for version numbering problems
-    # check id if its the same as URI
-    # check @odata.context instead of local.  Realize that @odata is NOT a "property"
-
-    # Attempt to get a list of properties
-    if URI is None:
-        if parent is not None:
-            parentURI = parent.uri
-        else:
-            parentURI = '...'
-        URI = parentURI + '...'
-    if expectedJson is None:
-        successGet, jsondata, status, rtime = rst.callResourceURI(URI)
-    else:
-        successGet, jsondata = True, expectedJson
-
-    if jsondata is not None:
-        successPayload, odataMessages = rst.ResourceObj.checkPayloadConformance(jsondata, URI)
-
-        if not successPayload:
-            counts['failPayloadWarn'] += 1
-            rsvLogger.verboseout(str(URI) + ': payload error, @odata property non-conformant',)
-
-    # Generate dictionary of property info
-    try:
-        propResourceObj = rst.createResourceObject(
-            uriName, URI, expectedJson, expectedType, expectedSchema, parent)
-        if not propResourceObj:
-            counts['problemResource'] += 1
-            results[uriName]['warns'], results[uriName]['errors'] = next(lc)
-            return False, counts, results, None, None
-    except AuthenticationError:
-        raise  # re-raise exception
-    except Exception:
-        rsvLogger.exception("")
-        counts['exceptionResource'] += 1
-        results[uriName]['warns'], results[uriName]['errors'] = next(lc)
-        return False, counts, results, None, None
-
-    counts['passGet'] += 1
-
-    # if URI was sampled, get the notation text from rst.uri_sample_map
-    sample_string = rst.uri_sample_map.get(URI)
-    sample_string = sample_string + ', ' if sample_string is not None else ''
-
-    results[uriName]['uri'] = (str(URI))
-    results[uriName]['samplemapped'] = (str(sample_string))
-    results[uriName]['rtime'] = propResourceObj.rtime
-    results[uriName]['context'] = propResourceObj.context
-    results[uriName]['origin'] = propResourceObj.schemaObj.origin
-    results[uriName]['fulltype'] = propResourceObj.typeobj.fulltype
-    results[uriName]['success'] = True
-
-    rsvLogger.debug("\t URI {}, Type ({}), GET SUCCESS (time: {})".format(URI, propResourceObj.typeobj.stype, propResourceObj.rtime))
-
-    uriName, SchemaFullType, jsondata = propResourceObj.name, propResourceObj.typeobj.fulltype, propResourceObj.jsondata
-    SchemaNamespace, SchemaType = rst.getNamespace(
-        SchemaFullType), rst.getType(SchemaFullType)
-
-    objRes = profile.get('Resources')
-
-    if SchemaType not in objRes:
-        rsvLogger.debug(
-                '\nNo Such Type in sample {} {}.{}, skipping'.format(URI, SchemaNamespace, SchemaType))
-    else:
-        rsvLogger.info("\n*** %s, %s", URI, SchemaType)
-        rsvLogger.debug("\n*** %s, %s, %s", expectedType,
-                        expectedSchema is not None, expectedJson is not None)
-        objRes = objRes.get(SchemaType)
-        try:
-            propMessages, propCounts = commonInterop.validateInteropResource(
-                propResourceObj, objRes, jsondata)
-            messages = messages.extend(propMessages)
-            counts.update(propCounts)
-            rsvLogger.info('{} of {} tests passed.'.format(counts['pass'] + counts['warn'], counts['totaltests']))
-        except Exception:
-            rsvLogger.exception("Something went wrong")
-            rsvLogger.error(
-                'Could not finish validation check on this payload')
-            counts['exceptionProfilePayload'] += 1
-        rsvLogger.info('%s, %s\n', SchemaFullType, counts)
-
-    # Get all links available
-    results[uriName]['warns'], results[uriName]['errors'] = next(lc)
-
-    rsvLogger.debug(propResourceObj.links)
-    return True, counts, results, propResourceObj.links, propResourceObj
-
-
-def validateURITree(URI, uriName, profile, expectedType=None, expectedSchema=None, expectedJson=None):
-    """
-    Validates a Tree of URIs, traversing from the first given
-    """
-    traverseLogger = rst.getLogger()
-
-    allLinks = set()
-    allLinks.add(URI)
-    refLinks = list()
-
-    # Resource level validation
-    rcounts = Counter()
-    rerror = StringIO()
-    rmessages = []
-    r_exists = {}
-
-    resource_info = dict(profile.get('Resources'))
-
-    # Validate top URI
-    validateSuccess, counts, results, links, thisobj = \
-        validateSingleURI(URI, profile, uriName, expectedType,
-                          expectedSchema, expectedJson)
-
-    # parent first, then child execution
-    # do top level root first, then do each child root, then their children...
-    # hold refs for last (less recursion)
-    if validateSuccess:
-        serviceVersion = profile.get("Protocol")
-        if serviceVersion is not None:
-            serviceVersion = serviceVersion.get('MinVersion', '1.0.0')
-            msg, m_success = commonInterop.validateMinVersion(thisobj.jsondata.get("RedfishVersion", "0"), serviceVersion)
-            rmessages.append(msg)
-
-        currentLinks = [(l, links[l], thisobj) for l in links]
-        # todo : churning a lot of links, causing possible slowdown even with set checks
-        while len(currentLinks) > 0:
-            newLinks = list()
-            for linkName, link, parent in currentLinks:
-                linkURI, autoExpand, linkType, linkSchema, innerJson = link
-
-                if linkURI is None:
-                    continue
-
-                if linkURI.rstrip('/') in allLinks or linkType == 'Resource.Item':
-                    continue
-
-                if refLinks is not currentLinks and ('Links' in linkName.split('.') or 'RelatedItem' in linkName.split('.') or 'Redundancy' in linkName.split('.')):
-                    refLinks.append((linkName, link, parent))
-                    continue
-
-                if autoExpand and linkType is not None:
-                    linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
-                        validateSingleURI(linkURI, profile, linkURI, linkType, linkSchema, innerJson, parent=parent)
-                else:
-                    linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
-                        validateSingleURI(linkURI, profile, linkURI, linkType, linkSchema, parent=parent)
-
-                allLinks.add(linkURI.rstrip('/'))
-
-                if not linkSuccess:
-                    continue
-
-                innerLinksTuple = [(l, innerLinks[l], linkobj) for l in innerLinks]
-                newLinks.extend(innerLinksTuple)
-                results.update(linkResults)
-                SchemaType = rst.getType(linkobj.typeobj.fulltype)
-
-                r_exists[SchemaType] = True
-
-            if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
-                currentLinks = refLinks
-            else:
-                currentLinks = newLinks
-
-    # interop service level checks
-    finalResults = OrderedDict()
-    traverseLogger.info('Service Level Checks')
-    if URI not in ["/redfish/v1", "/redfish/v1/"]:
-        resultEnum = commonInterop.sEnum.WARN
-        traverseLogger.info("We are not validating root, warn only")
-    else:
-        resultEnum = commonInterop.sEnum.FAIL
-
-    for item in resource_info:
-        # thisobj does not exist if we didn't find the first resource
-        if thisobj and item == rst.getType(thisobj.typeobj.fulltype):
-            continue
-
-        exists = r_exists.get(item, False)
-
-        if "ConditionalRequirements" in resource_info[item]:
-            innerList = resource_info[item]["ConditionalRequirements"]
-            for condreq in innerList:
-                if commonInterop.checkConditionalRequirementResourceLevel(r_exists, condreq, item):
-                    traverseLogger.info(
-                        'Service Conditional for {} applies'.format(item))
-                    req = condreq.get("ReadRequirement", "Mandatory")
-                    rmessages.append(
-                        commonInterop.msgInterop(item + '.Conditional.ReadRequirement',
-                                                 req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE' if not exists else 'Exists',
-                                                 resultEnum if not exists and req == "Mandatory" else commonInterop.sEnum.PASS))
-                else:
-                    traverseLogger.info(
-                        'Service Conditional for {} does not apply'.format(item))
-
-        req = resource_info[item].get("ReadRequirement", "Mandatory")
-
-        if not exists:
-            rmessages.append(
-                commonInterop.msgInterop(item + '.ReadRequirement', req,
-                                         'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
-                                         resultEnum if req == "Mandatory" else commonInterop.sEnum.PASS))
-        else:
-            rmessages.append(
-                commonInterop.msgInterop(item + '.ReadRequirement', req,
-                                         'Must Exist' if req == "Mandatory" else 'Any', 'Exists',
-                                         commonInterop.sEnum.PASS))
-
-    for item in rmessages:
-        if item.success == commonInterop.sEnum.WARN:
-            rcounts['warn'] += 1
-        elif item.success == commonInterop.sEnum.PASS:
-            rcounts['pass'] += 1
-        elif item.success == commonInterop.sEnum.FAIL:
-            rcounts['fail.{}'.format(item.name)] += 1
-
-    finalResults['n/a'] = {'uri': "Service Level Requirements", 'success': rcounts.get('fail', 0) == 0,
-                           'counts': rcounts,
-                           'messages': rmessages, 'errors': rerror.getvalue(), 'warns': '',
-                           'rtime': '', 'context': '', 'fulltype': ''}
-    finalResults.update(results)
-    rerror.close()
-
-    return validateSuccess, counts, finalResults, refLinks, thisobj
-
+logging.addLevelName(logging.INFO - 1, "VERBOSE1")
+logging.addLevelName(logging.INFO - 2, "VERBOSE2")
 
 #####################################################
 #          Script starts here              ##########
 #####################################################
 
+def main(argslist=None, configfile=None):
+    """Main command
 
-validatorconfig = {'payloadmode': 'Default', 'payloadfilepath': None, 'logpath': './logs', 'writecheck': False}
+    Args:
+        argslist ([type], optional): List of arguments in the form of argv. Defaults to None.
+    """    
+    argget = argparse.ArgumentParser(description='DMTF tool to test a service against a interop profile, version {}'.format(tool_version))
 
-def main(arglist=None, direct_parser=None):
-    """
-    Main program
-    """
-    argget = argparse.ArgumentParser(description='tool for testing services against an interoperability profile, version {}'.format(tool_version))
+    # base tool
+    argget.add_argument('-v', '--verbose', action='count', default=0, help='Verbosity of tool in stdout')
+    argget.add_argument('-c', '--config', type=str, help='Configuration for this tool')
 
-    # config
-    argget.add_argument('-c', '--config', type=str, help='config file')
-
-    # tool
-    argget.add_argument('--desc', type=str, default='No desc', help='sysdescription for identifying logs')
-    argget.add_argument('--payload', type=str, help='mode to validate payloads [Tree, Single, SingleFile, TreeFile] followed by resource/filepath', nargs=2)
-    argget.add_argument('-v', action='store_const', const=True, default=None, help='verbose log output to stdout (parameter-only)')
-    argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
-    argget.add_argument('--debug_logging', action="store_const", const=logging.DEBUG, default=logging.INFO,
-            help='Output debug statements to text log, otherwise it only uses INFO (parameter-only)')
-    argget.add_argument('--verbose_checks', action="store_const", const=VERBO_NUM, default=logging.INFO,
-            help='Show all checks in logging (parameter-only)')
-    argget.add_argument('--nooemcheck', action='store_const', const=True, default=None, help='Don\'t check OEM items')
-    argget.add_argument('--csv_report', action='store_true', help='print a csv report at the end of the log')
-
-    # service
-    argget.add_argument('-i', '--ip', type=str, help='ip to test on [host:port]')
-    argget.add_argument('-u', '--user', type=str, help='user for basic auth')
-    argget.add_argument('-p', '--passwd', type=str, help='pass for basic auth')
-    argget.add_argument('--linklimit', type=str, help='Limit the amount of links in collections, formatted TypeName:## TypeName:## ..., default LogEntry:20 ', nargs='*')
-    argget.add_argument('--sample', type=int, help='sample this number of members from large collections for validation; default is to validate all members')
-    argget.add_argument('--timeout', type=int, help='requests timeout in seconds')
-    argget.add_argument('--nochkcert', action='store_const', const=True, default=None, help='ignore check for certificate')
-    argget.add_argument('--nossl', action='store_const', const=True, default=None, help='use http instead of https')
-    argget.add_argument('--forceauth', action='store_const', const=True, default=None, help='force authentication on unsecure connections')
-    argget.add_argument('--authtype', type=str, help='authorization type (None|Basic|Session|Token)')
-    argget.add_argument('--localonly', action='store_const', const=True, default=None, help='only use locally stored schema on your harddrive')
-    argget.add_argument('--preferonline', action='store_const', const=True, default=None, help='use online schema')
-    argget.add_argument('--service', action='store_const', const=True, default=None, help='only use uris within the service')
-    argget.add_argument('--ca_bundle', type=str, help='path to Certificate Authority bundle file or directory')
+    # host info
+    argget.add_argument('-i', '--ip', type=str, help='Address of host to test against, using http or https (example: https://123.45.6.7:8000)')
+    argget.add_argument('-u', '--username', type=str, help='Username for Authentication')
+    argget.add_argument('-p', '--password', type=str, help='Password for Authentication')
+    argget.add_argument('--description', type=str, help='sysdescription for identifying logs, if none is given, draw from serviceroot')
+    argget.add_argument('--forceauth', action='store_true', help='Force authentication on unsecure connections')
+    argget.add_argument('--authtype', type=str, default='Basic', help='authorization type (None|Basic|Session|Token)')
     argget.add_argument('--token', type=str, help='bearer token for authtype Token')
-    argget.add_argument('--http_proxy', type=str, help='URL for the HTTP proxy')
-    argget.add_argument('--https_proxy', type=str, help='URL for the HTTPS proxy')
-    argget.add_argument('--cache', type=str, help='cache mode [Off, Fallback, Prefer] followed by directory to fallback or override problem service JSON payloads', nargs=2)
-    argget.add_argument('--uri_check', action='store_const', const=True, default=None, help='Check for URI if schema supports it')
-    argget.add_argument('--version_check', type=str, help='Change default tool configuration based on the version provided (default use target version)')
 
-    # metadata
-    argget.add_argument('--schemadir', type=str, help='directory for local schema files')
-    argget.add_argument('--schema_pack', type=str, help='Deploy DMTF schema from zip distribution, for use with --localonly (Specify url or type "latest", overwrites current schema)')
-    argget.add_argument('--suffix', type=str, help='suffix of local schema files (for version differences)')
+    # validator options
+    argget.add_argument('--payload', type=str, help='mode to validate payloads [Tree, Single, SingleFile, TreeFile] followed by resource/filepath', nargs=2)
+    argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
+    argget.add_argument('--nooemcheck', action='store_false', dest='oemcheck', help='Don\'t check OEM items')
+    argget.add_argument('--debugging', action="store_true", help='Output debug statements to text log, otherwise it only uses INFO')
 
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', nargs='+', help='interop profile with which to validate service against')
     argget.add_argument('--schema', type=str, default=None, help='schema with which to validate interop profile against')
+    argget.add_argument('--no_online_profiles', action='store_false', dest='online_profiles', help='Don\'t acquire profiles automatically from online')
     argget.add_argument('--warnrecommended', action='store_true', help='warn on recommended instead of pass')
+
     # todo: write patches
     argget.add_argument('--writecheck', action='store_true', help='(unimplemented) specify to allow WriteRequirement checks')
 
-    args = argget.parse_args(arglist)
+    args = argget.parse_args(argslist)
 
-    # set up config
-    rst.ch.setLevel(args.verbose_checks if not args.v else logging.DEBUG)
-    if direct_parser is not None:
-        try:
-            cdict = rst.convertConfigParserToDict(direct_parser)
-            config, default_list = rst.setConfig(cdict)
-        except Exception as ex:
-            rsvLogger.debug('Exception caught while parsing configuration', exc_info=1)
-            rsvLogger.error('Unable to parse configuration: {}'.format(repr(ex)))
-            return 1, None, 'Config Parser Exception'
-    elif args.config is None and args.ip is None:
-        rsvLogger.info('No ip or config specified.')
-        argget.print_help()
-        return 1, None, 'Config Incomplete'
-    else:
-        try:
-            config, default_list = rst.setByArgparse(args)
-        except Exception as ex:
-            rsvLogger.debug('Exception caught while parsing configuration', exc_info=1)
-            rsvLogger.error('Unable to parse configuration: {}'.format(repr(ex)))
-            return 1, None, 'Config Exception'
+    if configfile is None:
+        configfile = args.config
 
-    # Set interop config items
-    config['WarnRecommended'] = rst.config.get('warnrecommended', args.warnrecommended)
-    commonInterop.config['WarnRecommended'] = config['WarnRecommended']
-    config['WriteCheck'] = rst.config.get('writecheck', args.writecheck)
-    commonInterop.config['WriteCheck'] = config['WriteCheck']
-    config['profile'] = args.profile
-    config['schema'] = args.schema
-
-    # Setup schema store
-    if config['schema_pack'] is not None and config['schema_pack'] != '':
-        httpprox = config['httpproxy']
-        httpsprox = config['httpsproxy']
-        proxies = {}
-        proxies['http'] = httpprox if httpprox != "" else None
-        proxies['https'] = httpsprox if httpsprox != "" else None
-        setup_schema_pack(config['schema_pack'], config['metadatafilepath'], proxies, config['timeout'])
-
-    # Logging config
-    logpath = config['logpath']
     startTick = datetime.now()
+
+    # set logging file
+    standard_out.setLevel(logging.INFO - args.verbose if args.verbose < 3 else logging.DEBUG)
+
+    logpath = args.logdir
+
     if not os.path.isdir(logpath):
         os.makedirs(logpath)
+
     fmt = logging.Formatter('%(levelname)s - %(message)s')
-    fh = logging.FileHandler(datetime.strftime(startTick, os.path.join(logpath, "InteropLog_%m_%d_%Y_%H%M%S.txt")))
-    fh.setLevel(min(args.debug_logging, args.verbose_checks))
-    fh.setFormatter(fmt)
-    rsvLogger.addHandler(fh)
+    file_handler = logging.FileHandler(datetime.strftime(startTick, os.path.join(logpath, "InteropLog_%m_%d_%Y_%H%M%S.txt")))
+    file_handler.setLevel(min(logging.INFO if not args.debugging else logging.DEBUG, standard_out.level))
+    file_handler.setFormatter(fmt)
+    my_logger.addHandler(file_handler)
 
-    # Then start service
-    rsvLogger.info("Redfish Interop Validator, version {}".format(tool_version))
+    my_logger.info("Redfish Interop Validator, version {}".format(tool_version))
+    my_logger.info("")
+
+    if args.ip is None and configfile is None:
+        my_logger.error('No IP or Config Specified')
+        argget.print_help()
+        return 1, None, 'Configuration Incomplete'
+
+    if configfile:
+        from common.config import convert_config_to_args
+        convert_config_to_args(args, configfile)
+    else:
+        from common.config import convert_args_to_config
+        my_logger.info('Writing config file to log directory')
+        configfilename = datetime.strftime(startTick, os.path.join(logpath, "ConfigFile_%m_%d_%Y_%H%M%S.ini"))
+        my_config = convert_args_to_config(args)
+        with open(configfilename, 'w') as f:
+            my_config.write(f)
+
+    from urllib.parse import urlparse, urlunparse
+    scheme, netloc, _, _, _, _ = urlparse(args.ip)
+    if scheme not in ['http', 'https']:
+        my_logger.error('IP is missing http or https')
+        return 1, None, 'IP Incomplete'
+
+    if netloc == '':
+        my_logger.error('IP is missing ip/host')
+        return 1, None, 'IP Incomplete'
+
+    # start printing config details, remove redundant/private info from print
+    my_logger.info('Target URI: ' + args.ip)
+    my_logger.info('\n'.join(
+        ['{}: {}'.format(x, vars(args)[x] if x not in ['password'] else '******') for x in sorted(list(vars(args).keys() - set(['description']))) if vars(args)[x] not in ['', None]]))
+    my_logger.info('Start time: ' + startTick.strftime('%x - %X'))
+    my_logger.info("")
+    
+    import traverseInterop
     try:
-        currentService = rst.startService(config, default_list)
+        currentService = traverseInterop.startService(vars(args))
     except Exception as ex:
-        rsvLogger.debug('Exception caught while creating Service', exc_info=1)
-        rsvLogger.error("Service could not be started: {}".format(ex))
+        my_logger.debug('Exception caught while creating Service', exc_info=1)
+        my_logger.error("Service could not be started: {}".format(ex))
         return 1, None, 'Service Exception'
+    
+    if args.description is None and currentService.service_root:
+        my_version = currentService.service_root.get('RedfishVersion', 'No Version')
+        my_name = currentService.service_root.get('Name', '')
+        my_uuid = currentService.service_root.get('UUID', 'No UUID')
+        setattr(args, 'description', 'My Target System {}, version {}, {}'.format(my_name, my_version, my_uuid))
 
-    metadata = currentService.metadata
-    sysDescription, ConfigURI = (config['systeminfo'], config['targetip'])
-
-    # start printing
-    rsvLogger.info('ConfigURI: ' + ConfigURI)
-    rsvLogger.info('System Info: ' + sysDescription)
-    rsvLogger.info('Profile:' + ' '.join(config['profile']))
-    rsvLogger.info('\n'.join(
-        ['{}: {}'.format(x, config[x]) for x in sorted(list(config.keys() - set(['systeminfo', 'targetip', 'password', 'description']))) if config[x] not in ['', None]]))
-    rsvLogger.info('Start time: ' + startTick.strftime('%x - %X'))
+    my_logger.info('Description of service: {}'.format(args.description))
 
     # Interop Profile handling
+    from common.profile import getProfiles, checkProfileAgainstSchema, hashProfile
+
     my_profiles = []
     success = True
     for filename in args.profile:
@@ -460,64 +148,77 @@ def main(arglist=None, direct_parser=None):
             for name, profile in my_profiles:
                 success = checkProfileAgainstSchema(profile, schema)
                 if not success:
-                    rsvLogger.info("Profile {} did not conform to the given schema...".format(name))
+                    my_logger.info("Profile {} did not conform to the given schema...".format(name))
                     return 1, None, 'Profile Did Not Conform'
 
     # Combine profiles
     all_profiles = []
     for name, profile in my_profiles:
-        all_profiles.extend(getProfiles(profile, './'))
+        all_profiles.extend(getProfiles(profile, './', online=args.online_profiles))
 
-    rsvLogger.info('\nProfile Hashes: ')
+    my_logger.info('\nProfile Hashes: ')
     for profile in all_profiles:
         profileName = profile.get('ProfileName')
-        rsvLogger.info('profile: {}, dict md5 hash: {}'.format(profileName, hashProfile(profile) ))
+        my_logger.info('profile: {}, dict md5 hash: {}'.format(profileName, hashProfile(profile)))
 
     # Start main
     status_code = 1
     jsonData = None
-    if rst.config.get('payloadmode') not in ['Tree', 'Single', 'SingleFile', 'TreeFile', 'Default']:
-        rst.config['payloadmode'] = 'Default'
-        rsvLogger.error('PayloadMode or path invalid, using Default behavior')
-    if 'File' in rst.config.get('payloadmode'):
-        if rst.config.get('payloadfilepath') is not None and os.path.isfile(rst.config.get('payloadfilepath')):
-            with open(rst.config.get('payloadfilepath')) as f:
+
+    if args.payload:
+        pmode, ppath = args.payload
+    else:
+        pmode, ppath = 'Default', ''
+    pmode = pmode.lower()
+
+    if pmode not in ['tree', 'single', 'singlefile', 'treefile', 'default']:
+        pmode = 'Default'
+        my_logger.warn('PayloadMode or path invalid, using Default behavior')
+    if 'file' in pmode:
+        if ppath is not None and os.path.isfile(ppath):
+            with open(ppath) as f:
                 jsonData = json.load(f)
                 f.close()
         else:
-            rsvLogger.error('File not found {}'.format(rst.config.get('payloadfilepath')))
-            return 1
+            my_logger.error('File not found for payload: {}'.format(ppath))
+            return 1, None, 'File not found for payload: {}'.format(ppath)
+    try:
+        from validateResource import validateSingleURI, validateURITree
+        results = None
+        for profile in all_profiles:
+            if 'single' in pmode:
+                success, _, resultsNew, _, _ = validateSingleURI(ppath, profile, 'Target', expectedJson=jsonData)
+            elif 'tree' in pmode:
+                success, _, resultsNew, _, _ = validateURITree(ppath, profile, 'Target', expectedJson=jsonData, check_oem=args.oemcheck)
+            else:
+                success, _, resultsNew, _, _ = validateURITree('/redfish/v1/', profile, 'ServiceRoot', expectedJson=jsonData, check_oem=args.oemcheck)
+            profileName = profile.get('ProfileName')
+            if results is None:
+                results = resultsNew
+            else:
+                for item in resultsNew:
+                    for x in resultsNew[item]['messages']:
+                        x.name = profileName + ' -- ' + x.name
+                    if item in results:
+                        innerCounts = results[item]['counts']
+                        innerCounts.update(resultsNew[item]['counts'])
+                        results[item]['messages'].extend(resultsNew[item]['messages'])
+                    else:
+                        results[item] = resultsNew[item]
+                    # resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
+                    # results.update(resultsNew)
+    except traverseInterop.AuthenticationError as e:
+        # log authentication error and terminate program
+        my_logger.error('{}'.format(e))
+        return 1, None, 'Failed to authenticate with the service'
 
-    results = None
-    for profile in all_profiles:
-        profileName = profile.get('ProfileName')
-        if 'Single' in rst.config.get('payloadmode'):
-            success, counts, resultsNew, xlinks, topobj = validateSingleURI(rst.config.get('payloadfilepath'), profile, 'Target', expectedJson=jsonData)
-        elif 'Tree' in rst.config.get('payloadmode'):
-            success, counts, resultsNew, xlinks, topobj = validateURITree(rst.config.get('payloadfilepath'), 'Target', profile, expectedJson=jsonData)
-        else:
-            success, counts, resultsNew, xlinks, topobj = validateURITree('/redfish/v1/', 'ServiceRoot', profile, expectedJson=jsonData)
 
-        if results is None:
-            results = resultsNew
-        else:
-            for item in resultsNew:
-                for x in resultsNew[item]['messages']:
-                    x.name = profileName + ' -- ' + x.name
-                if item in results:
-                    innerCounts = results[item]['counts']
-                    innerCounts.update(resultsNew[item]['counts'])
-                    results[item]['messages'].extend(resultsNew[item]['messages'])
-                else:
-                    results[item] = resultsNew[item]
-            #resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
-            #results.update(resultsNew)
 
+    from collections import Counter
     finalCounts = Counter()
     nowTick = datetime.now()
-    rsvLogger.info('Elapsed time: {}'.format(str(nowTick-startTick).rsplit('.', 1)[0]))
+    my_logger.info('Elapsed time: {}'.format(str(nowTick - startTick).rsplit('.', 1)[0]))
 
-    finalCounts.update(metadata.get_counter())
     for item in results:
         innerCounts = results[item]['counts']
 
@@ -529,7 +230,7 @@ def main(arglist=None, direct_parser=None):
             if any(x in countType for x in ['problem', 'fail', 'bad', 'exception']):
                 counters_all_pass = False
             if 'fail' in countType or 'exception' in countType:
-                rsvLogger.error('{} {} errors in {}'.format(innerCounts[countType], countType, results[item]['uri']))
+                my_logger.error('{} {} errors in {}'.format(innerCounts[countType], countType, results[item]['uri']))
             innerCounts[countType] += 0
         error_messages_present = False
         if results[item]['errors'] is not None and len(results[item]['errors']) > 0:
@@ -541,6 +242,8 @@ def main(arglist=None, direct_parser=None):
 
         finalCounts.update(results[item]['counts'])
 
+    import tohtml
+
     fails = 0
     for key in [key for key in finalCounts.keys()]:
         if finalCounts[key] == 0:
@@ -549,20 +252,22 @@ def main(arglist=None, direct_parser=None):
         if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
             fails += finalCounts[key]
 
-    rsvLogger.info('Rendering HTML Log')
-    html_str = renderHtml(results, finalCounts, tool_version, startTick, nowTick, args.csv_report)
+    html_str = tohtml.renderHtml(results, finalCounts, tool_version, startTick, nowTick, currentService.config)
 
-    lastResultsPage = datetime.strftime(startTick, os.path.join(logpath, "InteropHtmlLog%m_%d_%Y_%H%M%S.html"))
+    lastResultsPage = datetime.strftime(startTick, os.path.join(logpath, "InteropHtmlLog_%m_%d_%Y_%H%M%S.html"))
 
-    writeHtml(html_str, lastResultsPage)
+    tohtml.writeHtml(html_str, lastResultsPage)
 
-    success = success and not (fails > 0)
-    rsvLogger.info(finalCounts)
+    # success = success and not (fails > 0)
+    my_logger.info("\n".join('{}: {}   '.format(x, y) for x, y in sorted(finalCounts.items())))
+
+    # dump cache info to debug log
+    my_logger.debug('callResourceURI() -> {}'.format(currentService.callResourceURI.cache_info()))
 
     if not success:
-        rsvLogger.info("Validation has failed: {} problems found".format(fails))
+        my_logger.error("Validation has failed: {} problems found".format(fails))
     else:
-        rsvLogger.info("Validation has succeeded.")
+        my_logger.info("Validation has succeeded.")
         status_code = 0
 
     return status_code, lastResultsPage, 'Validation done'

@@ -4,14 +4,16 @@
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
 import re
-import traverseService as rst
 from enum import Enum
 from collections import Counter
 
-from RedfishInteropValidator import rsvLogger
+import logging
+from common.redfish import getNamespaceUnversioned, getType, getNamespace
+from traverseInterop import callResourceURI
+my_logger = logging.getLogger()
+my_logger.setLevel(logging.DEBUG)
 
 config = {'WarnRecommended': False, 'WriteCheck': False}
-
 
 class sEnum(Enum):
     FAIL = 'FAIL'
@@ -39,7 +41,7 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
     By default, only the first parameter is necessary and will always Pass if none given
     """
     propDoesNotExist = (rf_payload_item == 'DNE')
-    rsvLogger.debug('Testing ReadRequirement \n\texpected:' + str(profile_entry) + ', exists: ' + str(not propDoesNotExist))
+    my_logger.debug('Testing ReadRequirement \n\texpected:' + str(profile_entry) + ', exists: ' + str(not propDoesNotExist))
     # If we're not mandatory, pass automatically, else fail
     # However, we have other entries "IfImplemented" and "Conditional"
     # note: Mandatory is default!! if present in the profile.  Make sure this is made sure.
@@ -58,16 +60,16 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
     if profile_entry == "Conditional" and conditional:
         profile_entry = "Mandatory"
     if profile_entry == "IfImplemented":
-        rsvLogger.debug('\tItem cannot be tested for Implementation')
+        my_logger.debug('\tItem cannot be tested for Implementation')
     paramPass = not profile_entry == "Mandatory" or \
         profile_entry == "Mandatory" and not propDoesNotExist
     if profile_entry == "Recommended" and propDoesNotExist:
-        rsvLogger.info('\tItem is recommended but does not exist')
+        my_logger.info('\tItem is recommended but does not exist')
         if config['WarnRecommended']:
-            rsvLogger.warn('\tItem is recommended but does not exist, escalating to WARN')
+            my_logger.warn('\tItem is recommended but does not exist, escalating to WARN')
             paramPass = sEnum.WARN
 
-    rsvLogger.debug('\tpass ' + str(paramPass))
+    my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('ReadRequirement', original_profile_entry, 'Must Exist' if profile_entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
         paramPass
 
@@ -76,7 +78,7 @@ def isPropertyValid(profilePropName, rObj):
     for prop in rObj.getResourceProperties():
         if profilePropName == prop.propChild:
             return None, True
-    rsvLogger.error('{} - Does not exist in ResourceType Schema, please consult profile provided'.format(profilePropName))
+    my_logger.error('{} - Does not exist in ResourceType Schema, please consult profile provided'.format(profilePropName))
     return msgInterop('PropertyValidity', profilePropName, 'Should Exist', 'in ResourceType Schema', False), False
 
 
@@ -84,9 +86,9 @@ def validateMinCount(alist, length, annotation=0):
     """
     Validates Mincount annotation
     """
-    rsvLogger.debug('Testing minCount \n\texpected:' + str(length) + ', val:' + str(annotation))
+    my_logger.debug('Testing minCount \n\texpected:' + str(length) + ', val:' + str(annotation))
     paramPass = len(alist) >= length or annotation >= length
-    rsvLogger.debug('\tpass ' + str(paramPass))
+    my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('MinCount', length, '<=', annotation if annotation > len(alist) else len(alist), paramPass),\
         paramPass
 
@@ -95,13 +97,13 @@ def validateSupportedValues(enumlist, annotation):
     """
     Validates SupportedVals annotation
     """
-    rsvLogger.debug('Testing supportedValues \n\t:' + str(enumlist) + ', exists:' + str(annotation))
+    my_logger.debug('Testing supportedValues \n\t:' + str(enumlist) + ', exists:' + str(annotation))
     paramPass = True
     for item in enumlist:
         paramPass = item in annotation
         if not paramPass:
             break
-    rsvLogger.debug('\tpass ' + str(paramPass))
+    my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('SupportedValues', enumlist, 'included in...', annotation, paramPass),\
         paramPass
 
@@ -121,7 +123,7 @@ def validateWriteRequirement(propObj, profile_entry, itemname):
     """
     Validates if a property is WriteRequirement or not
     """
-    rsvLogger.debug('writeable \n\t' + str(profile_entry))
+    my_logger.debug('writeable \n\t' + str(profile_entry))
     permission = 'Read'
     expected = "OData.Permission/ReadWrite" if profile_entry else "Any"
     if not config['WriteCheck']:
@@ -142,7 +144,7 @@ def validateWriteRequirement(propObj, profile_entry, itemname):
     else:
         paramPass = True
 
-    rsvLogger.debug('\tpass ' + str(paramPass))
+    my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('WriteRequirement', profile_entry, expected, permission, paramPass),\
         paramPass
 
@@ -151,11 +153,11 @@ def checkComparison(val, compareType, target):
     """
     Validate a given comparison option, given a value and a target set
     """
-    rsvLogger.verboseout('Testing a comparison \n\t' + str((val, compareType, target)))
+    my_logger.log(logging.INFO - 1, 'Testing a comparison \n\t' + str((val, compareType, target)))
     vallist = val if isinstance(val, list) else [val]
     paramPass = False
     if compareType is None:
-        rsvLogger.error('CompareType not available in payload')
+        my_logger.error('CompareType not available in payload')
     if compareType == "AnyOf":
         for item in vallist:
             paramPass = item in target
@@ -177,11 +179,11 @@ def checkComparison(val, compareType, target):
         paramPass = len(alltarget) == len(target)
     if compareType == "LinkToResource":
         vallink = val.get('@odata.id')
-        success, rf_payload, code, elapsed = rst.callResourceURI(vallink)
+        success, rf_payload, code, elapsed = callResourceURI(vallink)
         if success:
             ourType = rf_payload.get('@odata.type')
             if ourType is not None:
-                SchemaType = rst.getType(ourType)
+                SchemaType = getType(ourType)
                 paramPass = SchemaType in target
             else:
                 paramPass = False
@@ -210,7 +212,7 @@ def checkComparison(val, compareType, target):
                     paramPass = val <= value
                 if paramPass is False:
                     break
-    rsvLogger.debug('\tpass ' + str(paramPass))
+    my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('Comparison', target, compareType, val, paramPass),\
         paramPass
 
@@ -219,7 +221,7 @@ def validateMembers(members, profile_entry, annotation):
     """
     Validate an profile_entry of Members and its count annotation
     """
-    rsvLogger.debug('Testing members \n\t' + str((members, profile_entry, annotation)))
+    my_logger.debug('Testing members \n\t' + str((members, profile_entry, annotation)))
     if not validateRequirement('Mandatory', members):
         return False
     if "MinCount" in profile_entry:
@@ -232,12 +234,12 @@ def validateMinVersion(version, profile_entry):
     """
     Checks for the minimum version of a resource's type
     """
-    rsvLogger.debug('Testing minVersion \n\t' + str((version, profile_entry)))
+    my_logger.debug('Testing minVersion \n\t' + str((version, profile_entry)))
     # If version doesn't contain version as is, try it as v#_#_#
     profile_entry_split = profile_entry.split('.')
     # get version from payload
     if(re.match('#([a-zA-Z0-9_.-]*\.)+[a-zA-Z0-9_.-]*', version) is not None):
-        v_payload = rst.getNamespace(version).split('.', 1)[-1]
+        v_payload = getNamespace(version).split('.', 1)[-1]
         v_payload = v_payload.replace('v', '')
         if ('_' in v_payload):
             payload_split = v_payload.split('_')
@@ -257,7 +259,7 @@ def validateMinVersion(version, profile_entry):
             break
 
     # use string comparison, given version numbering is accurate to regex
-    rsvLogger.debug('\tpass ' + str(paramPass))
+    my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('MinVersion', '{} ({})'.format(profile_entry, payload_split), '<=', version, paramPass),\
         paramPass
 
@@ -266,23 +268,23 @@ def checkConditionalRequirementResourceLevel(r_exists, profile_entry, itemname):
     """
     Returns boolean if profile_entry's conditional is true or false
     """
-    rsvLogger.debug('Evaluating conditionalRequirements')
+    my_logger.debug('Evaluating conditionalRequirements')
     if "SubordinateToResource" in profile_entry:
         isSubordinate = False
-        rsvLogger.warn('SubordinateToResource not supported')
+        my_logger.warn('SubordinateToResource not supported')
         return isSubordinate
     elif "CompareProperty" in profile_entry:
         # find property in json payload by working backwards thru objects
         # rf_payload tuple is designed just for this piece, since there is
         # no parent in dictionaries
         if "CompareType" not in profile_entry:
-            rsvLogger.error("Invalid Profile - CompareType is required for CompareProperty but not found")
+            my_logger.error("Invalid Profile - CompareType is required for CompareProperty but not found")
             raise ValueError('CompareType missing with CompareProperty')
         if "CompareValues" not in profile_entry and profile_entry['CompareType'] not in ['Absent', 'Present']:
-            rsvLogger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
+            my_logger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
             raise ValueError('CompareValues missing with CompareProperty')
         if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
-            rsvLogger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
+            my_logger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
         # compatability with old version, deprecate with versioning
 
         present = r_exists.get(profile_entry.get('CompareProperty'), False)
@@ -292,7 +294,7 @@ def checkConditionalRequirementResourceLevel(r_exists, profile_entry, itemname):
 
         return checkComparison('DNE' if not present else '[Object]', compareType, None)[1]
     else:
-        rsvLogger.error("Invalid Profile - No conditional given")
+        my_logger.error("Invalid Profile - No conditional given")
         raise ValueError('No conditional given for Comparison')
 
 
@@ -300,7 +302,7 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
     """
     Returns boolean if profile_entry's conditional is true or false
     """
-    rsvLogger.debug('Evaluating conditionalRequirements')
+    my_logger.debug('Evaluating conditionalRequirements')
     if "SubordinateToResource" in profile_entry:
         isSubordinate = False
         # iterate through parents via resourceObj
@@ -308,13 +310,13 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
         resourceParent = propResourceObj.parent
         for expectedParent in reversed(profile_entry["SubordinateToResource"]):
             if resourceParent is not None:
-                parentType = resourceParent.typeobj.stype
+                parentType = getType(resourceParent.jsondata.get('@odata.type', 'NoType'))
                 isSubordinate = parentType == expectedParent
-                rsvLogger.debug('\tsubordinance ' +
+                my_logger.debug('\tsubordinance ' +
                                str(parentType) + ' ' + str(isSubordinate))
                 resourceParent = resourceParent.parent
             else:
-                rsvLogger.debug('no parent')
+                my_logger.debug('no parent')
                 isSubordinate = False
         return isSubordinate
     elif "CompareProperty" in profile_entry:
@@ -324,24 +326,24 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
         # no parent in dictionaries
         comparePropName = profile_entry["CompareProperty"]
         if "CompareType" not in profile_entry:
-            rsvLogger.error("Invalid Profile - CompareType is required for CompareProperty but not found")
+            my_logger.error("Invalid Profile - CompareType is required for CompareProperty but not found")
             raise ValueError('CompareType missing with CompareProperty')
         if "CompareValues" not in profile_entry and profile_entry['CompareType'] not in ['Absent', 'Present']:
-            rsvLogger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
+            my_logger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
             raise ValueError('CompareValues missing with CompareProperty')
         if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
-            rsvLogger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
+            my_logger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
         while (rf_payload_item is None or comparePropName not in rf_payload_item) and rf_payload is not None:
             rf_payload_item, rf_payload = rf_payload
         if rf_payload_item is None:
-            rsvLogger.error('Could not acquire expected CompareProperty {}'.format(comparePropName))
+            my_logger.error('Could not acquire expected CompareProperty {}'.format(comparePropName))
             return False
         compareProp = rf_payload_item.get(comparePropName, 'DNE')
         # compatability with old version, deprecate with versioning
         compareType = profile_entry.get("CompareType", profile_entry.get("Comparison"))
         return checkComparison(compareProp, compareType, profile_entry.get("CompareValues", []))[1]
     else:
-        rsvLogger.error("Invalid Profile - No conditional given")
+        my_logger.error("Invalid Profile - No conditional given")
         raise ValueError('No conditional given for Comparison')
 
 
@@ -353,19 +355,19 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
     counts = Counter()
     rf_payload_item, rf_payload = rf_payload_tuple
     if profile_entry is None or len(profile_entry) == 0:
-        rsvLogger.debug('there are no requirements for this prop')
+        my_logger.debug('there are no requirements for this prop')
     else:
-        rsvLogger.debug('propRequirement with value: ' + str(rf_payload_item if not isinstance(
+        my_logger.debug('propRequirement with value: ' + str(rf_payload_item if not isinstance(
             rf_payload_item, dict) else 'dict'))
     # If we're working with a list, then consider MinCount, Comparisons, then execute on each item
     # list based comparisons include AnyOf and AllOf
     if isinstance(rf_payload_item, list):
-        rsvLogger.debug("inside of a list: " + itemname)
+        my_logger.debug("inside of a list: " + itemname)
         if "MinCount" in profile_entry:
             msg, success = validateMinCount(rf_payload_item, profile_entry["MinCount"],
                                 rf_payload[0].get(itemname.split('.')[-1] + '@odata.count', 0))
             if not success:
-                rsvLogger.error("MinCount failed")
+                my_logger.error("MinCount failed")
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
         for k, v in profile_entry.get('PropertyRequirements', {}).items():
@@ -398,13 +400,13 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
             if not success:
-                rsvLogger.error("WriteRequirement failed")
+                my_logger.error("WriteRequirement failed")
         if "ConditionalRequirements" in profile_entry:
             innerList = profile_entry["ConditionalRequirements"]
             for item in innerList:
                 try:
                     if checkConditionalRequirement(propResourceObj, item, rf_payload_tuple, itemname):
-                        rsvLogger.info("\tCondition DOES apply")
+                        my_logger.info("\tCondition DOES apply")
                         conditionalMsgs, conditionalCounts = validatePropertyRequirement(
                             propResourceObj, item, rf_payload_tuple, itemname, chkCondition = True)
                         counts.update(conditionalCounts)
@@ -412,9 +414,9 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
                             item.name = item.name.replace('.', '.Conditional.', 1)
                         msgs.extend(conditionalMsgs)
                     else:
-                        rsvLogger.info("\tCondition does not apply")
+                        my_logger.info("\tCondition does not apply")
                 except ValueError as e:
-                    rsvLogger.info("\tCondition was skipped due to payload error")
+                    my_logger.info("\tCondition was skipped due to payload error")
                     counts['errorProfileComparisonError'] += 1
 
         if "MinSupportValues" in profile_entry:
@@ -424,7 +426,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
             if not success:
-                rsvLogger.error("MinSupportValues failed")
+                my_logger.error("MinSupportValues failed")
         if "Comparison" in profile_entry and not chkCondition and\
                 profile_entry["Comparison"] not in ["AnyOf", "AllOf"]:
             msg, success = checkComparison(rf_payload_item,
@@ -432,22 +434,22 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
             if not success:
-                rsvLogger.error("Comparison failed")
+                my_logger.error("Comparison failed")
         if "PropertyRequirements" in profile_entry:
             innerDict = profile_entry["PropertyRequirements"]
             if isinstance(rf_payload_item, dict):
                 for item in innerDict:
-                    rsvLogger.debug('inside complex ' + itemname + '.' + item)
+                    my_logger.debug('inside complex ' + itemname + '.' + item)
                     complexMsgs, complexCounts = validatePropertyRequirement(
                         propResourceObj, innerDict[item], (rf_payload_item.get(item, 'DNE'), rf_payload_tuple), item)
                     msgs.extend(complexMsgs)
                     counts.update(complexCounts)
             else:
-                rsvLogger.info('complex {} is missing or not a dictionary'.format(itemname))
+                my_logger.info('complex {} is missing or not a dictionary'.format(itemname))
     return msgs, counts
 
 
-def validateActionRequirement(propResourceObj, profile_entry, rf_payload_tuple, actionname):
+def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     """
     Validate Requirements for one action
     """
@@ -455,7 +457,7 @@ def validateActionRequirement(propResourceObj, profile_entry, rf_payload_tuple, 
     rf_payload_action = None
     counts = Counter()
     msgs = []
-    rsvLogger.verboseout('actionRequirement \n\tval: ' + str(rf_payload_item if not isinstance(
+    my_logger.log(logging.INFO - 1, 'actionRequirement \n\tval: ' + str(rf_payload_item if not isinstance(
         rf_payload_item, dict) else 'dict') + ' ' + str(profile_entry))
 
     if "ReadRequirement" in profile_entry:
@@ -469,7 +471,7 @@ def validateActionRequirement(propResourceObj, profile_entry, rf_payload_tuple, 
         return msgs, counts
     if "@Redfish.ActionInfo" in rf_payload_item:
         vallink = rf_payload_item['@Redfish.ActionInfo']
-        success, rf_payload_action, code, elapsed = rst.callResourceURI(vallink)
+        success, rf_payload_action, code, elapsed = callResourceURI(vallink)
         if not success:
             rf_payload_action = None
 
@@ -489,7 +491,7 @@ def validateActionRequirement(propResourceObj, profile_entry, rf_payload_tuple, 
             if values_array is None:
                 values_array = rf_payload_item.get(str(k) + '@Redfish.AllowableValues', 'DNE')
             if values_array == 'DNE':
-                rsvLogger.warn('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(k))
+                my_logger.warn('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(k))
                 msg = msgInterop('', item, '-', '-', sEnum.WARN)
                 msg.name = "{}.{}.{}".format(actionname, k, msg.name)
                 msgs.append(msg)
@@ -507,10 +509,10 @@ def validateActionRequirement(propResourceObj, profile_entry, rf_payload_tuple, 
                             item["RecommendedValues"], values_array)
                     msg.name = msg.name.replace('Supported', 'Recommended')
                     if config['WarnRecommended'] and not success:
-                        rsvLogger.warn('\tRecommended parameters do not all exist, escalating to WARN')
+                        my_logger.warn('\tRecommended parameters do not all exist, escalating to WARN')
                         msg.success = sEnum.WARN
                     elif not success:
-                        rsvLogger.warn('\tRecommended parameters do not all exist, but are not Mandatory')
+                        my_logger.warn('\tRecommended parameters do not all exist, but are not Mandatory')
                         msg.success = sEnum.PASS
 
                     msgs.append(msg)
@@ -529,7 +531,7 @@ def compareRedfishURI(expected_uris, uri, my_id):
             e_left = regex.sub('[a-zA-Z0-9_.-]+', e_left)
             if regex.match(e_right):
                 if my_id is None:
-                    rst.traverseLogger.warn('No Id provided by payload')
+                    my_logger.warn('No Id provided by payload')
                 e_right = str(my_id)
             e_compare_to = '/'.join([e_left, e_right])
             success = re.fullmatch(e_compare_to, uri) is not None
@@ -543,7 +545,7 @@ def validateInteropURI(r_obj, profile_entry):
     """
     Checks for the minimum version of a resource's type
     """
-    rsvLogger.debug('Testing URI \n\t' + str((r_obj.uri, profile_entry)))
+    my_logger.debug('Testing URI \n\t' + str((r_obj.uri, profile_entry)))
 
     my_id, my_uri = r_obj.jsondata.get('Id'), r_obj.uri
     paramPass = compareRedfishURI(profile_entry, my_uri, my_id)
@@ -556,29 +558,30 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
     Base function that validates a single Interop Resource by its profile_entry
     """
     msgs = []
-    rsvLogger.info('### Validating an InteropResource')
-    rsvLogger.debug(str(interop_profile))
+    my_logger.info('### Validating an InteropResource')
+    my_logger.debug(str(interop_profile))
     counts = Counter()
     # rf_payload_tuple provides the chain of dicts containing dicts, needed for CompareProperty
     rf_payload_tuple = (rf_payload, None)
     if "MinVersion" in interop_profile:
-        msg, success = validateMinVersion(propResourceObj.typeobj.fulltype, interop_profile['MinVersion'])
+        my_type = propResourceObj.jsondata.get('@odata.type', 'NoType')
+        msg, success = validateMinVersion(my_type, interop_profile['MinVersion'])
         msgs.append(msg)
     if "URIs" in interop_profile:
-        rsvLogger.info('Validating URIs')
+        my_logger.info('Validating URIs')
         msg, success = validateInteropURI(propResourceObj, interop_profile['URIs'])
         msgs.append(msg)
     if "PropertyRequirements" in interop_profile:
         # problem, unlisted in 0.9.9a
         innerDict = interop_profile["PropertyRequirements"]
         for item in innerDict:
-            vmsg, isvalid = isPropertyValid(item, propResourceObj)
-            if not isvalid:
-                msgs.append(vmsg)
-                vmsg.name = '{}.{}'.format(item, vmsg.name)
-                counts['errorProfileValidityError'] += 1
-                continue
-            rsvLogger.info('### Validating PropertyRequirements for {}'.format(item))
+            # vmsg, isvalid = isPropertyValid(item, propResourceObj)
+            # if not isvalid:
+            #     msgs.append(vmsg)
+            #     vmsg.name = '{}.{}'.format(item, vmsg.name)
+            #     counts['errorProfileValidityError'] += 1
+            #     continue
+            my_logger.info('### Validating PropertyRequirements for {}'.format(item))
             pmsgs, pcounts = validatePropertyRequirement(
                 propResourceObj, innerDict[item], (rf_payload.get(item, 'DNE'), rf_payload_tuple), item)
             counts.update(pcounts)
@@ -588,19 +591,25 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
         actionsJson = rf_payload.get('Actions', {})
         rf_payloadInnerTuple = (actionsJson, rf_payload_tuple)
         for item in innerDict:
-            actionName = '#' + propResourceObj.typeobj.stype + '.' + item
-            amsgs, acounts = validateActionRequirement(propResourceObj, innerDict[item], (actionsJson.get(
+            my_type = getNamespaceUnversioned(propResourceObj.jsondata.get('@odata.type', 'NoType'))
+            actionName = my_type + '.' + item
+            if actionName in actionsJson:
+                my_logger.warning('{} should be #{}'.format(actionName, actionName))
+            else:
+                actionName = '#' + my_type + '.' + item
+            
+            amsgs, acounts = validateActionRequirement(innerDict[item], (actionsJson.get(
                 actionName, 'DNE'), rf_payloadInnerTuple), actionName)
             counts.update(acounts)
             msgs.extend(amsgs)
     if "CreateResource" in interop_profile:
-        rsvLogger.info('Skipping CreateResource')
+        my_logger.info('Skipping CreateResource')
         pass
     if "DeleteResource" in interop_profile:
-        rsvLogger.info('Skipping DeleteResource')
+        my_logger.info('Skipping DeleteResource')
         pass
     if "UpdateResource" in interop_profile:
-        rsvLogger.info('Skipping UpdateResource')
+        my_logger.info('Skipping UpdateResource')
         pass
 
     for item in msgs:

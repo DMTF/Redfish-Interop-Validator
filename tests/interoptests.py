@@ -8,8 +8,7 @@
 
 from unittest import TestCase
 
-import RedfishInteropValidator
-import commonInterop as riv
+import common.interop as riv
 
 class ValidatorTest(TestCase):
 

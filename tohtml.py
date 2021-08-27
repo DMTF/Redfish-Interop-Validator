@@ -5,18 +5,17 @@
 
 
 if __name__ != '__main__':
-    import traverseService as rst
-    from commonRedfish import getNamespace, getType
+    from common.redfish import getNamespace, getType
 else:
     import argparse
     from bs4 import BeautifulSoup
     import os, csv
 import RedfishLogo as logo
+import logging
 from types import SimpleNamespace
-from collections import Counter, OrderedDict
-import html
-import json
 
+my_logger = logging.getLogger()
+my_logger.setLevel(logging.DEBUG)
 
 def wrapTag(string, tag='div', attr=None):
     string = str(string)
@@ -26,13 +25,13 @@ def wrapTag(string, tag='div', attr=None):
     return ltag + string + rtag
 
 # hack in tagnames into module namespace
-for tagName in ['tr', 'td', 'th', 'div', 'b', 'table', 'body', 'head']:
-    globals()[tagName] = lambda string, attr=None, tag=tagName: wrapTag(string, tag=tag, attr=attr)
+tag = SimpleNamespace(**{tagName: lambda string, attr=None, tag=tagName: wrapTag(string, tag=tag, attr=attr)\
+    for tagName in ['tr', 'td', 'th', 'div', 'b', 'table', 'body', 'head', 'summary']})
 
 
 def infoBlock(strings, split='<br/>', ffunc=None, sort=True):
     if isinstance(strings, dict):
-        infos = [b('{}: '.format(y)) + str(x) for y,x in (sorted(strings.items()) if sort else strings.items())]
+        infos = [tag.b('{}: '.format(y)) + str(x) for y,x in (sorted(strings.items()) if sort else strings.items())]
     else:
         infos = strings
     return split.join([ffunc(*x) for x in enumerate(infos)] if ffunc is not None else infos)
@@ -41,10 +40,10 @@ def infoBlock(strings, split='<br/>', ffunc=None, sort=True):
 def tableBlock(lines, titles, widths=None, ffunc=None):
     widths = widths if widths is not None else [100 for x in range(len(titles))]
     attrlist = ['style="width:{}%"'.format(str(x)) for x in widths]
-    tableHeader = tr(''.join([th(x,y) for x,y in zip(titles,attrlist)]))
+    tableHeader = tag.tr(''.join([tag.th(x,y) for x,y in zip(titles,attrlist)]))
     for line in lines:
-        tableHeader += tr(''.join([ffunc(cnt, x) if ffunc is not None else td(x) for cnt, x in enumerate(line)]))
-    return table(tableHeader)
+        tableHeader += tag.tr(''.join([ffunc(cnt, x) if ffunc is not None else tag.td(x) for cnt, x in enumerate(line)]))
+    return tag.table(tableHeader)
 
 
 def applySuccessColor(num, entry):
@@ -69,21 +68,23 @@ def applyInfoSuccessColor(num, entry):
         style = 'class="warn"'
     else:
         style = None
-    return div(entry, attr=style)
+    return tag.div(entry, attr=style)
 
 
-def renderHtml(results, finalCounts, tool_version, startTick, nowTick, printCSV):
+def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
     # Render html
-    config = rst.config
     config_str = ', '.join(sorted(list(config.keys() - set(['systeminfo', 'targetip', 'password', 'description']))))
-    rsvLogger = rst.getLogger()
-    sysDescription, ConfigURI = (config['systeminfo'], config['targetip'])
-    logpath = config['logpath']
+    sysDescription, ConfigURI = (config['description'], config['ip'])
+    logpath = config['logdir']
 
     # wrap html
     htmlPage = ''
     htmlStrTop = '<head><title>Conformance Test Summary</title>\
             <style>\
+            .column {\
+                float: left;\
+                width: 45%;\
+            }\
             .pass {background-color:#99EE99}\
             .fail {background-color:#EE9999}\
             .warn {background-color:#EEEE99}\
@@ -119,32 +120,39 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, printCSV)
                  '<a href="https://github.com/DMTF/Redfish-Interop-Validator/issues">'
                  'https://github.com/DMTF/Redfish-Interop-Validator/issues</a></h4>')
 
-    htmlStrBodyHeader += tr(th(infoBlock(infos)))
+    htmlStrBodyHeader += tag.tr(tag.th(infoBlock(infos)))
 
     infos = {'System': ConfigURI, 'Description': sysDescription}
-    htmlStrBodyHeader += tr(th(infoBlock(infos)))
+    htmlStrBodyHeader += tag.tr(tag.th(infoBlock(infos)))
 
     infos = {'Profile': config['profile'], 'Schema': config['schema']}
-    htmlStrBodyHeader += tr(th(infoBlock(infos)))
+    htmlStrBodyHeader += tag.tr(tag.th(infoBlock(infos)))
 
     infos = {x: config[x] for x in config if x not in ['systeminfo', 'targetip', 'password', 'description', 'profile', 'schema']}
-    block = tr(th(infoBlock(infos, '|||')))
+    block = tag.tr(tag.th(infoBlock(infos, '|||')))
     for num, block in enumerate(block.split('|||'), 1):
         sep = '<br/>' if num % 4 == 0 else ',&ensp;'
         sep = '' if num == len(infos) else sep
         htmlStrBodyHeader += block + sep
 
-    htmlStrTotal = '<div>Final counts: '
-    for countType in sorted(finalCounts.keys()):
-        if finalCounts.get(countType) == 0:
+    infos_left, infos_right = dict(), dict()
+    for key in sorted(finalCounts.keys()):
+        if finalCounts.get(key) == 0:
             continue
-        htmlStrTotal += '{p}: {q},   '.format(p=countType, q=finalCounts.get(countType, 0))
-    htmlStrTotal += '</div><div class="button warn" onClick="arr = document.getElementsByClassName(\'results\'); for (var i = 0; i < arr.length; i++){arr[i].className = \'results resultsShow\'};">Expand All</div>'
+        if len(infos_left) <= len(infos_right):
+            infos_left[key] = finalCounts[key]
+        else:
+            infos_right[key] = finalCounts[key]
+
+    htmlStrCounts = (tag.div(infoBlock(infos_left), 'class=\'column log\'') + tag.div(infoBlock(infos_right), 'class=\'column log\''))
+
+    htmlStrBodyHeader += tag.tr(tag.td(htmlStrCounts))
+
+    htmlStrTotal = '</div><div class="button warn" onClick="arr = document.getElementsByClassName(\'results\'); for (var i = 0; i < arr.length; i++){arr[i].className = \'results resultsShow\'};">Expand All</div>'
     htmlStrTotal += '</div><div class="button fail" onClick="arr = document.getElementsByClassName(\'results\'); for (var i = 0; i < arr.length; i++){arr[i].className = \'results\'};">Collapse All</div>'
 
-    htmlStrBodyHeader += tr(td(htmlStrTotal))
+    htmlStrBodyHeader += tag.tr(tag.td(htmlStrTotal))
 
-    htmlPage = rst.currentService.metadata.to_html()
     for cnt, item in enumerate(results):
         entry = []
         val = results[item]
@@ -162,27 +170,27 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, printCSV)
         infos_a = [str(val.get(x)) for x in ['uri', 'samplemapped'] if val.get(x) not in ['',None]]
         infos_a.append(rtime)
         infos_a.append(type_name)
-        uriTag = tr(th(infoBlock(infos_a, '&ensp;'), 'class="titlerow bluebg"'))
+        uriTag = tag.tr(tag.th(infoBlock(infos_a, '&ensp;'), 'class="titlerow bluebg"'))
         entry.append(uriTag)
 
         # info block
         infos_b = [str(val.get(x)) for x in ['uri'] if val.get(x) not in ['',None]]
         infos_b.append(rtime)
-        infos_b.append(div('Show Results', attr='class="button warn" onClick="document.getElementById(\'resNum{}\').classList.toggle(\'resultsShow\');"'.format(cnt)))
-        buttonTag = td(infoBlock(infos_b), 'class="title" style="width:30%"')
+        infos_b.append(tag.div('Show Results', attr='class="button warn" onClick="document.getElementById(\'resNum{}\').classList.toggle(\'resultsShow\');"'.format(cnt)))
+        buttonTag = tag.td(infoBlock(infos_b), 'class="title" style="width:30%"')
 
         infos_content = [str(val.get(x)) for x in ['context', 'origin', 'fulltype']]
         infos_c = {y: x for x,y in zip(infos_content, ['Context', 'File Origin', 'Resource Type'])}
-        infosTag = td(infoBlock(infos_c), 'class="titlesub log" style="width:40%"')
+        infosTag = tag.td(infoBlock(infos_c), 'class="titlesub log" style="width:40%"')
 
         success = val['success']
         if success:
-            getTag = td('GET Success', 'class="pass"')
+            getTag = tag.td('GET Success', 'class="pass"')
         else:
-            getTag = td('GET Failure', 'class="fail"')
+            getTag = tag.td('GET Failure', 'class="fail"')
 
 
-        countsTag = td(infoBlock(val['counts'], split='', ffunc=applyInfoSuccessColor), 'class="log"')
+        countsTag = tag.td(infoBlock(val['counts'], split='', ffunc=applyInfoSuccessColor), 'class="log"')
 
         rhead = ''.join([buttonTag, infosTag, getTag, countsTag])
         for x in [('tr',), ('table', 'class=titletable'), ('td', 'class=titlerow'), ('tr')]:
@@ -197,37 +205,30 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, printCSV)
         tableHeader = tableBlock(rows, titles, widths, ffunc=applySuccessColor)
 
         #    lets wrap table and errors and warns into one single column table
-        tableHeader = tr(td((tableHeader)))
-
-        if(printCSV):
-            rsvLogger.info(','.join(infos_a))
-            rsvLogger.info(','.join(infos_content))
-            rsvLogger.info(','.join(titles))
-            rsvLogger.info('\n'.join([','.join(x) for x in rows]))
-            rsvLogger.info(',')
+        tableHeader = tag.tr(tag.td((tableHeader)))
 
         # warns and errors
         errors = val['errors']
         if len(errors) == 0:
             errors = 'No errors'
         infos = errors.split('\n')
-        errorTags = tr(td(infoBlock(infos), 'class="fail log"'))
+        errorTags = tag.tr(tag.td(infoBlock(infos), 'class="fail log"'))
 
         warns = val['warns']
         if len(warns) == 0:
             warns = 'No warns'
         infos = warns.split('\n')
-        warnTags = tr(td(infoBlock(infos), 'class="warn log"'))
+        warnTags = tag.tr(tag.td(infoBlock(infos), 'class="warn log"'))
 
         tableHeader += errorTags
         tableHeader += warnTags
-        tableHeader = table(tableHeader)
-        tableHeader = td(tableHeader, 'class="results" id=\'resNum{}\''.format(cnt))
+        tableHeader = tag.table(tableHeader)
+        tableHeader = tag.td(tableHeader, 'class="results" id=\'resNum{}\''.format(cnt))
 
         entry.append(tableHeader)
 
         # append
-        htmlPage += ''.join([tr(x) for x in entry])
+        htmlPage += ''.join([tag.tr(x) for x in entry])
 
     return wrapTag(wrapTag(htmlStrTop + wrapTag(htmlStrBodyHeader + htmlPage, 'table'), 'body'), 'html')
 
