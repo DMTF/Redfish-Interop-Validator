@@ -1,5 +1,9 @@
 # Change Log
 
+## [2.0.0] - 2021-08-30
+- Significant changes to the CLI arguments with the tool to reduce complexity for users
+- Removed need for scanning schema files for performing testing of a service
+
 ## [1.1.8] - 2021-06-18
 - Corrected conditional requirements to properly account for all values specified
 
