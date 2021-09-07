@@ -258,7 +258,7 @@ def main(argslist=None, configfile=None):
 
     tohtml.writeHtml(html_str, lastResultsPage)
 
-    # success = success and not (fails > 0)
+    success = success and not (fails > 0)
     my_logger.info("\n".join('{}: {}   '.format(x, y) for x, y in sorted(finalCounts.items())))
 
     # dump cache info to debug log
