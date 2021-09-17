@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.0.1] - 2021-09-17
+- Fixed console status reporting of whether or not errors were found
+
 ## [2.0.0] - 2021-08-30
 - Significant changes to the CLI arguments with the tool to reduce complexity for users
 - Removed need for scanning schema files for performing testing of a service
