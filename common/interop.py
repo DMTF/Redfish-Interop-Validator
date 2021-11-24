@@ -339,7 +339,7 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
         while (rf_payload_item is None or comparePropNames[0] not in rf_payload_item) and rf_payload is not None:
             rf_payload_item, rf_payload = rf_payload
         if rf_payload_item is None:
-            rsvLogger.error('Could not acquire expected CompareProperty {}'.format(comparePropNames[0]))
+            my_logger.error('Could not acquire expected CompareProperty {}'.format(comparePropNames[0]))
             return False
         compareProp = rf_payload_item.get(comparePropNames[0], 'DNE')
         if (compareProp != 'DNE') and len(comparePropNames) > 1:
