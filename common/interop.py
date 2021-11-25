@@ -250,8 +250,8 @@ def validateMinVersion(version, profile_entry):
 
     paramPass = True
     for a, b in zip(profile_entry_split, payload_split):
-        b = 0 if b is None else b
-        a = 0 if a is None else a
+        b = 0 if b is None else int(b) if b.isnumeric() else b
+        a = 0 if a is None else int(a) if a.isnumeric() else a
         if (b > a):
             break
         if (b < a):
