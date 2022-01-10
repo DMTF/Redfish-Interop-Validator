@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.0.2] - 2022-01-10
+- Fixed version number comparisons for when a version segment reaches two digits
+
 ## [2.0.1] - 2021-09-17
 - Fixed console status reporting of whether or not errors were found
 
