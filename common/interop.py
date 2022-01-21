@@ -330,7 +330,10 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
         # find property in json payload by working backwards thru objects
         # rf_payload tuple is designed just for this piece, since there is
         # no parent in dictionaries
-        comparePropName = profile_entry["CompareProperty"]
+        if profile_entry["CompareProperty"][0] == '/':
+            comparePropNames = profile_entry["CompareProperty"].split('/')[1:]
+        else:
+            comparePropNames = [profile_entry["CompareProperty"]]
         if "CompareType" not in profile_entry:
             my_logger.error("Invalid Profile - CompareType is required for CompareProperty but not found")
             raise ValueError('CompareType missing with CompareProperty')
@@ -339,12 +342,17 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
             raise ValueError('CompareValues missing with CompareProperty')
         if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
             my_logger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
-        while (rf_payload_item is None or comparePropName not in rf_payload_item) and rf_payload is not None:
+        while (rf_payload_item is None or comparePropNames[0] not in rf_payload_item) and rf_payload is not None:
             rf_payload_item, rf_payload = rf_payload
         if rf_payload_item is None:
-            my_logger.error('Could not acquire expected CompareProperty {}'.format(comparePropName))
+            my_logger.error('Could not acquire expected CompareProperty {}'.format(comparePropNames[0]))
             return False
-        compareProp = rf_payload_item.get(comparePropName, 'DNE')
+        compareProp = rf_payload_item.get(comparePropNames[0], 'DNE')
+        if (compareProp != 'DNE') and len(comparePropNames) > 1:
+            for comparePropName in comparePropNames[1:]:
+                compareProp = compareProp.get(comparePropName, 'DNE')
+                if compareProp == 'DNE':
+                    break
         # compatability with old version, deprecate with versioning
         compareType = profile_entry.get("CompareType", profile_entry.get("Comparison"))
         return checkComparison(compareProp, compareType, profile_entry.get("CompareValues", []))[1]
