@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.0.3] - 2022-01-31
+- Added support for JSON Pointer syntax in 'CompareProperty'
+
 ## [2.0.2] - 2022-01-10
 - Fixed version number comparisons for when a version segment reaches two digits
 
