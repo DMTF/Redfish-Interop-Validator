@@ -537,6 +537,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     return msgs, counts
 
 def compareRedfishURI(expected_uris, uri, my_id):
+    success = False
     if expected_uris is not None:
         regex = re.compile(r"{.*?}")
         for e in expected_uris:
@@ -548,24 +549,21 @@ def compareRedfishURI(expected_uris, uri, my_id):
                     my_logger.warn('No Id provided by payload')
                 e_right = str(my_id)
             e_compare_to = '/'.join([e_left, e_right])
-            success = re.fullmatch(e_compare_to, uri) is not None
-            if success:
+            if re.fullmatch(e_compare_to, uri) is not None:
+                success = True
                 break
     else:
         success = True
     return success
 
-def validateInteropURI(r_obj, profile_entry):
+def checkInteropURI(r_obj, profile_entry):
     """
-    Checks for the minimum version of a resource's type
+    Checks if the profile's URI applies to the particular resource
     """
     my_logger.debug('Testing URI \n\t' + str((r_obj.uri, profile_entry)))
 
     my_id, my_uri = r_obj.jsondata.get('Id'), r_obj.uri
-    paramPass = compareRedfishURI(profile_entry, my_uri, my_id)
-    return msgInterop('InteropURI', '{}'.format(profile_entry), 'Matches', my_uri, paramPass),\
-        paramPass
-
+    return compareRedfishURI(profile_entry, my_uri, my_id)
 
 def validateInteropResource(propResourceObj, interop_profile, rf_payload):
     """
@@ -577,13 +575,14 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
     counts = Counter()
     # rf_payload_tuple provides the chain of dicts containing dicts, needed for CompareProperty
     rf_payload_tuple = (rf_payload, None)
+    if "URIs" in interop_profile:
+        # Check if the profile requirements apply to this particular instance
+        if not checkInteropURI(propResourceObj, interop_profile['URIs']):
+            my_logger.info('Skipping resource; URI is not listed')
+            return msgs, counts
     if "MinVersion" in interop_profile:
         my_type = propResourceObj.jsondata.get('@odata.type', 'NoType')
         msg, success = validateMinVersion(my_type, interop_profile['MinVersion'])
-        msgs.append(msg)
-    if "URIs" in interop_profile:
-        my_logger.info('Validating URIs')
-        msg, success = validateInteropURI(propResourceObj, interop_profile['URIs'])
         msgs.append(msg)
     if "PropertyRequirements" in interop_profile:
         # problem, unlisted in 0.9.9a
