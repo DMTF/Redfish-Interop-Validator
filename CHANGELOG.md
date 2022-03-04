@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.0.4] - 2022-03-04
+- Corrected URI checking to act as a filter for whether or not to apply the requirements
+
 ## [2.0.3] - 2022-01-31
 - Added support for JSON Pointer syntax in 'CompareProperty'
 
