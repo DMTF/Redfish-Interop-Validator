@@ -144,11 +144,10 @@ def getProfiles(profile, dirname, chain=None, online=False):
                     filehandle.close()
                     data = json.loads(data)
                     if targetVersion > fileVersion:
-                        my_logger.warn('File version smaller than target MinVersion')
+                        my_logger.warning('File version smaller than target MinVersion')
                 else:
                     my_logger.error('Could not acquire this profile {} {}'.format(targetName, repo))
                     continue
 
             alldata.extend(getProfiles(data, dirname, chain))
     return alldata
-
