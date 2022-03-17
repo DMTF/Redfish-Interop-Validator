@@ -304,7 +304,7 @@ def checkConditionalRequirementResourceLevel(r_exists, profile_entry, itemname):
         raise ValueError('No conditional given for Comparison')
 
 
-def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple, itemname):
+def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple):
     """
     Returns boolean if profile_entry's conditional is true or false
     """
@@ -326,7 +326,6 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
                 isSubordinate = False
         return isSubordinate
     elif "CompareProperty" in profile_entry:
-        rf_payload_item, rf_payload = rf_payload_tuple
         # find property in json payload by working backwards thru objects
         # rf_payload tuple is designed just for this piece, since there is
         # no parent in dictionaries
@@ -342,11 +341,9 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
             raise ValueError('CompareValues missing with CompareProperty')
         if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
             my_logger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
-        while (rf_payload_item is None or comparePropNames[0] not in rf_payload_item) and rf_payload is not None:
-            rf_payload_item, rf_payload = rf_payload
-        if rf_payload_item is None:
-            my_logger.error('Could not acquire expected CompareProperty {}'.format(comparePropNames[0]))
-            return False
+
+        _, (rf_payload_item, _) = rf_payload_tuple
+
         compareProp = rf_payload_item.get(comparePropNames[0], 'DNE')
         if (compareProp != 'DNE') and len(comparePropNames) > 1:
             for comparePropName in comparePropNames[1:]:
@@ -419,7 +416,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             innerList = profile_entry["ConditionalRequirements"]
             for item in innerList:
                 try:
-                    if checkConditionalRequirement(propResourceObj, item, rf_payload_tuple, itemname):
+                    if checkConditionalRequirement(propResourceObj, item, rf_payload_tuple):
                         my_logger.info("\tCondition DOES apply")
                         conditionalMsgs, conditionalCounts = validatePropertyRequirement(
                             propResourceObj, item, rf_payload_tuple, itemname, chkCondition = True)
@@ -634,4 +631,3 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
             counts['fail.{}'.format(item.name)] += 1
         counts['totaltests'] += 1
     return msgs, counts
-
