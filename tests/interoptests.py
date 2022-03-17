@@ -100,9 +100,6 @@ class ValidatorTest(TestCase):
                         }
                     }
                 }]
-        boolist = ['pass', 'failActionRequirement', 'pass', 'failActionMinSupportValues', 'failActionRequirementParam']
+        boolist = [riv.sEnum.PASS, riv.sEnum.FAIL, riv.sEnum.PASS, riv.sEnum.PASS, riv.sEnum.PASS]
         for e, v, b in zip(entries, vals, boolist):
-            self.assertTrue(
-                    riv.validateActionRequirement(None, e, (v, None), '#Chassis.Reset')[1].get(b, 0) > 0,
-                    "Failed on {}".format((e, v, b)))
-
+            self.assertTrue(riv.validateActionRequirement(e, (v, None), '#Chassis.Reset')[0][0].success == b,"Failed on {}".format((e, v, b)))

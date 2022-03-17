@@ -479,6 +479,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
         msg, success = validateRequirement(profile_entry.get('ReadRequirement', "Mandatory"), rf_payload_item)
         msgs.append(msg)
         msg.name = actionname + '.' + msg.name
+        msg.success = sEnum.PASS if success else sEnum.FAIL
 
     propDoesNotExist = (rf_payload_item == 'DNE')
     if propDoesNotExist:
