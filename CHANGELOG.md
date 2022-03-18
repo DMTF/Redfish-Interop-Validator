@@ -1,5 +1,10 @@
 # Change Log
 
+## [2.0.5] - 2022-03-18
+- Corrected comparison checks with integer properties
+- Corrected test_action unit test
+- Updated logging calls to use non-deprecated methods
+
 ## [2.0.4] - 2022-03-04
 - Corrected URI checking to act as a filter for whether or not to apply the requirements
 
