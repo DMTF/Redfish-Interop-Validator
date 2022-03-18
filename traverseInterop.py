@@ -110,10 +110,10 @@ class rfService():
         # get Version
         success, data, status, delay = self.callResourceURI('/redfish/v1')
         if not success:
-            traverseLogger.warn('Could not get ServiceRoot')
+            traverseLogger.warning('Could not get ServiceRoot')
         else:
             if 'RedfishVersion' not in data:
-                traverseLogger.warn('Could not get RedfishVersion from ServiceRoot')
+                traverseLogger.warning('Could not get RedfishVersion from ServiceRoot')
             else:
                 traverseLogger.info('Redfish Version of Service: {}'.format(data['RedfishVersion']))
                 target_version = data['RedfishVersion']
@@ -164,7 +164,7 @@ class rfService():
         # rs-assertion: handle redirects?  and target permissions
         # rs-assertion: require no auth for serviceroot calls
         if URILink is None:
-            traverseLogger.warn("This URI is empty!")
+            traverseLogger.warning("This URI is empty!")
             return False, None, -1, 0
 
         config = self.config
@@ -260,7 +260,7 @@ class rfService():
                 elif 'text/xml' in contenttype:
                     # non-service schemas can use "text/xml" Content-Type
                     if inService:
-                        traverseLogger.warn(
+                        traverseLogger.warning(
                                 "Incorrect content type 'text/xml' for file within service {}".format(URILink))
                     decoded = response.text
                 else:
@@ -315,7 +315,7 @@ class rfService():
 
 def callResourceURI(URILink):
     if currentService is None:
-        traverseLogger.warn("The current service is not setup!  Program must configure the service before contacting URIs")
+        traverseLogger.warning("The current service is not setup!  Program must configure the service before contacting URIs")
         raise RuntimeError
     else:
         return currentService.callResourceURI(URILink)
@@ -445,7 +445,7 @@ class ResourceObj:
                     traverseLogger.error("{} {}: Expected format is /path/to/uri, but received: {}".format(uri, key, decoded[key]))
                 else:
                     if decoded[key] != uri:
-                        traverseLogger.warn("{} {}: Expected @odata.id to match URI link {}".format(uri, key, decoded[key]))
+                        traverseLogger.warning("{} {}: Expected @odata.id to match URI link {}".format(uri, key, decoded[key]))
             elif key == '@odata.count':
                 paramPass = isinstance(decoded[key], int)
                 if not paramPass:
@@ -455,7 +455,7 @@ class ResourceObj:
                 paramPass = re.match(
                     '/redfish/v1/\$metadata#([a-zA-Z0-9_.-]*\.)[a-zA-Z0-9_.-]*', decoded[key]) is not None
                 if not paramPass:
-                    traverseLogger.warn("{} {}: Expected format is /redfish/v1/$metadata#ResourceType, but received: {}".format(uri, key, decoded[key]))
+                    traverseLogger.warning("{} {}: Expected format is /redfish/v1/$metadata#ResourceType, but received: {}".format(uri, key, decoded[key]))
                     messages[key] = (decoded[key], 'odata',
                                     'Exists',
                                     'WARN')

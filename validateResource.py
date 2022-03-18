@@ -139,7 +139,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
                 my_logger.error('@odata.id of ReferenceableMember does not point to the correct object: {}'.format(odata_id))
                 counts['badOdataIdResolution'] += 1
         else:
-            my_logger.warn('No parent found with which to test @odata.id of ReferenceableMember')
+            my_logger.warning('No parent found with which to test @odata.id of ReferenceableMember')
 
     # if not successPayload:
     #     counts['failPayloadError'] += 1
@@ -351,4 +351,3 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     rerror.close()
 
     return validateSuccess, counts, finalResults, refLinks, thisobj
-

@@ -173,7 +173,7 @@ def main(argslist=None, configfile=None):
 
     if pmode not in ['tree', 'single', 'singlefile', 'treefile', 'default']:
         pmode = 'Default'
-        my_logger.warn('PayloadMode or path invalid, using Default behavior')
+        my_logger.warning('PayloadMode or path invalid, using Default behavior')
     if 'file' in pmode:
         if ppath is not None and os.path.isfile(ppath):
             with open(ppath) as f:

@@ -66,7 +66,7 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
     if profile_entry == "Recommended" and propDoesNotExist:
         my_logger.info('\tItem is recommended but does not exist')
         if config['WarnRecommended']:
-            my_logger.warn('\tItem is recommended but does not exist, escalating to WARN')
+            my_logger.warning('\tItem is recommended but does not exist, escalating to WARN')
             paramPass = sEnum.WARN
 
     my_logger.debug('\tpass ' + str(paramPass))
@@ -277,7 +277,7 @@ def checkConditionalRequirementResourceLevel(r_exists, profile_entry, itemname):
     my_logger.debug('Evaluating conditionalRequirements')
     if "SubordinateToResource" in profile_entry:
         isSubordinate = False
-        my_logger.warn('SubordinateToResource not supported')
+        my_logger.warning('SubordinateToResource not supported')
         return isSubordinate
     elif "CompareProperty" in profile_entry:
         # find property in json payload by working backwards thru objects
@@ -290,7 +290,7 @@ def checkConditionalRequirementResourceLevel(r_exists, profile_entry, itemname):
             my_logger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
             raise ValueError('CompareValues missing with CompareProperty')
         if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
-            my_logger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
+            my_logger.warning("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
         # compatability with old version, deprecate with versioning
 
         present = r_exists.get(profile_entry.get('CompareProperty'), False)
@@ -340,7 +340,7 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
             my_logger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
             raise ValueError('CompareValues missing with CompareProperty')
         if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
-            my_logger.warn("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
+            my_logger.warning("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
 
         _, (rf_payload_item, _) = rf_payload_tuple
 
@@ -503,7 +503,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
             if values_array is None:
                 values_array = rf_payload_item.get(str(k) + '@Redfish.AllowableValues', 'DNE')
             if values_array == 'DNE':
-                my_logger.warn('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(k))
+                my_logger.warning('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(k))
                 msg = msgInterop('', item, '-', '-', sEnum.WARN)
                 msg.name = "{}.{}.{}".format(actionname, k, msg.name)
                 msgs.append(msg)
@@ -521,10 +521,10 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
                             item["RecommendedValues"], values_array)
                     msg.name = msg.name.replace('Supported', 'Recommended')
                     if config['WarnRecommended'] and not success:
-                        my_logger.warn('\tRecommended parameters do not all exist, escalating to WARN')
+                        my_logger.warning('\tRecommended parameters do not all exist, escalating to WARN')
                         msg.success = sEnum.WARN
                     elif not success:
-                        my_logger.warn('\tRecommended parameters do not all exist, but are not Mandatory')
+                        my_logger.warning('\tRecommended parameters do not all exist, but are not Mandatory')
                         msg.success = sEnum.PASS
 
                     msgs.append(msg)
@@ -544,7 +544,7 @@ def compareRedfishURI(expected_uris, uri, my_id):
             e_left = regex.sub('[a-zA-Z0-9_.-]+', e_left)
             if regex.match(e_right):
                 if my_id is None:
-                    my_logger.warn('No Id provided by payload')
+                    my_logger.warning('No Id provided by payload')
                 e_right = str(my_id)
             e_compare_to = '/'.join([e_left, e_right])
             if re.fullmatch(e_compare_to, uri) is not None:
