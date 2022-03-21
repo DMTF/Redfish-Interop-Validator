@@ -70,7 +70,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     # check for @odata mandatory stuff
     # check for version numbering problems
-    # check id if its the same as URI
+    # check id if it's the same as URI
     # check @odata.context instead of local.  Realize that @odata is NOT a "property"
 
     # Attempt to get a list of properties
@@ -351,4 +351,3 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     rerror.close()
 
     return validateSuccess, counts, finalResults, refLinks, thisobj
-
