@@ -212,7 +212,11 @@ def main(argslist=None, configfile=None):
         my_logger.error('{}'.format(e))
         return 1, None, 'Failed to authenticate with the service'
 
-
+    # Close the connection
+    try:
+        currentService.close()
+    except Exception as e:
+        my_logger.error('Failed to log out of service; session may still be active ({})'.format(e))
 
     from collections import Counter
     finalCounts = Counter()
