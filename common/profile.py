@@ -6,8 +6,11 @@
 
 import os
 import re
+import glob
 import json
 import logging
+
+from common.helper import splitVersionString, versionpattern
 
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
@@ -38,16 +41,16 @@ def checkProfileAgainstSchema(profile, schema):
     # consider @odata.type, with regex
     return True
 
-extension = 'json'
-versionpattern = 'v[0-9]_[0-9]_[0-9]'
+
 defaultrepository = 'http://redfish.dmtf.org/profiles'
 
-def getListingVersions(filename, dirname):
-    pattern = '\.' + versionpattern + '\.'
-    filepattern = re.compile(pattern.join(filename.split('.')))
-    for item in os.listdir(dirname):
-        if filepattern.match(item):
-            yield item
+def getProfilesMatchingName(name, directories):
+    pattern = r'\.{}\.'.format(versionpattern)
+    filepattern = re.compile(pattern.join(name.split('.')) + "|{}".format(name.replace('.', '\.')))
+    for dirname in directories:
+        for file in glob.glob(os.path.join(dirname, '*.json')):
+            if filepattern.match(os.path.basename(file)):
+                yield file
 
 def dict_merge(dct, merge_dct):
         """
@@ -102,7 +105,7 @@ def getProfileFromRepo(profilename, repo=None):
         return None
 
 
-def getProfiles(profile, dirname, chain=None, online=False):
+def getProfiles(profile, directories, chain=None, online=False):
     alldata = [profile]
     if 'RequiredProfiles' not in profile:
         my_logger.debug('No such item RequiredProfiles')
@@ -119,35 +122,33 @@ def getProfiles(profile, dirname, chain=None, online=False):
         for item in requiredProfiles:
             targetName = item
             rp = requiredProfiles[targetName]
-            targetVersionUnformatted = rp.get('MinVersion', '1.0.0')
-            targetVersion = 'v{}_{}_{}'.format(*tuple(targetVersionUnformatted.split('.')))
-            targetFileBlank = '{}.{}'.format(targetName, extension)
-            targetFile = None
+            min_version = splitVersionString(rp.get('MinVersion', '1.0.0'))
+            targetVersion = 'v{}_{}_{}'.format(*min_version)
+            targetFile = '{}.{}'.format(targetName, 'json')
 
             # get max filename
             repo = rp.get('Repository')
             if online:
-                data = getProfileFromRepo(targetFileBlank, repo)
+                data = getProfileFromRepo(targetFile, repo)
             else:
                 data = None
 
             if data is None:
-                targetList = sorted(list(getListingVersions(targetFileBlank, dirname)))
+                targetList = list(getProfilesMatchingName(targetFile, directories))
                 if len(targetList) > 0:
+                    max_version = (1,0,0)
                     for item in targetList:
-                        if targetFile is None:
-                            targetFile = item
-                        targetFile = max(targetFile, item)
-                        fileVersion = re.search(versionpattern, targetFile).group()
-                    filehandle = open(dirname + '/' + targetFile, "r")
-                    data = filehandle.read()
-                    filehandle.close()
-                    data = json.loads(data)
-                    if targetVersion > fileVersion:
+                        with open(item) as f:
+                            my_profile = json.load(f)
+                            my_version = splitVersionString(my_profile.get('ProfileVersion', '1.0.0'))
+                            max_version = max(max_version, my_version)
+                            if my_version == max_version or data == None:
+                                data = my_profile
+                    if min_version > max_version:
                         my_logger.warning('File version smaller than target MinVersion')
                 else:
                     my_logger.error('Could not acquire this profile {} {}'.format(targetName, repo))
                     continue
 
-            alldata.extend(getProfiles(data, dirname, chain))
+            alldata.extend(getProfiles(data, directories, chain))
     return alldata
