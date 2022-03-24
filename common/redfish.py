@@ -27,8 +27,8 @@ def splitVersionString(version):
     else:
         payload_split = v_payload.split('.')
     if len(payload_split) != 3:
-        return [0, 0, 0]
-    return [int(v) for v in payload_split]
+        return (0, 0, 0)
+    return tuple([int(v) for v in payload_split])
 
 
 def compareMinVersion(version, min_version):
