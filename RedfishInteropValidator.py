@@ -138,10 +138,12 @@ def main(argslist=None, configfile=None):
     from common.profile import getProfiles, checkProfileAgainstSchema, hashProfile
 
     my_profiles = []
+    my_paths = []
     success = True
     for filename in args.profile:
         with open(filename) as f:
             my_profiles.append((filename, json.loads(f.read())))
+            my_paths.append(os.path.split(filename)[0])
     if args.schema is not None:
         with open(args.schema) as f:
             schema = json.loads(f.read())
@@ -154,12 +156,13 @@ def main(argslist=None, configfile=None):
     # Combine profiles
     all_profiles = []
     for name, profile in my_profiles:
-        all_profiles.extend(getProfiles(profile, './', online=args.online_profiles))
+        all_profiles.extend(getProfiles(profile, [os.getcwd()] + my_paths, online=args.online_profiles))
 
     my_logger.info('\nProfile Hashes: ')
     for profile in all_profiles:
         profileName = profile.get('ProfileName')
-        my_logger.info('profile: {}, dict md5 hash: {}'.format(profileName, hashProfile(profile)))
+        profileVersion = profile.get('ProfileVersion')
+        my_logger.info('profile: {} {}, dict md5 hash: {}'.format(profileName, profileVersion, hashProfile(profile)))
 
     # Start main
     status_code = 1
