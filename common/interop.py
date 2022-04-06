@@ -438,8 +438,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msg.name = itemname + '.' + msg.name
             if not success:
                 my_logger.error("MinSupportValues failed")
-        if "Comparison" in profile_entry and not chkCondition and\
-                profile_entry["Comparison"] not in ["AnyOf", "AllOf"]:
+        if "Comparison" in profile_entry and not chkCondition:
             msg, success = checkComparison(rf_payload_item,
                     profile_entry["Comparison"], profile_entry.get("Values",[]))
             msgs.append(msg)
