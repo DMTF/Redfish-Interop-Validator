@@ -8,6 +8,7 @@ import sys
 import argparse
 import logging
 import json
+import glob
 from datetime import datetime
 
 tool_version = '2.0.6'
@@ -51,6 +52,7 @@ def main(argslist=None, configfile=None):
     argget.add_argument('--logdir', type=str, default='./logs', help='directory for log files')
     argget.add_argument('--nooemcheck', action='store_false', dest='oemcheck', help='Don\'t check OEM items')
     argget.add_argument('--debugging', action="store_true", help='Output debug statements to text log, otherwise it only uses INFO')
+    argget.add_argument('--required_profiles_dir', type=str, help='root directory for required profiles')
 
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', nargs='+', help='interop profile with which to validate service against')
@@ -152,6 +154,9 @@ def main(argslist=None, configfile=None):
                 if not success:
                     my_logger.info("Profile {} did not conform to the given schema...".format(name))
                     return 1, None, 'Profile Did Not Conform'
+
+    if args.required_profiles_dir is not None:
+        my_paths += glob.glob("{}/**/".format(args.required_profiles_dir), recursive=True)
 
     # Combine profiles
     all_profiles = []
