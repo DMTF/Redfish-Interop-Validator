@@ -65,13 +65,14 @@ authtype   | string  | Authorization type (Basic | Session | Token | None)
 token      | string  | Token string for Token authentication
 
 ### [Validator]
-Variable        | Type    | Definition
---              |--       |--
-payload         | string  | Option to test a specific payload or resource tree (see below)
-logdir          | string  | Place to save logs and run configs
-oemcheck        | boolean | Whether to check Oem items on service
-online_profiles | boolean | Whether to download online profiles
-debugging       | boolean | Whether to print debug to log
+Variable              | Type    | Definition
+--                    |--       |--
+payload               | string  | Option to test a specific payload or resource tree (see below)
+logdir                | string  | Place to save logs and run configs
+oemcheck              | boolean | Whether to check Oem items on service
+online_profiles       | boolean | Whether to download online profiles
+debugging             | boolean | Whether to print debug to log
+required_profiles_dir | string  | Option to set the root folder of required profiles
 
 ### Payload options
 The payload option takes two parameters as "option uri"
