@@ -153,7 +153,7 @@ def checkComparison(val, compareType, target):
     """
     Validate a given comparison option, given a value and a target set
     """
-    my_logger.log(logging.INFO - 1, 'Testing a comparison \n\t' + str((val, compareType, target)))
+    my_logger.verbose1('Testing a comparison \n\t' + str((val, compareType, target)))
     vallist = val if isinstance(val, list) else [val]
     paramPass = False
     if compareType is None:
@@ -468,7 +468,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     rf_payload_action = None
     counts = Counter()
     msgs = []
-    my_logger.log(logging.INFO - 1, 'actionRequirement \n\tval: ' + str(rf_payload_item if not isinstance(
+    my_logger.verbose1('actionRequirement \n\tval: ' + str(rf_payload_item if not isinstance(
         rf_payload_item, dict) else 'dict') + ' ' + str(profile_entry))
 
     if "ReadRequirement" in profile_entry:

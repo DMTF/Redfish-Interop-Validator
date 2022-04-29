@@ -115,7 +115,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     # verify odata type
     objRes = profile.get('Resources')
 
-    my_logger.log(logging.INFO - 1, "*** %s, %s", uriName, URI)
+    my_logger.verbose1("*** {}, {}".format(uriName, URI))
     uriName, SchemaFullType, jsondata = uriName, uriName, propResourceObj.jsondata
     SchemaType = getType(jsondata.get('@odata.type', 'NoType'))
     if SchemaType not in objRes:
