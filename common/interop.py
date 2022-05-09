@@ -342,7 +342,13 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
         if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
             my_logger.warning("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
 
-        _, (rf_payload_item, _) = rf_payload_tuple
+        rf_payload_item, rf_payload = rf_payload_tuple
+        while rf_payload is not None and (not isinstance(rf_payload_item, dict) or comparePropNames[0] not in rf_payload_item):
+            rf_payload_item, rf_payload = rf_payload
+
+        if rf_payload_item is None:
+            my_logger.error('Could not acquire expected CompareProperty {}'.format(comparePropNames[0]))
+            return False
 
         compareProp = rf_payload_item.get(comparePropNames[0], 'DNE')
         if (compareProp != 'DNE') and len(comparePropNames) > 1:
