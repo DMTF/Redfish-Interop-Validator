@@ -11,7 +11,7 @@ import json
 import glob
 from datetime import datetime
 
-tool_version = '2.0.6'
+tool_version = '2.0.7'
 
 # Set up the custom debug levels
 VERBOSE1 = logging.INFO - 1

@@ -1,5 +1,9 @@
 # Change Log
 
+## [2.0.7] - 2022-05-13
+- Added 'required_profiles_dir' argument to specify directory containing required profiles
+- Minor enhancements to debug output
+
 ## [2.0.6] - 2022-03-25
 - Added missing step to log out of the session when done testing
 - Added support for finding required profiles when the profile under test is in a different directory than the tool
