@@ -127,7 +127,8 @@ There is a verbose log file that may be referenced to diagnose tool problems whe
 
 ## Release Process
 
-1. Update `CHANGELOG.md` with the list of changes since the last release
-2. Update the `tool_version` variable in `RedfishInteropValidator.py` to reflect the new tool version
-3. Push changes to Github
-4. Create a new release in Github
+1. Go to the "Actions" page
+2. Select the "Release and Publish" workflow
+3. Click "Run workflow"
+4. Fill out the form
+5. Click "Run workflow"
