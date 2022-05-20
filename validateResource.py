@@ -300,41 +300,6 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     else:
         resultEnum = interop.sEnum.FAIL
 
-    # for item in resource_info:
-    #     # thisobj does not exist if we didn't find the first resource
-    #     if thisobj and item == getType(thisobj.typeobj.fulltype):
-    #         continue
-
-    #     exists = r_exists.get(item, False)
-
-    #     if "ConditionalRequirements" in resource_info[item]:
-    #         innerList = resource_info[item]["ConditionalRequirements"]
-    #         for condreq in innerList:
-    #             if interop.checkConditionalRequirementResourceLevel(r_exists, condreq, item):
-    #                 my_logger.info(
-    #                     'Service Conditional for {} applies'.format(item))
-    #                 req = condreq.get("ReadRequirement", "Mandatory")
-    #                 rmessages.append(
-    #                     interop.msgInterop(item + '.Conditional.ReadRequirement',
-    #                                              req, 'Must Exist' if req == "Mandatory" else 'Any', 'DNE' if not exists else 'Exists',
-    #                                              resultEnum if not exists and req == "Mandatory" else interop.sEnum.PASS))
-    #             else:
-    #                 my_logger.info(
-    #                     'Service Conditional for {} does not apply'.format(item))
-
-    #     req = resource_info[item].get("ReadRequirement", "Mandatory")
-
-    #     if not exists:
-    #         rmessages.append(
-    #             interop.msgInterop(item + '.ReadRequirement', req,
-    #                                      'Must Exist' if req == "Mandatory" else 'Any', 'DNE',
-    #                                      resultEnum if req == "Mandatory" else interop.sEnum.PASS))
-    #     else:
-    #         rmessages.append(
-    #             interop.msgInterop(item + '.ReadRequirement', req,
-    #                                      'Must Exist' if req == "Mandatory" else 'Any', 'Exists',
-    #                                      interop.sEnum.PASS))
-
     for item in rmessages:
         if item.success == interop.sEnum.WARN:
             rcounts['warn'] += 1

@@ -270,40 +270,6 @@ def validateMinVersion(version, profile_entry):
         paramPass
 
 
-def checkConditionalRequirementResourceLevel(r_exists, profile_entry, itemname):
-    """
-    Returns boolean if profile_entry's conditional is true or false
-    """
-    my_logger.debug('Evaluating conditionalRequirements')
-    if "SubordinateToResource" in profile_entry:
-        isSubordinate = False
-        my_logger.warning('SubordinateToResource not supported')
-        return isSubordinate
-    elif "CompareProperty" in profile_entry:
-        # find property in json payload by working backwards thru objects
-        # rf_payload tuple is designed just for this piece, since there is
-        # no parent in dictionaries
-        if "CompareType" not in profile_entry:
-            my_logger.error("Invalid Profile - CompareType is required for CompareProperty but not found")
-            raise ValueError('CompareType missing with CompareProperty')
-        if "CompareValues" not in profile_entry and profile_entry['CompareType'] not in ['Absent', 'Present']:
-            my_logger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
-            raise ValueError('CompareValues missing with CompareProperty')
-        if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
-            my_logger.warning("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
-        # compatability with old version, deprecate with versioning
-
-        present = r_exists.get(profile_entry.get('CompareProperty'), False)
-        compareType = profile_entry.get("CompareType", profile_entry.get("Comparison"))
-
-        # only supports absent and present
-
-        return checkComparison('DNE' if not present else '[Object]', compareType, None)[1]
-    else:
-        my_logger.error("Invalid Profile - No conditional given")
-        raise ValueError('No conditional given for Comparison')
-
-
 def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple):
     """
     Returns boolean if profile_entry's conditional is true or false
@@ -342,7 +308,13 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
         if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
             my_logger.warning("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
 
-        _, (rf_payload_item, _) = rf_payload_tuple
+        rf_payload_item, rf_payload = rf_payload_tuple
+        while rf_payload is not None and (not isinstance(rf_payload_item, dict) or comparePropNames[0] not in rf_payload_item):
+            rf_payload_item, rf_payload = rf_payload
+
+        if rf_payload_item is None:
+            my_logger.error('Could not acquire expected CompareProperty {}'.format(comparePropNames[0]))
+            return False
 
         compareProp = rf_payload_item.get(comparePropNames[0], 'DNE')
         if (compareProp != 'DNE') and len(comparePropNames) > 1:
