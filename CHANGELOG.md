@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.0.8] - 2022-05-22
+- Made correction to conditional checks for nested properties
+
 ## [2.0.7] - 2022-05-13
 - Added 'required_profiles_dir' argument to specify directory containing required profiles
 - Minor enhancements to debug output
