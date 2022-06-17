@@ -342,6 +342,27 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
     else:
         my_logger.debug('propRequirement with value: ' + str(rf_payload_item if not isinstance(
             rf_payload_item, dict) else 'dict'))
+
+    # Check the conditional requirements first or the requirements won't apply correctly against
+    # a list.
+    if "ConditionalRequirements" in profile_entry:
+        innerList = profile_entry["ConditionalRequirements"]
+        for item in innerList:
+            try:
+                if checkConditionalRequirement(propResourceObj, item, rf_payload_tuple):
+                    my_logger.info("\tCondition DOES apply")
+                    conditionalMsgs, conditionalCounts = validatePropertyRequirement(
+                        propResourceObj, item, rf_payload_tuple, itemname, chkCondition = True)
+                    counts.update(conditionalCounts)
+                    for item in conditionalMsgs:
+                        item.name = item.name.replace('.', '.Conditional.', 1)
+                    msgs.extend(conditionalMsgs)
+                else:
+                    my_logger.info("\tCondition does not apply")
+            except ValueError as e:
+                my_logger.info("\tCondition was skipped due to payload error")
+                counts['errorProfileComparisonError'] += 1
+
     # If we're working with a list, then consider MinCount, Comparisons, then execute on each item
     # list based comparisons include AnyOf and AllOf
     if isinstance(rf_payload_item, list):
@@ -384,24 +405,6 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msg.name = itemname + '.' + msg.name
             if not success:
                 my_logger.error("WriteRequirement failed")
-        if "ConditionalRequirements" in profile_entry:
-            innerList = profile_entry["ConditionalRequirements"]
-            for item in innerList:
-                try:
-                    if checkConditionalRequirement(propResourceObj, item, rf_payload_tuple):
-                        my_logger.info("\tCondition DOES apply")
-                        conditionalMsgs, conditionalCounts = validatePropertyRequirement(
-                            propResourceObj, item, rf_payload_tuple, itemname, chkCondition = True)
-                        counts.update(conditionalCounts)
-                        for item in conditionalMsgs:
-                            item.name = item.name.replace('.', '.Conditional.', 1)
-                        msgs.extend(conditionalMsgs)
-                    else:
-                        my_logger.info("\tCondition does not apply")
-                except ValueError as e:
-                    my_logger.info("\tCondition was skipped due to payload error")
-                    counts['errorProfileComparisonError'] += 1
-
         if "MinSupportValues" in profile_entry:
             msg, success = validateSupportedValues(
                     profile_entry["MinSupportValues"],
