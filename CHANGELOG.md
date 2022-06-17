@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.0.9] - 2022-06-17
+- Fixed the conditional requirements on list properties
+
 ## [2.0.8] - 2022-05-22
 - Made correction to conditional checks for nested properties
 
