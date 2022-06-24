@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.1.0] - 2022-06-24
+- Fixed the resource GET result when running multiple profiles
+
 ## [2.0.9] - 2022-06-17
 - Fixed the conditional requirements on list properties
 
