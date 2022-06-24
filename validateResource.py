@@ -111,6 +111,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         return False, counts, results, None, None
 
     counts['passGet'] += 1
+    results[uriName]['success'] = True
 
     # verify odata type
     objRes = profile.get('Resources')
@@ -156,7 +157,6 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     results[uriName]['payload'] = propResourceObj.jsondata
     results[uriName]['context'] = propResourceObj.context
     results[uriName]['fulltype'] = propResourceObj.typename
-    results[uriName]['success'] = True
 
     my_logger.info('\n')
     my_logger.info("*** %s, %s", URI, SchemaType)
