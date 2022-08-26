@@ -285,7 +285,7 @@ class rfService():
                         cred_type = 'token'
                     else:
                         cred_type = 'username and password'
-                    raise AuthenticationError('Error accessing URI {}. Status code "{} {}". Check {} supplied for "{}" authentication.'
+                    raise AuthenticationError('Error accessing URI {}. Status code "{} {}". Check {} supplied for "{}" authentication.\nAborting test due to invalid credentials.'
                                               .format(URILink, statusCode, responses[statusCode], cred_type, AuthType))
 
         except requests.exceptions.SSLError as e:
