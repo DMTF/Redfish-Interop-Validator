@@ -113,22 +113,19 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     counts['passGet'] += 1
     results[uriName]['success'] = True
 
-    # verify odata type
-    objRes = profile.get('Resources')
+    # Verify odata type
+    profile_resources = profile.get('Resources')
 
     my_logger.verbose1("*** {}, {}".format(uriName, URI))
     uriName, SchemaFullType, jsondata = uriName, uriName, propResourceObj.jsondata
     SchemaType = getType(jsondata.get('@odata.type', 'NoType'))
-    if SchemaType not in objRes:
+    if SchemaType not in profile_resources:
         # my_logger.info('\nNo Such Type in sample {} {}, skipping'.format(URI, SchemaType))
         # Get all links available
         links = getURIsInProperty(jsondata, uriName)
         return True, counts, results, links, propResourceObj
 
-    # my_logger.info("\n*** %s", URI)
-    # my_logger.debug("\n*** %s, %s, %s", expectedType, expectedSchema is not None, expectedJson is not None)
-
-    # verify odata_id properly resolves to its parent if holding fragment
+    # Verify odata_id properly resolves to its parent if holding fragment
     odata_id = propResourceObj.jsondata.get('@odata.id', '')
     if '#' in odata_id:
         if parent is not None:
@@ -142,11 +139,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         else:
             my_logger.warning('No parent found with which to test @odata.id of ReferenceableMember')
 
-    # if not successPayload:
-    #     counts['failPayloadError'] += 1
-    #     my_logger.error(str(URI) + ': payload error, @odata property non-conformant',)
-
-    # if URI was sampled, get the notation text from traverseInterop.uri_sample_map
+    # If URI was sampled, get the notation text from traverseInterop.uri_sample_map
     sample_string = traverseInterop.uri_sample_map.get(URI)
     sample_string = sample_string + ', ' if sample_string is not None else ''
 
@@ -162,9 +155,10 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     my_logger.info("*** %s, %s", URI, SchemaType)
     my_logger.debug("*** %s, %s, %s", expectedType, expectedSchema is not None, expectedJson is not None)
     my_logger.info("\t Type (%s), GET SUCCESS (time: %s)", propResourceObj.typename, propResourceObj.rtime)
-    objRes = objRes.get(SchemaType)
+
+    profile_resources = profile_resources.get(SchemaType)
     try:
-        propMessages, propCounts = interop.validateInteropResource(propResourceObj, objRes, jsondata)
+        propMessages, propCounts = interop.validateInteropResource(propResourceObj, profile_resources, jsondata)
         messages = messages.extend(propMessages)
         counts.update(propCounts)
         my_logger.info('{} of {} tests passed.'.format(counts['pass'] + counts['warn'], counts['totaltests']))
@@ -224,10 +218,10 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     refLinks = list()
 
     # Resource level validation
-    rcounts = Counter()
-    rerror = StringIO()
-    rmessages = []
-    r_exists = {}
+    message_counts = Counter()
+    error_messages = StringIO()
+    message_list = []
+    resource_stats = {}
 
     resource_info = dict(profile.get('Resources'))
 
@@ -243,7 +237,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
         if serviceVersion is not None and uriName == 'ServiceRoot':
             serviceVersion = serviceVersion.get('MinVersion', '1.0.0')
             msg, m_success = interop.validateMinVersion(thisobj.jsondata.get("RedfishVersion", "0"), serviceVersion)
-            rmessages.append(msg)
+            message_list.append(msg)
 
         currentLinks = [(l, links[l], thisobj) for l in links]
         # todo : churning a lot of links, causing possible slowdown even with set checks
@@ -284,12 +278,78 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 results.update(linkResults)
                 SchemaType = getType(linkobj.jsondata.get('@odata.type', 'NoType'))
 
-                r_exists[SchemaType] = True
+                subordinate_tree = []
+
+                current_parent = linkobj.parent
+                while current_parent:
+                    parentType = getType(current_parent.jsondata.get('@odata.type', 'NoType'))
+                    subordinate_tree.append(parentType)
+                    current_parent = current_parent.parent
+
+                if resource_stats.get(SchemaType) is None:
+                    resource_stats[SchemaType] = {
+                        "Exists": True,
+                        "Writeable": False,
+                        "URIsFound": [link],
+                        "SubordinateTo": set([tuple(subordinate_tree)]),
+                    }
+                else:
+                    resource_stats[SchemaType]['Exists'] = True
+                    resource_stats[SchemaType]['URIsFound'].append(link)
+                    resource_stats[SchemaType]['SubordinateTo'].add(tuple(subordinate_tree))
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
             else:
                 currentLinks = newLinks
+        
+        # For every resource check ReadRequirement
+        for resource_type in profile.get('Resources'):
+            profile_entry = profile.get('Resources')[resource_type]
+            apply_requirement, expected_requirement = False, None
+
+            # If exist and for what URIs...
+            if resource_type in resource_stats:
+                resource_exists = resource_stats[resource_type]['Exists']
+                uris_found = resource_stats[resource_type]['URIsFound']
+                subs_found = resource_stats[resource_type]['SubordinateTo']
+            else:
+                resource_exists = False
+                uris_found = []
+                subs_found = []
+
+            # Check conditionals, if it applies, get its requirement
+            if "ConditionalRequirements" in profile_entry:
+                for condition in profile_entry['ConditionalRequirements']:
+                    uris_applied = condition.get("URIs")
+                    subordinate_condition = condition.get("SubordinateToResource")
+                    if uris_applied:
+                        apply_requirement = any([uri in uris_applied for uri in uris_found])
+                    elif subordinate_condition:
+                        apply_requirement = any([(tuple(reversed(subordinate_condition))) == chain[:len(subordinate_condition)] for chain in subs_found])
+                    else:
+                        apply_requirement = True
+                    expected_requirement = condition.get("ReadRequirement")
+                    if expected_requirement:
+                        my_logger.info('Validating {} Conditional ReadRequirement'.format(resource_type))
+                        my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if apply_requirement else 'DNE')
+                        my_msg.name = '{}.Conditional.{}'.format(resource_type, my_msg.name)
+                        message_list.append(my_msg)
+
+            if "ReadRequirement" in profile_entry:
+                expected_requirement = profile_entry.get("ReadRequirement", "Mandatory")
+                uris_applied = profile_entry.get("URIs")
+                uris_found = resource_stats[resource_type]['URIsFound']
+                if uris_applied:
+                    apply_requirement = any([uri in uris_applied for uri in uris_found])
+                else:
+                    apply_requirement = True
+
+                if apply_requirement and expected_requirement:
+                    my_logger.info('Validating {} ReadRequirement'.format(resource_type))
+                    my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if resource_exists else 'DNE')
+                    my_msg.name = '{}.{}'.format(resource_type, my_msg.name)
+                    message_list.append(my_msg)
 
     # interop service level checks
     finalResults = {}
@@ -300,19 +360,19 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     else:
         resultEnum = interop.sEnum.FAIL
 
-    for item in rmessages:
+    for item in message_list:
         if item.success == interop.sEnum.WARN:
-            rcounts['warn'] += 1
+            message_counts['warn'] += 1
         elif item.success == interop.sEnum.PASS:
-            rcounts['pass'] += 1
+            message_counts['pass'] += 1
         elif item.success == interop.sEnum.FAIL:
-            rcounts['fail.{}'.format(item.name)] += 1
+            message_counts['fail.{}'.format(item.name)] += 1
 
-    finalResults['n/a'] = {'uri': "Service Level Requirements", 'success': rcounts.get('fail', 0) == 0,
-                           'counts': rcounts,
-                           'messages': rmessages, 'errors': rerror.getvalue(), 'warns': '',
+    finalResults['n/a'] = {'uri': "Service Level Requirements", 'success': message_counts.get('fail', 0) == 0,
+                           'counts': message_counts,
+                           'messages': message_list, 'errors': error_messages.getvalue(), 'warns': '',
                            'rtime': '', 'context': '', 'fulltype': ''}
     finalResults.update(results)
-    rerror.close()
+    error_messages.close()
 
     return validateSuccess, counts, finalResults, refLinks, thisobj

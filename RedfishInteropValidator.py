@@ -10,6 +10,12 @@ import logging
 import json
 import glob
 from datetime import datetime
+from urllib.parse import urlparse
+from collections import Counter
+
+import traverseInterop
+from common.profile import getProfiles, checkProfileAgainstSchema, hashProfile
+from validateResource import validateSingleURI, validateURITree
 
 tool_version = '2.1.0'
 
@@ -46,7 +52,7 @@ def main(argslist=None, configfile=None):
 
     Args:
         argslist ([type], optional): List of arguments in the form of argv. Defaults to None.
-    """    
+    """
     argget = argparse.ArgumentParser(description='DMTF tool to test a service against a interop profile, version {}'.format(tool_version))
 
     # base tool
@@ -85,7 +91,7 @@ def main(argslist=None, configfile=None):
 
     startTick = datetime.now()
 
-    # set logging file
+    # Set logging file
     standard_out.setLevel(logging.INFO - args.verbose if args.verbose < 3 else logging.DEBUG)
 
     logpath = args.logdir
@@ -99,6 +105,7 @@ def main(argslist=None, configfile=None):
     file_handler.setFormatter(fmt)
     my_logger.addHandler(file_handler)
 
+    # Begin of log
     my_logger.info("Redfish Interop Validator, version {}".format(tool_version))
     my_logger.info("")
 
@@ -118,7 +125,7 @@ def main(argslist=None, configfile=None):
         with open(configfilename, 'w') as f:
             my_config.write(f)
 
-    from urllib.parse import urlparse, urlunparse
+    # Check if our URL is consistent
     scheme, netloc, _, _, _, _ = urlparse(args.ip)
     if scheme not in ['http', 'https']:
         my_logger.error('IP is missing http or https')
@@ -128,21 +135,22 @@ def main(argslist=None, configfile=None):
         my_logger.error('IP is missing ip/host')
         return 1, None, 'IP Incomplete'
 
-    # start printing config details, remove redundant/private info from print
+    # Start printing config details, remove redundant/private info from print
     my_logger.info('Target URI: ' + args.ip)
     my_logger.info('\n'.join(
         ['{}: {}'.format(x, vars(args)[x] if x not in ['password'] else '******') for x in sorted(list(vars(args).keys() - set(['description']))) if vars(args)[x] not in ['', None]]))
     my_logger.info('Start time: ' + startTick.strftime('%x - %X'))
     my_logger.info("")
-    
-    import traverseInterop
+
+    # Start our service
     try:
         currentService = traverseInterop.startService(vars(args))
     except Exception as ex:
         my_logger.debug('Exception caught while creating Service', exc_info=1)
         my_logger.error("Service could not be started: {}".format(ex))
         return 1, None, 'Service Exception'
-    
+
+    # Create a description of our service if there is none given
     if args.description is None and currentService.service_root:
         my_version = currentService.service_root.get('RedfishVersion', 'No Version')
         my_name = currentService.service_root.get('Name', '')
@@ -152,8 +160,6 @@ def main(argslist=None, configfile=None):
     my_logger.info('Description of service: {}'.format(args.description))
 
     # Interop Profile handling
-    from common.profile import getProfiles, checkProfileAgainstSchema, hashProfile
-
     my_profiles = []
     my_paths = []
     success = True
@@ -173,7 +179,7 @@ def main(argslist=None, configfile=None):
     if args.required_profiles_dir is not None:
         my_paths += glob.glob("{}/**/".format(args.required_profiles_dir), recursive=True)
 
-    # Combine profiles
+    # Create a list of profiles, required imports, and show their hashes
     all_profiles = []
     for name, profile in my_profiles:
         all_profiles.extend(getProfiles(profile, [os.getcwd()] + my_paths, online=args.online_profiles))
@@ -188,6 +194,7 @@ def main(argslist=None, configfile=None):
     status_code = 1
     jsonData = None
 
+    # Set our mode for reading new payloads
     if args.payload:
         pmode, ppath = args.payload
     else:
@@ -205,8 +212,8 @@ def main(argslist=None, configfile=None):
         else:
             my_logger.error('File not found for payload: {}'.format(ppath))
             return 1, None, 'File not found for payload: {}'.format(ppath)
+
     try:
-        from validateResource import validateSingleURI, validateURITree
         results = None
         for profile in all_profiles:
             if 'single' in pmode:
@@ -241,7 +248,6 @@ def main(argslist=None, configfile=None):
     except Exception as e:
         my_logger.error('Failed to log out of service; session may still be active ({})'.format(e))
 
-    from collections import Counter
     finalCounts = Counter()
     nowTick = datetime.now()
     my_logger.info('Elapsed time: {}'.format(str(nowTick - startTick).rsplit('.', 1)[0]))
