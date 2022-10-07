@@ -304,8 +304,9 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 currentLinks = newLinks
         
         # For every resource check ReadRequirement
-        for resource_type in profile.get('Resources'):
-            profile_entry = profile.get('Resources')[resource_type]
+        resources_in_profile = profile.get('Resources', [])
+        for resource_type in resources_in_profile:
+            profile_entry = resources_in_profile[resource_type]
             apply_requirement, expected_requirement = False, None
 
             # If exist and for what URIs...
@@ -339,7 +340,11 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             if "ReadRequirement" in profile_entry:
                 expected_requirement = profile_entry.get("ReadRequirement", "Mandatory")
                 uris_applied = profile_entry.get("URIs")
-                uris_found = resource_stats[resource_type]['URIsFound']
+                if resource_type in resource_stats:
+                    uris_found = resource_stats[resource_type]['URIsFound']
+                else:
+                    uris_found = []
+
                 if uris_applied:
                     apply_requirement = any([uri in uris_applied for uri in uris_found])
                 else:
