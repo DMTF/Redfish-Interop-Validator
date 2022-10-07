@@ -290,13 +290,13 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     resource_stats[SchemaType] = {
                         "Exists": True,
                         "Writeable": False,
-                        "URIsFound": [link],
-                        "SubordinateTo": set([tuple(subordinate_tree)]),
+                        "URIsFound": [link.rstrip('/')],
+                        "SubordinateTo": set([tuple(reversed(subordinate_tree))]),
                     }
                 else:
                     resource_stats[SchemaType]['Exists'] = True
-                    resource_stats[SchemaType]['URIsFound'].append(link)
-                    resource_stats[SchemaType]['SubordinateTo'].add(tuple(subordinate_tree))
+                    resource_stats[SchemaType]['URIsFound'].append(link.rstrip('/'))
+                    resource_stats[SchemaType]['SubordinateTo'].add(tuple(reversed(subordinate_tree)))
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
@@ -325,11 +325,15 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     uris_applied = condition.get("URIs")
                     subordinate_condition = condition.get("SubordinateToResource")
                     if uris_applied:
-                        apply_requirement = any([uri in uris_applied for uri in uris_found])
+                        apply_requirement = any([interop.compareRedfishURI(uris_applied, uri) for uri in uris_found])
+                        my_logger.info('Checking if any {} in {}: {}'.format(uris_found, uris_applied, apply_requirement))
                     elif subordinate_condition:
-                        apply_requirement = any([(tuple(reversed(subordinate_condition))) == chain[:len(subordinate_condition)] for chain in subs_found])
+                        apply_requirement = any([(tuple((subordinate_condition))) == chain[-len(subordinate_condition):] for chain in subs_found])
+                        my_logger.info('Checking if any {} matches {}: {}'.format([x for x in subs_found], subordinate_condition, apply_requirement))
                     else:
-                        apply_requirement = True
+                        apply_requirement = resource_exists
+                        my_logger.warn('This resource {} has no valid Conditional in ConditionalRequirements'.format(resource_type))
+
                     expected_requirement = condition.get("ReadRequirement")
                     if expected_requirement:
                         my_logger.info('Validating {} Conditional ReadRequirement'.format(resource_type))
@@ -340,19 +344,15 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             if "ReadRequirement" in profile_entry:
                 expected_requirement = profile_entry.get("ReadRequirement", "Mandatory")
                 uris_applied = profile_entry.get("URIs")
-                if resource_type in resource_stats:
-                    uris_found = resource_stats[resource_type]['URIsFound']
-                else:
-                    uris_found = []
 
                 if uris_applied:
-                    apply_requirement = any([uri in uris_applied for uri in uris_found])
+                    apply_requirement = any([interop.compareRedfishURI(uris_applied, uri) for uri in uris_found])
                 else:
-                    apply_requirement = True
+                    apply_requirement = resource_exists
 
                 if apply_requirement and expected_requirement:
                     my_logger.info('Validating {} ReadRequirement'.format(resource_type))
-                    my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if resource_exists else 'DNE')
+                    my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if apply_requirement else 'DNE')
                     my_msg.name = '{}.{}'.format(resource_type, my_msg.name)
                     message_list.append(my_msg)
 
