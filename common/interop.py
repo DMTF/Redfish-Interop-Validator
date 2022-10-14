@@ -509,22 +509,17 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     # if it doesn't exist, what should not be checked for action
     return msgs, counts
 
-def compareRedfishURI(expected_uris, uri, my_id):
+URI_ID_REGEX = '\{[A-Za-z0-9]*Id\}'
+
+VALID_ID_REGEX = '([A-Za-z0-9.!#$&-;=?\[\]_~])+'
+
+def compareRedfishURI(expected_uris, uri):
     success = False
+    # If we have our URIs
     if expected_uris is not None:
-        regex = re.compile(r"{.*?}")
-        for e in expected_uris:
-            e_left, e_right = tuple(e.rsplit('/', 1))
-            _uri_left, uri_right = tuple(uri.rsplit('/', 1))
-            e_left = regex.sub('[a-zA-Z0-9_.-]+', e_left)
-            if regex.match(e_right):
-                if my_id is None:
-                    my_logger.warning('No Id provided by payload')
-                e_right = str(my_id)
-            e_compare_to = '/'.join([e_left, e_right])
-            if re.fullmatch(e_compare_to, uri) is not None:
-                success = True
-                break
+        my_uri_regex = "^{}$".format("|".join(expected_uris))
+        my_uri_regex = re.sub(URI_ID_REGEX, VALID_ID_REGEX, my_uri_regex)
+        success = re.fullmatch(my_uri_regex, uri) is not None
     else:
         success = True
     return success
@@ -536,7 +531,7 @@ def checkInteropURI(r_obj, profile_entry):
     my_logger.debug('Testing URI \n\t' + str((r_obj.uri, profile_entry)))
 
     my_id, my_uri = r_obj.jsondata.get('Id'), r_obj.uri
-    return compareRedfishURI(profile_entry, my_uri, my_id)
+    return compareRedfishURI(profile_entry, my_uri)
 
 def validateInteropResource(propResourceObj, interop_profile, rf_payload):
     """
