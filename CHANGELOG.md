@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.1.1] - 2022-10-14
+- Added resource-level requirement checking, including conditional requirements
+
 ## [2.1.0] - 2022-06-24
 - Fixed the resource GET result when running multiple profiles
 
