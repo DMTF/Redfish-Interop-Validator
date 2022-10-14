@@ -345,21 +345,20 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                             my_msg.expected = "{} under {}".format(my_msg.expected, ", ".join(subordinate_condition))
                         message_list.append(my_msg)
 
-            if "ReadRequirement" in profile_entry:
-                expected_requirement = profile_entry.get("ReadRequirement", "Mandatory")
-                uris_applied = profile_entry.get("URIs")
+            expected_requirement = profile_entry.get("ReadRequirement", "Mandatory")
+            uris_applied = profile_entry.get("URIs")
 
-                if uris_applied:
-                    apply_requirement = any([interop.compareRedfishURI(uris_applied, uri) for uri in uris_found])
-                else:
-                    apply_requirement = resource_exists
+            if uris_applied:
+                apply_requirement = any([interop.compareRedfishURI(uris_applied, uri) for uri in uris_found])
+            else:
+                apply_requirement = resource_exists
 
-                my_logger.info('Validating {} ReadRequirement'.format(resource_type))
-                my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if apply_requirement else 'DNE')
-                my_msg.name = '{}.{}'.format(resource_type, my_msg.name)
-                if uris_applied:
-                    my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
-                message_list.append(my_msg)
+            my_logger.info('Validating {} ReadRequirement'.format(resource_type))
+            my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if apply_requirement else 'DNE')
+            my_msg.name = '{}.{}'.format(resource_type, my_msg.name)
+            if uris_applied:
+                my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
+            message_list.append(my_msg)
 
     # interop service level checks
     finalResults = {}
