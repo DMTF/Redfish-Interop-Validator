@@ -181,6 +181,9 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
             break
     my_logger.info("\t {}".format('PASS' if pass_val else' FAIL...'))
 
+    for msg in results[uriName]['messages']:
+        msg.parent_results = results
+
     return True, counts, results, links, propResourceObj
 
 import re
@@ -298,6 +301,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     resource_stats[SchemaType]['URIsFound'].append(link.rstrip('/'))
                     resource_stats[SchemaType]['SubordinateTo'].add(tuple(reversed(subordinate_tree)))
 
+
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
             else:
@@ -307,6 +311,11 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
         resources_in_profile = profile.get('Resources', [])
         for resource_type in resources_in_profile:
             profile_entry = resources_in_profile[resource_type]
+
+            if 'PropertyRequirements' in profile_entry:
+                msgs = interop.validateComparisonAnyOfAllOf(profile_entry['PropertyRequirements'], resource_type)
+                message_list.extend(msgs)
+
             apply_requirement, expected_requirement = False, None
 
             # If exist and for what URIs...
@@ -359,6 +368,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             if uris_applied:
                 my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
             message_list.append(my_msg)
+
 
     # interop service level checks
     finalResults = {}
