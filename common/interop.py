@@ -17,8 +17,10 @@ config = {'WarnRecommended': False, 'WriteCheck': False}
 
 class sEnum(Enum):
     FAIL = 'FAIL'
+    NOPASS = 'NO PASS'
     PASS = 'PASS'
     WARN = 'WARN'
+    OK = 'OK'
 
 
 class msgInterop:
@@ -27,11 +29,74 @@ class msgInterop:
         self.entry = profile_entry
         self.expected = expected
         self.actual = actual
+        self.ignore = False
         if isinstance(success, bool):
             self.success = sEnum.PASS if success else sEnum.FAIL
         else:
             self.success = success
-        self.parent = None
+        self.parent_results = None
+
+def validateComparisonAnyOfAllOf(profile_entry, property_path="Unspecified"):
+    """
+    Gather comparison information after processing all Resources on system
+    """
+    all_msgs = []
+    for key in profile_entry:
+        property_profile = profile_entry[key]
+        my_compare = property_profile.get('Comparison', 'AnyOf')
+
+        if property_profile.get('Values') and my_compare in ['AnyOf', 'AllOf']:
+            my_msgs = property_profile.get('_msgs', [])
+            my_values, expected_values = [m.actual for m in my_msgs], property_profile['Values']
+
+            my_logger.info('Validating {} Comparison for {} : {}'.format(my_compare, property_path, key))
+            my_logger.info("  {},  Expecting {}".format(my_values, expected_values))
+
+            if not len(my_msgs) and property_profile.get('ReadRequirement', 'Mandatory') != 'Mandatory':
+                continue
+
+            msg_name = 'Comparison.{}.{}'.format(property_path, key)
+
+            top_msg = msgInterop(msg_name, my_compare, expected_values, my_values, False)
+            all_msgs.append(top_msg)
+
+            # NOPASS by default, if the check fails but the value is still in the array
+            # OK if passing, FAIL if check fails and value is not in array
+            for msg in my_msgs:
+                msg.ignore = False
+                msg.success = sEnum.NOPASS
+                msg.expected = '{} {} ({})'.format(msg.expected, expected_values, "Across All Resources")
+
+            if my_compare == 'AnyOf':
+                if any([x in my_values for x in expected_values]):
+                    my_logger.info('  PASS')
+                    top_msg.success = sEnum.PASS
+                    for msg in my_msgs:
+                        msg.success = sEnum.OK
+                        if msg.actual in expected_values:
+                            msg.success = sEnum.PASS
+                else:
+                    my_logger.info('  FAIL')
+                    for msg in my_msgs:
+                        msg.success = sEnum.FAIL
+
+            if my_compare == 'AllOf':
+                if all([x in my_values for x in expected_values]):
+                    my_logger.info('  PASS')
+                    top_msg.success = sEnum.PASS
+                    for msg in my_msgs:
+                        msg.success = sEnum.OK
+                else:
+                    my_logger.info('  FAIL')
+                    for msg in my_msgs:
+                        if msg.actual not in expected_values:
+                            msg.success = sEnum.FAIL
+
+        if property_profile.get('PropertyRequirements'):
+            new_msgs = validateComparisonAnyOfAllOf(property_profile.get('PropertyRequirements'), '.'.join([property_path, key]))
+            all_msgs.extend(new_msgs)
+        
+    return all_msgs
 
 
 def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, parent_object_tuple=None):
@@ -158,6 +223,9 @@ def checkComparison(val, compareType, target):
     paramPass = False
     if compareType is None:
         my_logger.error('CompareType not available in payload')
+
+    # NOTE: In our current usage, AnyOf and AllOf in this context is only for ConditionalRequirements -> CompareProperty
+    # Which checks if a particular property inside of this instance applies
     if compareType == "AnyOf":
         for item in vallist:
             paramPass = item in target
@@ -374,14 +442,6 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
                 my_logger.error("MinCount failed")
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-        for k, v in profile_entry.get('PropertyRequirements', {}).items():
-            # default to AnyOf if Comparison is not present but Values is
-            comparisonValue = v.get("Comparison", "AnyOf") if v.get("Values") is not None else None
-            if comparisonValue in ["AllOf", "AnyOf"]:
-                msg, success = (checkComparison([val.get(k, 'DNE') for val in rf_payload_item],
-                                    comparisonValue, v["Values"]))
-                msgs.append(msg)
-                msg.name = itemname + '.' + msg.name
         cnt = 0
         for item in rf_payload_item:
             listmsgs, listcounts = validatePropertyRequirement(
@@ -405,6 +465,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msg.name = itemname + '.' + msg.name
             if not success:
                 my_logger.error("WriteRequirement failed")
+
         if "MinSupportValues" in profile_entry:
             msg, success = validateSupportedValues(
                     profile_entry["MinSupportValues"],
@@ -413,14 +474,25 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msg.name = itemname + '.' + msg.name
             if not success:
                 my_logger.error("MinSupportValues failed")
-        if "Comparison" in profile_entry and not chkCondition and\
-                profile_entry["Comparison"] not in ["AnyOf", "AllOf"]:
-            msg, success = checkComparison(rf_payload_item,
-                    profile_entry["Comparison"], profile_entry.get("Values",[]))
+
+        if "Values" in profile_entry and not chkCondition:
+            # Default to AnyOf
+            # NOTE: chkCondition seems to skip this if a ConditionalRequirement is met, this may be unnecessary
+
+            my_compare = profile_entry.get("Comparison", "AnyOf")
+            msg, success = checkComparison(rf_payload_item, my_compare, profile_entry.get("Values", []))
             msgs.append(msg)
             msg.name = itemname + '.' + msg.name
-            if not success:
+
+            # Embed test results into profile, going forward seems to be the quick option outside of making a proper test object
+            if my_compare in ['AnyOf', 'AllOf']:
+                msg.ignore = True
+                if not profile_entry.get('_msgs'):
+                    profile_entry['_msgs'] = []
+                profile_entry['_msgs'].append(msg)
+            elif not success:
                 my_logger.error("Comparison failed")
+
         if "PropertyRequirements" in profile_entry:
             innerDict = profile_entry["PropertyRequirements"]
             if isinstance(rf_payload_item, dict):
@@ -593,7 +665,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
         my_logger.info('Skipping UpdateResource')
         pass
 
-    for item in msgs:
+    for item in [item for item in msgs if not item.ignore]:
         if item.success == sEnum.WARN:
             counts['warn'] += 1
         elif item.success == sEnum.PASS:

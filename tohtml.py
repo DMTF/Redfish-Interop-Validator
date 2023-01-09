@@ -52,8 +52,10 @@ def applySuccessColor(num, entry):
     success_col = str(entry)
     if 'FAIL' in str(success_col).upper():
         entry = '<td class="fail center">' + str(success_col) + '</td>'
-    elif 'DEPRECATED' in str(success_col).upper() or 'WARN' in str(success_col).upper():
+    elif str(success_col).upper() in ['WARN', 'DEPRECATED']:
         entry = '<td class="warn center">' + str(success_col) + '</td>'
+    elif str(success_col).upper() in ['OK', 'NO PASS', 'NOPASS']:
+        entry = '<td class="center">' + str(success_col) + '</td>'
     elif 'PASS' in str(success_col).upper():
         entry = '<td class="pass center">' + str(success_col) + '</td>'
     else:
