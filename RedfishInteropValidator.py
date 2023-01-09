@@ -17,7 +17,7 @@ import traverseInterop
 from common.profile import getProfiles, checkProfileAgainstSchema, hashProfile
 from validateResource import validateSingleURI, validateURITree
 
-tool_version = '2.1.1'
+tool_version = '2.1.2'
 
 # Set up the custom debug levels
 VERBOSE1 = logging.INFO - 1

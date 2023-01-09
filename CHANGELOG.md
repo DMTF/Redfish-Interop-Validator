@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.1.2] - 2023-01-09
+- Corrected usage of AnyOf and AllOf checks to be across all resources
+
 ## [2.1.1] - 2022-10-14
 - Added resource-level requirement checking, including conditional requirements
 
