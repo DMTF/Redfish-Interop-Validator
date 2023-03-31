@@ -119,10 +119,13 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     my_logger.verbose1("*** {}, {}".format(uriName, URI))
     uriName, SchemaFullType, jsondata = uriName, uriName, propResourceObj.jsondata
     SchemaType = getType(jsondata.get('@odata.type', 'NoType'))
+
+    oemcheck = traverseInterop.config.get('oemcheck', True)
+
     if SchemaType not in profile_resources:
-        # my_logger.info('\nNo Such Type in sample {} {}, skipping'.format(URI, SchemaType))
+        my_logger.verbose1('Visited {}, type {}'.format(URI, SchemaType))
         # Get all links available
-        links = getURIsInProperty(jsondata, uriName)
+        links = getURIsInProperty(jsondata, uriName, oemcheck)
         return True, counts, results, links, propResourceObj
 
     # Verify odata_id properly resolves to its parent if holding fragment
@@ -179,7 +182,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
             pass_val = False
             break
-    my_logger.info("\t {}".format('PASS' if pass_val else' FAIL...'))
+    my_logger.info("\t {}".format('PASS' if pass_val else ' FAIL...'))
 
     for msg in results[uriName]['messages']:
         msg.parent_results = results
@@ -190,20 +193,27 @@ import re
 urlCheck = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
 allowable_annotations = ['@odata.id']
 
-def getURIsInProperty(property, name='Root'):
+def getURIsInProperty(property, name='Root', oemcheck=True):
     my_links = {}
+    # Return nothing if we are Oem
+    if not oemcheck and name == 'Oem':
+        return my_links
     if isinstance(property, dict):
         for x, y in property.items():
             if '@' in x and x.lower() not in allowable_annotations:
                 continue
             if isinstance(y, str) and x.lower() in ['@odata.id']:
                 my_link = getURIfromOdata(y)
-                if my_link: my_links[name] = my_link
+                if my_link:
+                    if '/Oem/' not in my_link:
+                        my_links[name] = my_link
+                    if '/Oem/' in my_link and oemcheck:
+                        my_links[name] = my_link
             else:
-                my_links.update(getURIsInProperty(y, "{}:{}".format(name, x)))
+                my_links.update(getURIsInProperty(y, "{}:{}".format(name, x), oemcheck))
     if isinstance(property, list):
         for n, x in enumerate(property):
-            my_links.update(getURIsInProperty(x, "{}#{}".format(name, n)))
+            my_links.update(getURIsInProperty(x, "{}#{}".format(name, n), oemcheck))
     return my_links
 
 def getURIfromOdata(property):
@@ -212,12 +222,12 @@ def getURIfromOdata(property):
             return property
     return None
             
-def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=None, expectedJson=None, check_oem=True):
+def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=None, expectedJson=None):
     """name
     Validates a Tree of URIs, traversing from the first given
     """
     allLinks = set()
-    allLinks.add(URI)
+    allLinks.add(URI.rstrip('/'))
     refLinks = list()
 
     # Resource level validation
@@ -247,17 +257,13 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
         while len(currentLinks) > 0:
             newLinks = list()
             for linkName, link, parent in currentLinks:
-                assert(isinstance(link, str))
+
                 if link is None or link.rstrip('/') in allLinks:
                     continue
             
                 if '#' in link:
                     # if link.rsplit('#', 1)[0] not in allLinks:
                     #     refLinks.append((linkName, link, parent))
-                    continue
-
-                if 'Oem' in linkName and not check_oem:
-                    my_logger.info('Skipping Oem Link')
                     continue
 
                 if refLinks is not currentLinks and ('Links' in linkName.split('.') or 'RelatedItem' in linkName.split('.') or 'Redundancy' in linkName.split('.')):

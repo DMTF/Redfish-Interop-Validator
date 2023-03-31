@@ -129,7 +129,6 @@ class rfService():
         #     traverseLogger.info('CONFIG: RedfishVersion {} has augmented these tool defaults {}'.format(target_version, override_with))
         # self.config.update(override_with)
 
-
         self.active = True
 
     def close(self):
@@ -196,7 +195,7 @@ class rfService():
 
         # determine if we need to Auth...
         if inService:
-            noauthchk =  URILink in ['/redfish', '/redfish/v1', '/redfish/v1/odata'] or\
+            noauthchk = URILink in ['/redfish', '/redfish/v1', '/redfish/v1/odata'] or\
                 '/redfish/v1/$metadata' in URILink
 
             auth = None if noauthchk else (config.get('username'), config.get('password'))
