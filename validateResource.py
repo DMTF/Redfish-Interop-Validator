@@ -94,9 +94,9 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         #     successPayload, odataMessages = traverseInterop.ResourceObj.checkPayloadConformance(results[uriName]['payload'], URI)
         #     messages.extend(odataMessages)
 
-        propResourceObj = traverseInterop.createResourceObject(
+        resource_obj = traverseInterop.createResourceObject(
             uriName, URI, expectedJson, expectedType, expectedSchema, parent)
-        if not propResourceObj:
+        if not resource_obj:
             counts['problemResource'] += 1
             results[uriName]['warns'], results[uriName]['errors'] = get_my_capture(my_logger, whandler), get_my_capture(my_logger, ehandler)
             return False, counts, results, None, None
@@ -117,7 +117,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     profile_resources = profile.get('Resources')
 
     my_logger.verbose1("*** {}, {}".format(uriName, URI))
-    uriName, SchemaFullType, jsondata = uriName, uriName, propResourceObj.jsondata
+    uriName, SchemaFullType, jsondata = uriName, uriName, resource_obj.jsondata
     SchemaType = getType(jsondata.get('@odata.type', 'NoType'))
 
     oemcheck = traverseInterop.config.get('oemcheck', True)
@@ -126,17 +126,17 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         my_logger.verbose1('Visited {}, type {}'.format(URI, SchemaType))
         # Get all links available
         links = getURIsInProperty(jsondata, uriName, oemcheck)
-        return True, counts, results, links, propResourceObj
+        return True, counts, results, links, resource_obj
 
     # Verify odata_id properly resolves to its parent if holding fragment
-    odata_id = propResourceObj.jsondata.get('@odata.id', '')
+    odata_id = resource_obj.jsondata.get('@odata.id', '')
     if '#' in odata_id:
         if parent is not None:
             payload_resolve = traverseInterop.navigateJsonFragment(parent.jsondata, URI)
             if payload_resolve is None:
                 my_logger.error('@odata.id of ReferenceableMember does not contain a valid JSON pointer for this payload: {}'.format(odata_id))
                 counts['badOdataIdResolution'] += 1
-            elif payload_resolve != propResourceObj.jsondata:
+            elif payload_resolve != resource_obj.jsondata:
                 my_logger.error('@odata.id of ReferenceableMember does not point to the correct object: {}'.format(odata_id))
                 counts['badOdataIdResolution'] += 1
         else:
@@ -148,20 +148,20 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     results[uriName]['uri'] = (str(URI))
     results[uriName]['samplemapped'] = (str(sample_string))
-    results[uriName]['rtime'] = propResourceObj.rtime
-    results[uriName]['rcode'] = propResourceObj.status
-    results[uriName]['payload'] = propResourceObj.jsondata
-    results[uriName]['context'] = propResourceObj.context
-    results[uriName]['fulltype'] = propResourceObj.typename
+    results[uriName]['rtime'] = resource_obj.rtime
+    results[uriName]['rcode'] = resource_obj.status
+    results[uriName]['payload'] = resource_obj.jsondata
+    results[uriName]['context'] = resource_obj.context
+    results[uriName]['fulltype'] = resource_obj.typename
 
     my_logger.info('\n')
     my_logger.info("*** %s, %s", URI, SchemaType)
     my_logger.debug("*** %s, %s, %s", expectedType, expectedSchema is not None, expectedJson is not None)
-    my_logger.info("\t Type (%s), GET SUCCESS (time: %s)", propResourceObj.typename, propResourceObj.rtime)
+    my_logger.info("\t Type (%s), GET SUCCESS (time: %s)", resource_obj.typename, resource_obj.rtime)
 
     profile_resources = profile_resources.get(SchemaType)
     try:
-        propMessages, propCounts = interop.validateInteropResource(propResourceObj, profile_resources, jsondata)
+        propMessages, propCounts = interop.validateInteropResource(resource_obj, profile_resources, jsondata)
         messages = messages.extend(propMessages)
         counts.update(propCounts)
         my_logger.info('{} of {} tests passed.'.format(counts['pass'] + counts['warn'], counts['totaltests']))
@@ -173,7 +173,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     my_logger.info('%s, %s\n', SchemaFullType, counts)
 
     # Get all links available
-    links = getURIsInProperty(propResourceObj.jsondata, uriName)
+    links = getURIsInProperty(resource_obj.jsondata, uriName, oemcheck)
 
     results[uriName]['warns'], results[uriName]['errors'] = get_my_capture(my_logger, whandler), get_my_capture(my_logger, ehandler)
 
@@ -187,7 +187,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     for msg in results[uriName]['messages']:
         msg.parent_results = results
 
-    return True, counts, results, links, propResourceObj
+    return True, counts, results, links, resource_obj
 
 import re
 urlCheck = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
@@ -239,8 +239,17 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     resource_info = dict(profile.get('Resources'))
 
     # Validate top URI
-    validateSuccess, counts, results, links, thisobj = \
+    validateSuccess, counts, results, links, resource_obj = \
         validateSingleURI(URI, profile, uriName, expectedType, expectedSchema, expectedJson)
+
+    if resource_obj:
+        SchemaType = getType(resource_obj.jsondata.get('@odata.type', 'NoType'))
+        resource_stats[SchemaType] = {
+            "Exists": True,
+            "Writeable": False,
+            "URIsFound": [URI.rstrip('/')],
+            "SubordinateTo": set(),
+        }
 
     # parent first, then child execution
     # do top level root first, then do each child root, then their children...
@@ -249,10 +258,10 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
         serviceVersion = profile.get("Protocol")
         if serviceVersion is not None and uriName == 'ServiceRoot':
             serviceVersion = serviceVersion.get('MinVersion', '1.0.0')
-            msg, m_success = interop.validateMinVersion(thisobj.jsondata.get("RedfishVersion", "0"), serviceVersion)
+            msg, m_success = interop.validateMinVersion(resource_obj.jsondata.get("RedfishVersion", "0"), serviceVersion)
             message_list.append(msg)
 
-        currentLinks = [(l, links[l], thisobj) for l in links]
+        currentLinks = [(l, links[l], resource_obj) for l in links]
         # todo : churning a lot of links, causing possible slowdown even with set checks
         while len(currentLinks) > 0:
             newLinks = list()
@@ -262,17 +271,14 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     continue
             
                 if '#' in link:
-                    # if link.rsplit('#', 1)[0] not in allLinks:
-                    #     refLinks.append((linkName, link, parent))
+                    # NOTE: Skips referenced Links (using pound signs), this program currently only works with direct links
                     continue
 
                 if refLinks is not currentLinks and ('Links' in linkName.split('.') or 'RelatedItem' in linkName.split('.') or 'Redundancy' in linkName.split('.')):
                     refLinks.append((linkName, link, parent))
                     continue
 
-                # if autoExpand and linkType is not None:
-                #     linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
-                #         validateSingleURI(linkURI, profile, linkURI, linkType, linkSchema, innerJson, parent=parent)
+                # NOTE: unable to determine autoexpanded resources without Schema
                 else:
                     linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
                         validateSingleURI(link, profile, linkName, parent=parent)
@@ -400,4 +406,4 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     finalResults.update(results)
     error_messages.close()
 
-    return validateSuccess, counts, finalResults, refLinks, thisobj
+    return validateSuccess, counts, finalResults, refLinks, resource_obj
