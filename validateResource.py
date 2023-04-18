@@ -83,23 +83,23 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         my_logger.warning('Tool appears to be missing vital URI information, replacing URI w/: {}'.format(URI))
     # Generate dictionary of property info
     try:
-        if expectedJson is None:
-            success, jsondata, status, rtime = traverseInterop.callResourceURI(URI)
-            results[uriName]['payload'] = jsondata
-        else:
-            results[uriName]['payload'] = expectedJson
-
-        # # verify basic odata strings
-        # if results[uriName]['payload'] is not None:
-        #     successPayload, odataMessages = traverseInterop.ResourceObj.checkPayloadConformance(results[uriName]['payload'], URI)
-        #     messages.extend(odataMessages)
-
-        propResourceObj = traverseInterop.createResourceObject(
+        propResourceObj, return_status = traverseInterop.createResourceObject(
             uriName, URI, expectedJson, expectedType, expectedSchema, parent)
+
+        results[uriName]['rcode'] = return_status
+
         if not propResourceObj:
-            counts['problemResource'] += 1
+            if return_status in [403]:
+                counts['forbiddenResource'] += 1
+                my_logger.warning('{}:  This resource is forbidden or inaccessible, and cannot be validated or traversed for links.'.format(URI))
+            else:
+                counts['problemResource'] += 1
             results[uriName]['warns'], results[uriName]['errors'] = get_my_capture(my_logger, whandler), get_my_capture(my_logger, ehandler)
+            results[uriName]['payload'] = {}
             return False, counts, results, None, None
+        else:
+            results[uriName]['payload'] = propResourceObj.jsondata
+
     except traverseInterop.AuthenticationError as e:
         raise  # re-raise exception
     except Exception as e:
@@ -146,7 +146,6 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     results[uriName]['uri'] = (str(URI))
     results[uriName]['samplemapped'] = (str(sample_string))
     results[uriName]['rtime'] = propResourceObj.rtime
-    results[uriName]['rcode'] = propResourceObj.status
     results[uriName]['payload'] = propResourceObj.jsondata
     results[uriName]['context'] = propResourceObj.context
     results[uriName]['fulltype'] = propResourceObj.typename
@@ -273,12 +272,14 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
 
                 allLinks.add(link.rstrip('/'))
 
+                results.update(linkResults)
+                counts.update(linkCounts)
+
                 if not linkSuccess:
                     continue
 
-                innerLinksTuple = [(l, innerLinks[l], linkobj) for l in innerLinks]
+                innerLinksTuple = [(link, innerLinks[link], linkobj) for link in innerLinks]
                 newLinks.extend(innerLinksTuple)
-                results.update(linkResults)
                 SchemaType = getType(linkobj.jsondata.get('@odata.type', 'NoType'))
 
                 subordinate_tree = []
