@@ -89,8 +89,8 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         results[uriName]['rcode'] = return_status
 
         if not propResourceObj:
-            if return_status in [403]:
-                counts['forbiddenResource'] += 1
+            if 400 <= return_status <= 499:
+                counts['inaccessibleResource'] += 1
                 my_logger.warning('{}:  This resource is forbidden or inaccessible, and cannot be validated or traversed for links.'.format(URI))
             else:
                 counts['problemResource'] += 1

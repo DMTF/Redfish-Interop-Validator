@@ -331,7 +331,7 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
         success, jsondata, status, rtime = callResourceURI(uri)
         traverseLogger.debug('{}, {}, {}'.format(success, jsondata, status))
         if not success:
-            if status != 403:
+            if not (400 <= status <= 499):
                 my_logger.error('{}:  URI could not be acquired: {}'.format(uri, status))
             return None, status
     else:

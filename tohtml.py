@@ -189,8 +189,8 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
         if success:
             getTag = tag.td('GET Success', 'class="pass"')
         else:
-            if val['rcode'] == 403:
-                getTag = tag.td('GET Forbidden', 'class="warn"')
+            if 400 <= val['rcode'] <= 499:
+                getTag = tag.td('GET Inaccessible', 'class="warn"')
             else:
                 getTag = tag.td('GET Failure', 'class="fail"')
 
