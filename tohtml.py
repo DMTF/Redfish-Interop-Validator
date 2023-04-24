@@ -189,11 +189,7 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
         if success:
             getTag = tag.td('GET Success', 'class="pass"')
         else:
-            if 400 <= val['rcode'] <= 499:
-                getTag = tag.td('GET Inaccessible', 'class="warn"')
-            else:
-                getTag = tag.td('GET Failure', 'class="fail"')
-
+            getTag = tag.td('GET Inaccessible', 'class="warn"')
 
         countsTag = tag.td(infoBlock(val['counts'], split='', ffunc=applyInfoSuccessColor), 'class="log"')
 

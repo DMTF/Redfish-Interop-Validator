@@ -89,12 +89,9 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         results[uriName]['rcode'] = return_status
 
         if not propResourceObj:
-            if 400 <= return_status <= 499:
-                counts['inaccessibleResource'] += 1
-                my_logger.warning('{}:  This resource is forbidden or inaccessible, and cannot be validated or traversed for links.'.format(URI))
-            else:
-                counts['problemResource'] += 1
-            results[uriName]['warns'], results[uriName]['errors'] = get_my_capture(my_logger, whandler), get_my_capture(my_logger, ehandler)
+            counts['inaccessibleResource'] += 1
+            my_logger.warning('{}:  This resource is inaccessible and cannot be validated or traversed for links.'.format(URI))
+            results[uriName]['warns'] = get_my_capture(my_logger, whandler)
             results[uriName]['payload'] = {}
             return False, counts, results, None, None
         else:

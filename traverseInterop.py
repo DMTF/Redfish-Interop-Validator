@@ -285,8 +285,8 @@ class rfService():
                         cred_type = 'username and password'
                     raise AuthenticationError('Error accessing URI {}. Status code "{} {}". Check {} supplied for "{}" authentication.\nAborting test due to invalid credentials.'
                                               .format(URILink, statusCode, responses[statusCode], cred_type, AuthType))
-            elif statusCode == 403:
-                # Forbidden but not missing
+            elif statusCode >= 400:
+                # Error accessing the resource (beyond auth errors)
                 return False, None, statusCode, elapsed
 
         except requests.exceptions.SSLError as e:
@@ -331,8 +331,7 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
         success, jsondata, status, rtime = callResourceURI(uri)
         traverseLogger.debug('{}, {}, {}'.format(success, jsondata, status))
         if not success:
-            if not (400 <= status <= 499):
-                my_logger.error('{}:  URI could not be acquired: {}'.format(uri, status))
+            my_logger.error('{}:  URI could not be acquired: {}'.format(uri, status))
             return None, status
     else:
         success, jsondata, status, rtime = True, jsondata, -1, 0
