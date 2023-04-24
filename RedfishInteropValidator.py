@@ -219,9 +219,9 @@ def main(argslist=None, configfile=None):
             if 'single' in pmode:
                 success, _, resultsNew, _, _ = validateSingleURI(ppath, profile, 'Target', expectedJson=jsonData)
             elif 'tree' in pmode:
-                success, _, resultsNew, _, _ = validateURITree(ppath, profile, 'Target', expectedJson=jsonData, check_oem=args.oemcheck)
+                success, _, resultsNew, _, _ = validateURITree(ppath, profile, 'Target', expectedJson=jsonData)
             else:
-                success, _, resultsNew, _, _ = validateURITree('/redfish/v1/', profile, 'ServiceRoot', expectedJson=jsonData, check_oem=args.oemcheck)
+                success, _, resultsNew, _, _ = validateURITree('/redfish/v1/', profile, 'ServiceRoot', expectedJson=jsonData)
             profileName = profile.get('ProfileName')
             if results is None:
                 results = resultsNew
