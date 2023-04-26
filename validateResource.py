@@ -88,14 +88,14 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
         results[uriName]['rcode'] = return_status
 
-        if not resource_obj :
+        if not resource_obj:
             counts['inaccessibleResource'] += 1
             my_logger.warning('{}:  This resource is inaccessible and cannot be validated or traversed for links.'.format(URI))
             results[uriName]['warns'] = get_my_capture(my_logger, whandler)
             results[uriName]['payload'] = {}
             return False, counts, results, None, None
         else:
-            results[uriName]['payload'] = propResourceObj.jsondata
+            results[uriName]['payload'] = resource_obj.jsondata
 
     except traverseInterop.AuthenticationError as e:
         raise  # re-raise exception
