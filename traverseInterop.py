@@ -129,7 +129,6 @@ class rfService():
         #     traverseLogger.info('CONFIG: RedfishVersion {} has augmented these tool defaults {}'.format(target_version, override_with))
         # self.config.update(override_with)
 
-
         self.active = True
 
     def close(self):
