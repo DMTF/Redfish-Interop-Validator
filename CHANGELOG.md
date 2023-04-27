@@ -1,5 +1,9 @@
 # Change Log
 
+## [2.1.3] - 2023-04-27
+- Corrected behavior with the 'nooemcheck' flag to skip over any resources found in the 'Oem' object
+- Downgraded errors to warnings for resources not accessible during testing
+
 ## [2.1.2] - 2023-01-09
 - Corrected usage of AnyOf and AllOf checks to be across all resources
 
