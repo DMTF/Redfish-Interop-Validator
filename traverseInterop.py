@@ -172,6 +172,7 @@ class rfService():
                 config['certificatecheck'], config['certificatebundle'], config['timeout'], config['token']
         # CacheMode, CacheDir = config['cachemode'], config['cachefilepath']
 
+
         scheme, netloc, path, params, query, fragment = urlparse(URILink)
         inService = scheme == '' and netloc == ''
         if inService:
@@ -252,19 +253,16 @@ class rfService():
                     # navigate fragment
                     decoded = navigateJsonFragment(decoded, URILink)
                     if decoded is None:
-                        traverseLogger.error(
-                                "The JSON pointer in the fragment of this URI is not constructed properly: {}".format(URILink))
+                        traverseLogger.error("The JSON pointer in the fragment of this URI is not constructed properly: {}".format(URILink))
                 elif 'application/xml' in contenttype:
                     decoded = response.text
                 elif 'text/xml' in contenttype:
                     # non-service schemas can use "text/xml" Content-Type
                     if inService:
-                        traverseLogger.warning(
-                                "Incorrect content type 'text/xml' for file within service {}".format(URILink))
+                        traverseLogger.warning("Incorrect content type 'text/xml' for file within service {}".format(URILink))
                     decoded = response.text
                 else:
-                    traverseLogger.error(
-                            "This URI did NOT return XML or Json contenttype, is this not a Redfish resource (is this redirected?): {}".format(URILink))
+                    traverseLogger.error("This URI did NOT return XML or Json contenttype, is this not a Redfish resource (is this redirected?): {}".format(URILink))
                     decoded = None
                     if isXML:
                         traverseLogger.info('Attempting to interpret as XML')
@@ -286,6 +284,9 @@ class rfService():
                         cred_type = 'username and password'
                     raise AuthenticationError('Error accessing URI {}. Status code "{} {}". Check {} supplied for "{}" authentication.\nAborting test due to invalid credentials.'
                                               .format(URILink, statusCode, responses[statusCode], cred_type, AuthType))
+            elif statusCode >= 400:
+                # Error accessing the resource (beyond auth errors)
+                return False, None, statusCode, elapsed
 
         except requests.exceptions.SSLError as e:
             traverseLogger.error("SSLError on {}: {}".format(URILink, repr(e)))
@@ -329,14 +330,13 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
         success, jsondata, status, rtime = callResourceURI(uri)
         traverseLogger.debug('{}, {}, {}'.format(success, jsondata, status))
         if not success:
-            traverseLogger.error(
-                '{}:  URI could not be acquired: {}'.format(uri, status))
-            return None
+            my_logger.error('{}:  URI could not be acquired: {}'.format(uri, status))
+            return None, status
     else:
         success, jsondata, status, rtime = True, jsondata, -1, 0
     newResource = ResourceObj(name, uri, jsondata, typename, context, parent, isComplex, topVersion=topVersion, top_of_resource=top_of_resource)
 
-    return newResource
+    return newResource, status
 
 
 class ResourceObj:
@@ -353,14 +353,6 @@ class ResourceObj:
         oem = config.get('oemcheck', True)
         acquiredtype = typename if forceType else jsondata.get('@odata.type', typename)
 
-        # # Check if this is a Registry resource
-        # parent_type = parent.typename if parent is not None and parent is not None else None
-        # if parent_type is not None and getType(parent_type) == 'MessageRegistryFile' or\
-        #         getType(acquiredtype) in ['MessageRegistry', 'AttributeRegistry', 'PrivilegeRegistry']:
-        #     traverseLogger.debug('{} is a Registry resource'.format(self.uri))
-        #     self.isRegistry = True
-        #     self.context = None
-        #     context = None
         if topVersion is not None:
             parent_type = topVersion
 
@@ -473,45 +465,3 @@ class ResourceObj:
             messages[key] = (decoded[key], 'odata',
                             'Exists',
                             'PASS' if paramPass else 'FAIL')
-            
-        return success, messages
-
-
-def enumerate_collection(items, cTypeName, linklimits, sample_size):
-    """
-    Generator function to enumerate the items in a collection, applying the link limit or sample size if applicable.
-    If a link limit is specified for this cTypeName, return the first N items as specified by the limit value.
-    If a sample size greater than zero is specified, return a random sample of items specified by the sample_size.
-    In both the above cases, if the limit value or sample size is greater than or equal to the number of items in the
-    collection, return all the items.
-    If a limit value for this cTypeName and a sample size are both provided, the limit value takes precedence.
-    :param items: the collection of items to enumerate
-    :param cTypeName: the type name of this collection
-    :param linklimits: a dictionary mapping type names to their limit values
-    :param sample_size: the number of items to sample from large collections
-    :return: enumeration of the items to be processed
-    """
-    if cTypeName in linklimits:
-        # "link limit" case
-        limit = min(linklimits[cTypeName], len(items))
-        traverseLogger.debug('Limiting "{}" to first {} links'.format(cTypeName, limit))
-        for i in range(limit):
-            if linklimits[cTypeName] < len(items):
-                uri = items[i].get('@odata.id')
-                if uri is not None:
-                    uri_sample_map[uri] = 'Collection limit {} of {}'.format(i + 1, limit)
-            yield i, items[i]
-    elif 0 < sample_size < len(items):
-        # "sample size" case
-        traverseLogger.debug('Limiting "{}" to sample of {} links'.format(cTypeName, sample_size))
-        sample = 0
-        for i in sorted(random.sample(range(len(items)), sample_size)):
-            sample += 1
-            uri = items[i].get('@odata.id')
-            if uri is not None:
-                uri_sample_map[uri] = 'Collection sample {} of {}'.format(sample, sample_size)
-            yield i, items[i]
-    else:
-        # "all" case
-        traverseLogger.debug('Processing all links for "{}"'.format(cTypeName))
-        yield from enumerate(items)

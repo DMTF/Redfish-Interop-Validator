@@ -160,7 +160,7 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
         val = results[item]
         rtime = '(response time: {})'.format(val['rtime'])
 
-        if len(val['messages']) == 0 and len(val['errors']) == 0:
+        if len(val['messages']) == 0 and len(val['errors']) == 0 and len(val['warns']) == 0:
             continue
 
         # uri block
@@ -189,8 +189,7 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
         if success:
             getTag = tag.td('GET Success', 'class="pass"')
         else:
-            getTag = tag.td('GET Failure', 'class="fail"')
-
+            getTag = tag.td('GET Inaccessible', 'class="warn"')
 
         countsTag = tag.td(infoBlock(val['counts'], split='', ffunc=applyInfoSuccessColor), 'class="log"')
 
