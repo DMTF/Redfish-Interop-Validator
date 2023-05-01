@@ -680,6 +680,29 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
     counts = Counter()
     # rf_payload_tuple provides the chain of dicts containing dicts, needed for CompareProperty
     rf_payload_tuple = (rf_payload, None)
+
+    if "UseCases" in interop_profile:
+        for case in interop_profile['UseCases']:
+            entry_title = case.get("UseCaseTitle", "NoName")
+            my_logger.debug('UseCase {}'.format(entry_title))
+
+            entry_key, entry_comparison, entry_values = case['UseCaseKeyProperty'], case['UseCaseComparison'], case['UseCaseKeyValues']
+
+            my_value = rf_payload.get(entry_key)
+
+            my_msg, comparison_pass = checkComparison(my_value, entry_comparison, entry_values)
+            if comparison_pass:
+                my_logger.info('Validating using UseCase {}'.format(entry_title))
+                
+                my_msg.name = "UseCase.{}.Comparison.{}".format(entry_title, entry_key)
+                msgs.append(my_msg)
+
+                new_msgs, new_counts = validateInteropResource(propResourceObj, case, rf_payload)
+                msgs.extend(new_msgs)
+                counts.update(new_counts)
+
+                return msgs, counts
+
     if "URIs" in interop_profile:
         # Check if the profile requirements apply to this particular instance
         if not checkInteropURI(propResourceObj, interop_profile['URIs']):
