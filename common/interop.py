@@ -420,6 +420,7 @@ def find_key_in_payload(path_to_key, redfish_parent_payload):
         key_exists = True
         for key in replaced_by_property_path:
             if isinstance(current_target, dict) and current_target.get(key) is not None:
+                current_target = current_target[key]
                 continue
             else:
                 key_exists = False
@@ -449,7 +450,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
         my_logger.debug('propRequirement with value: ' + str(redfish_value if not isinstance(redfish_value, dict) else 'dict'))
 
     if "ReplacesProperty" in profile_entry and redfish_value == REDFISH_ABSENT:
-        my_path_entry = profile_entry.get("ReplacedByProperty", profile_entry.get("ReplacesProperty"))
+        my_path_entry = profile_entry.get("ReplacesProperty")
         replacement_property_exists = find_key_in_payload(my_path_entry, redfish_parent_payload)
 
         new_msg = msgInterop("{}.{}".format(item_name, "ReplacesProperty"), profile_entry["ReplacesProperty"], "-",
@@ -459,21 +460,21 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             my_logger.warn('{}: This property replaces deprecated property {}, but does not exist, service should implement {}'.format(item_name, my_path_entry, item_name))
             return msgs, counts
         else:
-            my_logger.debug('{}: Replaced property does not exist'.format(item_name))
+            if profile_entry.get('ReadRequirement', 'Mandatory'):
+                my_logger.error('{}: Replaced property {} does not exist, {} should be implemented'.format(item_name, my_path_entry, item_name))
 
     if "ReplacedByProperty" in profile_entry:
-        my_path_entry = profile_entry.get("ReplacedByProperty", profile_entry.get("ReplacesProperty"))
+        my_path_entry = profile_entry.get("ReplacedByProperty")
         replacement_property_exists = find_key_in_payload(my_path_entry, redfish_parent_payload)
         
         new_msg = msgInterop("{}.{}".format(item_name, "ReplacedByProperty"), profile_entry["ReplacedByProperty"], "-",
                             "Exists" if replacement_property_exists else "DNE", sEnum.PASS if replacement_property_exists else sEnum.OK)
         msgs.append(new_msg)
         if replacement_property_exists:
-            my_logger.info('{}: Replacement property exists, finish validating'.format(item_name))
+            my_logger.info('{}: Replacement property exists, step out of validating'.format(item_name))
             return msgs, counts
         else:
             my_logger.info('{}: Replacement property does not exist, continue validating'.format(item_name))
-
 
     # Check the conditional requirements first or the requirements won't apply correctly against
     # a list.
