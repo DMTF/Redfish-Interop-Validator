@@ -9,6 +9,7 @@ from io import StringIO
 import traverseInterop
 import common.interop as interop
 from common.redfish import getType, getNamespace
+from common.interop import REDFISH_ABSENT
 
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
@@ -299,17 +300,22 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     subordinate_tree.append(parentType)
                     current_parent = current_parent.parent
 
+                # Search for UseCase.USECASENAME
+                usecases_found = [msg.name.split('.')[-1] for msg in linkResults[linkName]['messages'] if 'UseCase' == msg.name.split('.')[0]]
+
                 if resource_stats.get(SchemaType) is None:
                     resource_stats[SchemaType] = {
                         "Exists": True,
                         "Writeable": False,
                         "URIsFound": [link.rstrip('/')],
                         "SubordinateTo": set([tuple(reversed(subordinate_tree))]),
+                        "UseCasesFound": set(usecases_found),
                     }
                 else:
                     resource_stats[SchemaType]['Exists'] = True
                     resource_stats[SchemaType]['URIsFound'].append(link.rstrip('/'))
                     resource_stats[SchemaType]['SubordinateTo'].add(tuple(reversed(subordinate_tree)))
+                    resource_stats[SchemaType]['UseCasesFound'].union(usecases_found)
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
@@ -338,6 +344,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 resource_exists = resource_stats[resource_type]['Exists']
                 uris_found = resource_stats[resource_type]['URIsFound']
                 subs_found = resource_stats[resource_type]['SubordinateTo']
+                usecases_found = resource_stats[resource_type]['UseCasesFound']
 
             # Before all else, UseCases takes priority
             if 'UseCases' in profile_entry:
@@ -352,8 +359,11 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     else:
                         does_resource_exist = resource_exists
 
+                    does_resource_exist = does_resource_exist and entry_title in usecases_found
+
                     my_logger.info('Validating UseCase {} of {} ReadRequirement'.format(entry_title, resource_type))
-                    my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else 'DNE')
+
+                    my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
                     my_msg.name = 'UseCase.{}.{}'.format(entry_title, my_msg.name)
                     if uris_applied:
                         my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
@@ -382,7 +392,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     expected_requirement = condition.get("ReadRequirement")
                     if expected_requirement:
                         my_logger.info('Validating {} Conditional ReadRequirement'.format(resource_type))
-                        my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else 'DNE')
+                        my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
                         my_msg.name = '{}.Conditional.{}'.format(resource_type, my_msg.name)
                         if uris_applied:
                             my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
@@ -401,7 +411,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 does_resource_exist = resource_exists
 
             my_logger.info('Validating {} ReadRequirement'.format(resource_type))
-            my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else 'DNE')
+            my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
             my_msg.name = '{}.{}'.format(resource_type, my_msg.name)
             if uris_applied:
                 my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
