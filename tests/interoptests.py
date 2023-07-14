@@ -10,6 +10,11 @@ from unittest import TestCase
 
 import common.interop as riv
 
+import logging
+
+logging.Logger.verbose1 = logging.Logger.debug
+logging.Logger.verbose2 = logging.Logger.debug
+
 class ValidatorTest(TestCase):
 
     # can we test writeable, find_prop, conditional
