@@ -246,6 +246,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             "Writeable": False,
             "URIsFound": [URI.rstrip('/')],
             "SubordinateTo": set(),
+            "UseCasesFound": set()
         }
 
     # parent first, then child execution
