@@ -684,7 +684,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
     if "UseCases" in interop_profile:
         for use_case in interop_profile['UseCases']:
-            entry_title = use_case.get("UseCaseTitle", "NoName")
+            entry_title = use_case.get("UseCaseTitle", "NoName").replace(' ','_')
             my_logger.debug('UseCase {}'.format(entry_title))
 
             # Check if we have a valid UseCase
