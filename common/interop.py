@@ -3,7 +3,7 @@
 # Copyright 2016 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
-import re
+import re, copy
 from enum import Enum
 from collections import Counter
 
@@ -36,6 +36,7 @@ class msgInterop:
         else:
             self.success = success
         self.parent_results = None
+
 
 def validateComparisonAnyOfAllOf(profile_entry, property_path="Unspecified"):
     """
@@ -335,7 +336,7 @@ def validateMinVersion(version, profile_entry):
 
     # use string comparison, given version numbering is accurate to regex
     my_logger.debug('\tpass ' + str(paramPass))
-    return msgInterop('MinVersion', '{} ({})'.format(profile_entry, payload_split), '<=', version, paramPass),\
+    return msgInterop('MinVersion', profile_entry, '<=', version, paramPass),\
         paramPass
 
 
@@ -680,6 +681,54 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
     counts = Counter()
     # rf_payload_tuple provides the chain of dicts containing dicts, needed for CompareProperty
     rf_payload_tuple = (rf_payload, None)
+
+    if "UseCases" in interop_profile:
+        for use_case in interop_profile['UseCases']:
+            entry_title = use_case.get("UseCaseTitle", "NoName").replace(' ','_')
+            my_logger.debug('UseCase {}'.format(entry_title))
+
+            # Check if we have a valid UseCase
+            if 'URIs' not in use_case and 'UseCaseKeyProperty' not in use_case:
+                my_logger.error('UseCase does not have URIs or UseCaseKeyProperty...')
+
+            if 'UseCaseKeyProperty' in use_case:
+                entry_key, entry_comparison, entry_values = use_case['UseCaseKeyProperty'], use_case['UseCaseComparison'], use_case['UseCaseKeyValues']
+
+                _, use_case_applies = checkComparison(rf_payload.get(entry_key), entry_comparison, entry_values)
+
+                # Check if URI applies to this usecase as well
+                if 'URIs' in use_case:
+                    use_case_applies = checkInteropURI(propResourceObj, use_case['URIs']) and use_case_applies
+
+            elif 'URIs' in use_case:
+                use_case_applies = checkInteropURI(propResourceObj, use_case['URIs'])
+            
+            else:
+                use_case_applies = False
+
+            if use_case_applies:
+                my_msg = msgInterop("UseCase.{}".format(entry_title), '-', '-', '-', sEnum.OK)
+
+                msgs.append(my_msg)
+
+                my_logger.info('Validating using UseCase {}'.format(entry_title))
+
+                # Remove URIs
+                new_case = {key: val for key, val in use_case.items() if key not in ['URIs']}
+
+                new_msgs, new_counts = validateInteropResource(propResourceObj, new_case, rf_payload)
+
+                if any([msg.success == sEnum.FAIL for msg in new_msgs]):
+                    my_msg.success = sEnum.FAIL
+
+                msgs.extend(new_msgs)
+                counts.update(new_counts)
+
+            else:
+                my_logger.info('UseCase {} does not apply'.format(entry_title))
+
+        return msgs, counts
+
     if "URIs" in interop_profile:
         # Check if the profile requirements apply to this particular instance
         if not checkInteropURI(propResourceObj, interop_profile['URIs']):

@@ -10,6 +10,11 @@ from unittest import TestCase
 
 import common.interop as riv
 
+import logging
+
+logging.Logger.verbose1 = logging.Logger.debug
+logging.Logger.verbose2 = logging.Logger.debug
+
 class ValidatorTest(TestCase):
 
     # can we test writeable, find_prop, conditional
@@ -20,7 +25,7 @@ class ValidatorTest(TestCase):
 
     def test_requirement(self):
         entries = ['Mandatory', 'Recommended', 'Mandatory', 'Recommended']
-        vals = ['Ok', 'DNE', 'DNE', 'Ok']
+        vals = ['Ok', riv.REDFISH_ABSENT, rif.REDFISH_ABSENT, 'Ok']
         boolist = [True, True, False, True]
         for e, v, b in zip(entries, vals, boolist):
             self.assertTrue(riv.validateRequirement(e, v)[1] == b, str(e + ' ' + v))
@@ -70,7 +75,7 @@ class ValidatorTest(TestCase):
                     "ResetType@Redfish.AllowableValues": ["On", "ForceOff"],
                     "target": "/redfish/v1/Chassis/System.Embedded.1/Actions/Chassis.Reset"}
         vals = [interopdict,
-                'DNE', 'DNE', interopdict, {}]
+                riv.REDFISH_ABSENT, riv.REDFISH_ABSENT, interopdict, {}]
         entries = [{
                     "ReadRequirement": "Mandatory",
                     "Parameters": {

@@ -9,6 +9,7 @@ from io import StringIO
 import traverseInterop
 import common.interop as interop
 from common.redfish import getType, getNamespace
+from common.interop import REDFISH_ABSENT
 
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
@@ -245,6 +246,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             "Writeable": False,
             "URIsFound": [URI.rstrip('/')],
             "SubordinateTo": set(),
+            "UseCasesFound": set()
         }
 
     # parent first, then child execution
@@ -299,25 +301,33 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     subordinate_tree.append(parentType)
                     current_parent = current_parent.parent
 
+                # Search for UseCase.USECASENAME
+                usecases_found = [msg.name.split('.')[-1] for msg in linkResults[linkName]['messages'] if 'UseCase' == msg.name.split('.')[0]]
+
                 if resource_stats.get(SchemaType) is None:
                     resource_stats[SchemaType] = {
                         "Exists": True,
                         "Writeable": False,
                         "URIsFound": [link.rstrip('/')],
                         "SubordinateTo": set([tuple(reversed(subordinate_tree))]),
+                        "UseCasesFound": set(usecases_found),
                     }
                 else:
                     resource_stats[SchemaType]['Exists'] = True
                     resource_stats[SchemaType]['URIsFound'].append(link.rstrip('/'))
                     resource_stats[SchemaType]['SubordinateTo'].add(tuple(reversed(subordinate_tree)))
-
+                    resource_stats[SchemaType]['UseCasesFound'].union(usecases_found)
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
             else:
                 currentLinks = newLinks
+
+        my_logger.info('Service Level Checks')
+        # NOTE: readrequirements will likely be errors when using --payload outside of root
         
         # For every resource check ReadRequirement
+        # TODO: verify if IfImplemented should report a fail if any fails exist.  Also verify the same for Recommended
         resources_in_profile = profile.get('Resources', [])
         for resource_type in resources_in_profile:
             profile_entry = resources_in_profile[resource_type]
@@ -326,37 +336,64 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 msgs = interop.validateComparisonAnyOfAllOf(profile_entry['PropertyRequirements'], resource_type)
                 message_list.extend(msgs)
 
-            apply_requirement, expected_requirement = False, None
+            does_resource_exist, expected_requirement = False, None
+
+            resource_exists, uris_found, subs_found = False, [], []
 
             # If exist and for what URIs...
             if resource_type in resource_stats:
                 resource_exists = resource_stats[resource_type]['Exists']
                 uris_found = resource_stats[resource_type]['URIsFound']
                 subs_found = resource_stats[resource_type]['SubordinateTo']
-            else:
-                resource_exists = False
-                uris_found = []
-                subs_found = []
+                usecases_found = resource_stats[resource_type]['UseCasesFound']
+
+            # Before all else, UseCases takes priority
+            if 'UseCases' in profile_entry:
+                # For each use case, apply the Requirement
+                for use_case in profile_entry['UseCases']:
+                    entry_title = use_case.get("UseCaseTitle", "NoName").replace(' ', '_')
+                    expected_requirement = use_case.get("ReadRequirement", "Mandatory")
+                    uris_applied = use_case.get("URIs")
+
+                    if uris_applied:
+                        does_resource_exist = any([interop.compareRedfishURI(uris_applied, uri) for uri in uris_found])
+                    else:
+                        does_resource_exist = resource_exists
+
+                    does_resource_exist = does_resource_exist and entry_title in usecases_found
+
+                    my_logger.info('Validating UseCase {} of {} ReadRequirement'.format(entry_title, resource_type))
+
+                    my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
+                    my_msg.name = 'UseCase.{}.{}'.format(entry_title, my_msg.name)
+                    if uris_applied:
+                        my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
+                    message_list.append(my_msg)
+                continue  
 
             # Check conditionals, if it applies, get its requirement
-            if "ConditionalRequirements" in profile_entry:
+            elif "ConditionalRequirements" in profile_entry:
                 for condition in profile_entry['ConditionalRequirements']:
                     uris_applied = condition.get("URIs")
                     subordinate_condition = condition.get("SubordinateToResource")
+                    # Check if we have valid URIs for this conditional
                     if uris_applied:
-                        apply_requirement = any([interop.compareRedfishURI(uris_applied, uri) for uri in uris_found])
-                        my_logger.info('Checking if any {} in {}: {}'.format(uris_found, uris_applied, apply_requirement))
+                        does_resource_exist = any([interop.compareRedfishURI(uris_applied, uri) for uri in uris_found])
+                        my_logger.info('Checking if any {} in {}: {}'.format(uris_found, uris_applied, does_resource_exist))
+                    # Or check if we are underneath the correct resource chain
                     elif subordinate_condition:
-                        apply_requirement = any([(tuple((subordinate_condition))) == chain[-len(subordinate_condition):] for chain in subs_found])
-                        my_logger.info('Checking if any {} matches {}: {}'.format([x for x in subs_found], subordinate_condition, apply_requirement))
+                        does_resource_exist = any([(tuple((subordinate_condition))) == chain[-len(subordinate_condition):] for chain in subs_found])
+                        my_logger.info('Checking if any {} matches {}: {}'.format([x for x in subs_found], subordinate_condition, does_resource_exist))
+                    # warn user if Conditional has no appropriate conditions to use
                     else:
-                        apply_requirement = resource_exists
+                        does_resource_exist = resource_exists
                         my_logger.warn('This resource {} has no valid Conditional in ConditionalRequirements'.format(resource_type))
 
+                    # if we have a ReadRequirement...
                     expected_requirement = condition.get("ReadRequirement")
                     if expected_requirement:
                         my_logger.info('Validating {} Conditional ReadRequirement'.format(resource_type))
-                        my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if apply_requirement else 'DNE')
+                        my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
                         my_msg.name = '{}.Conditional.{}'.format(resource_type, my_msg.name)
                         if uris_applied:
                             my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
@@ -364,30 +401,25 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                             my_msg.expected = "{} under {}".format(my_msg.expected, ", ".join(subordinate_condition))
                         message_list.append(my_msg)
 
+            # Outside of ConditionalRequirements, check just for URIs
+            # TODO: Verify if this should run if ConditionalRequirements exists
             expected_requirement = profile_entry.get("ReadRequirement", "Mandatory")
             uris_applied = profile_entry.get("URIs")
 
             if uris_applied:
-                apply_requirement = any([interop.compareRedfishURI(uris_applied, uri) for uri in uris_found])
+                does_resource_exist = any([interop.compareRedfishURI(uris_applied, uri) for uri in uris_found])
             else:
-                apply_requirement = resource_exists
+                does_resource_exist = resource_exists
 
             my_logger.info('Validating {} ReadRequirement'.format(resource_type))
-            my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if apply_requirement else 'DNE')
+            my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
             my_msg.name = '{}.{}'.format(resource_type, my_msg.name)
             if uris_applied:
                 my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
             message_list.append(my_msg)
-
-
+            
     # interop service level checks
     finalResults = {}
-    my_logger.info('Service Level Checks')
-    if URI not in ["/redfish/v1", "/redfish/v1/"]:
-        resultEnum = interop.sEnum.WARN
-        my_logger.info("We are not validating root, warn only")
-    else:
-        resultEnum = interop.sEnum.FAIL
 
     for item in message_list:
         if item.success == interop.sEnum.WARN:
