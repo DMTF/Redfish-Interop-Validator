@@ -15,8 +15,8 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from urllib.parse import urlparse, urlunparse
 from http.client import responses
 
-from common.redfish import createContext, getNamespace, getNamespaceUnversioned, getType, navigateJsonFragment
-from common.session import rfSession
+from redfish_interop_validator.redfish import createContext, getNamespace, getNamespaceUnversioned, getType, navigateJsonFragment
+from redfish_interop_validator.session import rfSession
 
 traverseLogger = logging.getLogger(__name__)
 my_logger = traverseLogger

@@ -10,28 +10,38 @@ The Redfish Interop Validator is a python3 tool that will validate a service bas
 
 This tool is designed to accept a profile conformant to the schematics specified by the DMTF Redfish Profile schema, and run against any valid Redfish service for a given device.  It is not biased to any specific hardware, only dependent on the current Redfish specification.
 
-## Pre-requisites
+## Installation
 
-The Redfish Interop Validator is based on Python 3 and the client system is required to have the Python framework installed before the tool can be installed and executed on the system. Additionally, the following packages are required to be installed and accessible from the python environment:
+From PyPI:
+
+    pip install redfish_interop_validator
+
+From GitHub:
+
+    git clone https://github.com/DMTF/Redfish-Interop-Validator.git
+    cd Redfish-Interop-Validator
+    python setup.py sdist
+    pip install dist/redfish_interop_validator-x.x.x.tar.gz
+
+## Requirements
+
+External modules:
+
+* beautifulsoup4  - https://pypi.python.org/pypi/beautifulsoup4
 * requests  - https://github.com/kennethreitz/requests (Documentation is available at http://docs.python-requests.org/)
-* jsonschema
-
-If you wish to convert your logs:
-* beautifulsoup4  - https://pypi.python.org/pypi/beautifulsoup4/ (must be >= 4.6.0)
+* lxml - https://pypi.python.org/pypi/lxml
+* jsonschema - https://pypi.org/project/jsonschema
 
 You may install the prerequisites by running:
 
-`pip3 install -r requirements.txt`
+    pip3 install -r requirements.txt
 
-If you have a previous beautifulsoup4 installation, please use the following command:
+If you have a previous beautifulsoup4 installation, use the following command:
 
-`pip3 install beautifulsoup4 --upgrade`
+    pip3 install beautifulsoup4 --upgrade
 
-There is no dependency based on Windows or Linux OS. The result logs are generated in HTML format and an appropriate browser (Chrome, Firefox, IE, etc.) is required to view the logs on the client system.
-
-## Installation
-
-Place the RedfishInteropValidator.py tool into the desired tool root directory.  Create the following subdirectories in the tool root directory: "config" and "logs".  Place the example config.ini file in the "config" directory.  
+There is no dependency based on Windows or Linux OS.
+The result logs are generated in HTML format and an appropriate browser, such as Chrome, Firefox, or Edge, is required to view the logs on the client system.
 
 ## Execution Steps
 
@@ -41,40 +51,44 @@ Modify the config\example.ini file to enter the system details under below secti
 
 ### [Tool]
 
-Variable   | Type   | Definition
---         |--      |--
-Version    | string | Internal config version (optional)
-Copyright  | string | _DMTF_ copyright (optional)
-verbose    | int    | level of verbosity (0-3) 
+| Variable  | Type   | Definition |
+| :---      | :---   | :---       |
+| Version   | string | Internal config version (optional) |
+| Copyright | string | _DMTF_ copyright (optional) |
+| verbose   | int    | level of verbosity (0-3) |
 
 ### [Interop]
-Variable   | Type   | Definition
---         |--      |--
-Profile    | string | name of the testing profile (mandatory)
-Schema     | string | name of json schema to test profile against
+
+| Variable  | Type   | Definition |
+| :---      | :---   | :---       |
+| Profile   | string | name of the testing profile (mandatory) |
+| Schema    | string | name of json schema to test profile against |
 
 ### [Host]
-Variable   | Type    | Definition
---         |--       |--
-ip         | string  | Host of testing system, formatted as https:// ip : port (can use http as well)
-username   | string  | Username for Basic authentication
-password   | string  | Password for Basic authentication (removed from logs)
-description| string  | Description of system being tested (optional)
-forceauth  | boolean | Force authentication even on http servers
-authtype   | string  | Authorization type (Basic | Session | Token | None)
-token      | string  | Token string for Token authentication
+
+| Variable    | Type   | Definition |
+| :---        | :---   | :---       |
+| ip          | string  | Host of testing system, formatted as https:// ip : port (can use http as well) |
+| username    | string  | Username for Basic authentication |
+| password    | string  | Password for Basic authentication (removed from logs) |
+| description | string  | Description of system being tested (optional) |
+| forceauth   | boolean | Force authentication even on http servers |
+| authtype    | string  | Authorization type (Basic | Session | Token | None) |
+| token       | string  | Token string for Token authentication |
 
 ### [Validator]
-Variable              | Type    | Definition
---                    |--       |--
-payload               | string  | Option to test a specific payload or resource tree (see below)
-logdir                | string  | Place to save logs and run configs
-oemcheck              | boolean | Whether to check Oem items on service
-online_profiles       | boolean | Whether to download online profiles
-debugging             | boolean | Whether to print debug to log
-required_profiles_dir | string  | Option to set the root folder of required profiles
+
+| Variable              | Type   | Definition |
+| :---                  | :---   | :---       |
+| payload               | string  | Option to test a specific payload or resource tree (see below) |
+| logdir                | string  | Place to save logs and run configs |
+| oemcheck              | boolean | Whether to check Oem items on service |
+| online_profiles       | boolean | Whether to download online profiles |
+| debugging             | boolean | Whether to print debug to log |
+| required_profiles_dir | string  | Option to set the root folder of required profiles |
 
 ### Payload options
+
 The payload option takes two parameters as "option uri"
 
 (Single, SingleFile, Tree, TreeFile)
@@ -99,6 +113,7 @@ To convert a previous HTML log into a csv file, use the following command:
 * 3.	Step 2 repeats till all the URIs and resources are covered.
 
 Upon validation of a resource, the following types of tests may occur:
+
 * **Unlike** the Service Validator, the program will not necessarily list and warn problematic Resources, it will expect those problems to be found with the Service Validator and are ignored in the process here.
 * When a Resource is found, check if this resource exists in the Profile provided, otherwise ignore it and move on to the next available resources via its Links.
 * With the Resource initiated, begin to validate itself and the Properties that exist in the Profile given to the program with the following possible tests:

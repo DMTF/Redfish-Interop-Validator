@@ -10,7 +10,7 @@ import glob
 import json
 import logging
 
-from common.redfish import splitVersionString, versionpattern
+from redfish_interop_validator.redfish import splitVersionString, versionpattern
 
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
