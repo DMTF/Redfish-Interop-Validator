@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.1.5] - 2023-10-27
+- Refactored project to publish tool on PyPI
+
 ## [2.1.4] - 2023-07-20
 - Added support for testing 'ReplacedProperty' and 'ReplacedByProperty' statements
 - Added support for testing profiles with 'UseCases' statements
