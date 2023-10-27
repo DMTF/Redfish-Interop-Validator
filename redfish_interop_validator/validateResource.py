@@ -6,10 +6,10 @@ import logging
 from collections import Counter
 from io import StringIO
 
-import traverseInterop
-import common.interop as interop
-from common.redfish import getType, getNamespace
-from common.interop import REDFISH_ABSENT
+import redfish_interop_validator.traverseInterop as traverseInterop
+import redfish_interop_validator.interop as interop
+from redfish_interop_validator.redfish import getType, getNamespace
+from redfish_interop_validator.interop import REDFISH_ABSENT
 
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)

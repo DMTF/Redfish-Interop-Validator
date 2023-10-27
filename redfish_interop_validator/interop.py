@@ -8,8 +8,8 @@ from enum import Enum
 from collections import Counter
 
 import logging
-from common.redfish import getNamespaceUnversioned, getType, getNamespace
-from traverseInterop import callResourceURI
+from redfish_interop_validator.redfish import getNamespaceUnversioned, getType, getNamespace
+from redfish_interop_validator.traverseInterop import callResourceURI
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
 

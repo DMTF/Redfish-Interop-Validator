@@ -53,7 +53,8 @@ jobs:
         echo 'EOF' >> $GITHUB_ENV
     - name: Update version numbers
       run: |
-        sed -i -E 's/tool_version = .+/tool_version = '\'${{github.event.inputs.version}}\''/' RedfishInteropValidator.py
+        sed -i -E 's/    version=.+,/    version="'${{github.event.inputs.version}}'",/' setup.py
+        sed -i -E 's/tool_version = .+/tool_version = '\'${{github.event.inputs.version}}\''/' redfish_interop_validator/RedfishInteropValidator.py
     - name: Update the changelog
       run: |
         ex CHANGELOG.md <<eof
@@ -66,7 +67,7 @@ jobs:
       run: |
         git config user.name "GitHub Release Workflow"
         git config user.email "<>"
-        git add CHANGELOG.md RedfishInteropValidator.py
+        git add CHANGELOG.md setup.py redfish_interop_validator/RedfishInteropValidator.py
         git commit -s -m "${{github.event.inputs.version}} versioning"
         git push origin master
     - name: Make the release
@@ -74,3 +75,18 @@ jobs:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       run: |
         gh release create ${{github.event.inputs.version}} -t ${{github.event.inputs.version}} -n "Changes since last release:"$'\n\n'"$CHANGES"
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel twine
+    - name: Build and publish to pypi
+      env:
+        TWINE_USERNAME: ${{secrets.PYPI_USERNAME}}
+        TWINE_PASSWORD: ${{secrets.PYPI_PASSWORD}}
+      run: |
+        python setup.py sdist bdist_wheel
+        twine upload dist/*

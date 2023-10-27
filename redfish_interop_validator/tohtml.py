@@ -5,12 +5,12 @@
 
 
 if __name__ != '__main__':
-    from common.redfish import getNamespace, getType
+    from redfish_interop_validator.redfish import getNamespace, getType
 else:
     import argparse
     from bs4 import BeautifulSoup
     import os, csv
-import RedfishLogo as logo
+import redfish_interop_validator.RedfishLogo as logo
 import logging
 from types import SimpleNamespace
 

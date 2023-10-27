@@ -8,7 +8,7 @@
 
 from unittest import TestCase
 
-import common.interop as riv
+import redfish_interop_validator.interop as riv
 
 import logging
 
