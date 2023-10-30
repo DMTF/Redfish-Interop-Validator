@@ -435,7 +435,7 @@ def find_key_in_payload(path_to_key, redfish_parent_payload):
             key_exists = False
     return key_exists
 
-def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple, item_name, chkCondition=False):
+def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple, item_name):
     """
     Validate PropertyRequirements
     """
@@ -486,7 +486,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
                 if checkConditionalRequirement(propResourceObj, item, rf_payload_tuple):
                     my_logger.info("\tCondition DOES apply")
                     conditionalMsgs, conditionalCounts = validatePropertyRequirement(
-                        propResourceObj, item, rf_payload_tuple, item_name, chkCondition=True)
+                        propResourceObj, item, rf_payload_tuple, item_name)
                     counts.update(conditionalCounts)
                     for item in conditionalMsgs:
                         item.name = item.name.replace('.', '.Conditional.', 1)
@@ -541,9 +541,8 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             if not success:
                 my_logger.error("MinSupportValues failed")
 
-        if "Values" in profile_entry and not chkCondition:
+        if "Values" in profile_entry:
             # Default to AnyOf
-            # NOTE: chkCondition seems to skip this if a ConditionalRequirement is met, this may be unnecessary
 
             my_compare = profile_entry.get("Comparison", "AnyOf")
             msg, success = checkComparison(redfish_value, my_compare, profile_entry.get("Values", []))
