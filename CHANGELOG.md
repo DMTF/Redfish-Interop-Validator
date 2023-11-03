@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.1.6] - 2023-11-03
+- Corrected ConditionalRequirements to test Comparison and Values inside of matching ConditionalRequirements
+
 ## [2.1.5] - 2023-10-27
 - Refactored project to publish tool on PyPI
 
