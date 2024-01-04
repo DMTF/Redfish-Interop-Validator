@@ -52,6 +52,9 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     """
     # rs-assertion: 9.4.1
     # Initial startup here
+    interop.config['WarnRecommended'] = traverseInterop.config['warnrecommended']
+    interop.config['WriteCheck'] = traverseInterop.config['writecheck']
+
     counts = Counter()
     results, messages = {}, []
 
@@ -218,11 +221,14 @@ def getURIfromOdata(property):
         if '/redfish/v1' in property or urlCheck.match(property):
             return property
     return None
-            
+
 def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=None, expectedJson=None):
     """name
     Validates a Tree of URIs, traversing from the first given
     """
+    interop.config['WarnRecommended'] = traverseInterop.config['warnrecommended']
+    interop.config['WriteCheck'] = traverseInterop.config['writecheck']
+
     allLinks = set()
     allLinks.add(URI.rstrip('/'))
     refLinks = list()
@@ -243,7 +249,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
         SchemaType = getType(resource_obj.jsondata.get('@odata.type', 'NoType'))
         resource_stats[SchemaType] = {
             "Exists": True,
-            "Writeable": False,
+            "Writeable": traverseInterop.config['writecheck'],
             "URIsFound": [URI.rstrip('/')],
             "SubordinateTo": set(),
             "UseCasesFound": set()
@@ -307,7 +313,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 if resource_stats.get(SchemaType) is None:
                     resource_stats[SchemaType] = {
                         "Exists": True,
-                        "Writeable": False,
+                        "Writeable": traverseInterop.config['writecheck'],
                         "URIsFound": [link.rstrip('/')],
                         "SubordinateTo": set([tuple(reversed(subordinate_tree))]),
                         "UseCasesFound": set(usecases_found),

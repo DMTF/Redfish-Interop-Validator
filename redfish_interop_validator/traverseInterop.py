@@ -413,7 +413,13 @@ class ResourceObj:
         self.initiated = True
 
     def getResourceProperties(self):
-        allprops = self.propertyList + self.additionalList[:min(len(self.additionalList), 100)]
+        allprops = list
+        if hasattr(self, 'jsondata'):
+            allprops = self.jsondata
+        elif hasattr(self, 'propertyList'):
+            allprops = self.propertyList
+        if hasattr(self, 'additionalList'):
+            allprops += self.additionalList[:min(len(self.additionalList), 100)]
         return allprops
 
     @staticmethod
