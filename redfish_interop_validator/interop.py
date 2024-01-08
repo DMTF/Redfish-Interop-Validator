@@ -258,17 +258,20 @@ def checkComparison(val, compareType, target):
                 continue
         paramPass = len(alltarget) == len(target)
     if compareType == "LinkToResource":
-        vallink = val.get('@odata.id')
-        success, rf_payload, code, elapsed = callResourceURI(vallink)
-        if success:
-            ourType = rf_payload.get('@odata.type')
-            if ourType is not None:
-                SchemaType = getType(ourType)
-                paramPass = SchemaType in target
+        if val == REDFISH_ABSENT:
+            paramPass = False
+        else:
+            vallink = val.get('@odata.id')
+            success, rf_payload, code, elapsed = callResourceURI(vallink)
+            if success:
+                ourType = rf_payload.get('@odata.type')
+                if ourType is not None:
+                    SchemaType = getType(ourType)
+                    paramPass = SchemaType in target
+                else:
+                    paramPass = False
             else:
                 paramPass = False
-        else:
-            paramPass = False
 
     if compareType == "Absent":
         paramPass = val == REDFISH_ABSENT
