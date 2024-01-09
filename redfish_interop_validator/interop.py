@@ -5,15 +5,16 @@
 
 import re, copy
 from enum import Enum
-from collections import Counter
+from collections import Counter, OrderedDict
 
 import logging
 from redfish_interop_validator.redfish import getNamespaceUnversioned, getType, getNamespace
-from redfish_interop_validator.traverseInterop import callResourceURI
+import redfish_interop_validator.traverseInterop as traverseInterop
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
 
-config = {'WarnRecommended': False, 'WriteCheck': False}
+config = {'WarnRecommended': traverseInterop.config.get('warnrecommended'), 
+          'WriteCheck': traverseInterop.config.get('writecheck')}
 
 class sEnum(Enum):
     FAIL = 'FAIL'
@@ -190,9 +191,28 @@ def findPropItemforString(propObj, itemname):
     Finds an appropriate object for an item
     """
     for prop in propObj.getResourceProperties():
-        rf_payloadName = prop.name.split(':')[-1]
+        if prop.find(':') != -1:
+            rf_payloadName = prop.name.split(':')[-1]
+        else:
+            rf_payloadName = prop
         if itemname == rf_payloadName:
             return prop
+    return None
+
+
+def getPropValue(propObj, itemname):
+    """
+    Finds an appropriate object for an item
+    """
+    properties = propObj.getResourceProperties()
+    for prop in properties:
+        if prop.find(':') != -1:
+            rf_payloadName = prop.name.split(':')[-1]
+            if itemname == rf_payloadName:
+                return prop.name.split(':')[1]
+        elif itemname == prop:
+            rf_payloadName = prop
+            return properties[prop]
     return None
 
 
@@ -204,20 +224,48 @@ def validateWriteRequirement(propObj, profile_entry, itemname):
     permission = 'Read'
     expected = "OData.Permission/ReadWrite" if profile_entry else "Any"
     if not config['WriteCheck']:
-        paramPass = True
+        paramPass = sEnum.NA
         return msgInterop('WriteRequirement', profile_entry, expected, permission, paramPass),\
             paramPass
     if profile_entry:
         targetProp = findPropItemforString(propObj, itemname.replace('#', ''))
-        propAttr = None
+        propVal = None
+        newAttr = None
+        changedAttr = None
         if targetProp is not None:
-            propAttr = targetProp.propDict.get('OData.Permissions')
-        if propAttr is not None:
-            permission = propAttr.get('EnumMember', 'Read')
+            propVal = getPropValue(propObj, itemname.replace('#', ''))
+        if propVal is not None:
+            match propVal:
+                case str():
+                    newAttr = propVal + 'a'
+                case int():
+                    newAttr = propVal + 1
+                case float():
+                    newAttr = propVal + 1.1
+                case dict():
+                    newAttr['Test'].append('test1')
+                case OrderedDict():
+                    newAttr['Test'].append('test2')
+            # NOTE: Here can be write new attribute to server
+            # (example in pseudo code)
+            # if newAttr is not None:
+            #    curl update json message using 'login & password' / 'X-AuthTocken'
+            #    changedAttr == get value of updated Prop from server
+            #    permission = 'Write'
             paramPass = permission \
                 == "OData.Permission/ReadWrite"
+
         else:
             paramPass = False
+
+        # NOTE: Here can be check if newAttr is the same as the Attr retrived from the server
+        # (example in pseudo code)
+        # if changedAttr is not None and changedAttr == newAttr:
+        #    paramPass = True
+        #
+        # else:
+        #    paramPass = False
+
     else:
         paramPass = True
 
@@ -608,7 +656,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
         return msgs, counts
     if "@Redfish.ActionInfo" in rf_payload_item:
         vallink = rf_payload_item['@Redfish.ActionInfo']
-        success, rf_payload_action, code, elapsed = callResourceURI(vallink)
+        success, rf_payload_action, code, elapsed = traverseInterop.callResourceURI(vallink)
         if not success:
             rf_payload_action = None
 
