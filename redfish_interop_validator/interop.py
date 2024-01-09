@@ -114,6 +114,7 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
     # If we're not mandatory, pass automatically, else fail
     # However, we have other entries "IfImplemented" and "Conditional"
     # note: Mandatory is default!! if present in the profile.  Make sure this is made sure.
+    # For DNE entries "IfImplemented" and "Recommended" result with not applicable
     original_profile_entry = profile_entry
 
     if profile_entry == "IfPopulated":
@@ -128,15 +129,23 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
 
     if profile_entry == "Conditional" and conditional:
         profile_entry = "Mandatory"
-    if profile_entry == "IfImplemented":
-        my_logger.debug('\tItem cannot be tested for Implementation')
+
     paramPass = not profile_entry == "Mandatory" or \
         profile_entry == "Mandatory" and not propDoesNotExist
+
+    if profile_entry == "IfImplemented":
+        if propDoesNotExist:
+            paramPass = sEnum.NA
+        else:
+            my_logger.debug('\tItem cannot be tested for Implementation')
+
     if profile_entry == "Recommended" and propDoesNotExist:
         my_logger.info('\tItem is recommended but does not exist')
         if config['WarnRecommended']:
             my_logger.warning('\tItem is recommended but does not exist, escalating to WARN')
             paramPass = sEnum.WARN
+        else:
+            paramPass = sEnum.NA
 
     my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('ReadRequirement', original_profile_entry, 'Must Exist' if profile_entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
@@ -297,17 +306,20 @@ def checkComparison(val, compareType, target):
                 continue
         paramPass = len(alltarget) == len(target)
     if compareType == "LinkToResource":
-        vallink = val.get('@odata.id')
-        success, rf_payload, code, elapsed = traverseInterop.callResourceURI(vallink)
-        if success:
-            ourType = rf_payload.get('@odata.type')
-            if ourType is not None:
-                SchemaType = getType(ourType)
-                paramPass = SchemaType in target
+        if val == REDFISH_ABSENT:
+            paramPass = False
+        else:
+            vallink = val.get('@odata.id')
+            success, rf_payload, code, elapsed = callResourceURI(vallink)
+            if success:
+                ourType = rf_payload.get('@odata.type')
+                if ourType is not None:
+                    SchemaType = getType(ourType)
+                    paramPass = SchemaType in target
+                else:
+                    paramPass = False
             else:
                 paramPass = False
-        else:
-            paramPass = False
 
     if compareType == "Absent":
         paramPass = val == REDFISH_ABSENT
