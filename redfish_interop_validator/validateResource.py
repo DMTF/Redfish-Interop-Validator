@@ -3,19 +3,23 @@
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Service-Validator/blob/master/LICENSE.md
 
 import logging
+import re
 from collections import Counter
 from io import StringIO
 
 import redfish_interop_validator.traverseInterop as traverseInterop
 import redfish_interop_validator.interop as interop
-from redfish_interop_validator.redfish import getType, getNamespace
+from redfish_interop_validator.redfish import getType
 from redfish_interop_validator.interop import REDFISH_ABSENT
 
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
+
+
 class WarnFilter(logging.Filter):
     def filter(self, rec):
         return rec.levelno == logging.WARN
+
 
 fmt = logging.Formatter('%(levelname)s - %(message)s')
 
@@ -186,9 +190,10 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     return True, counts, results, links, resource_obj
 
-import re
+
 urlCheck = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
 allowable_annotations = ['@odata.id']
+
 
 def getURIsInProperty(property, name='Root', oemcheck=True):
     my_links = {}
@@ -213,11 +218,13 @@ def getURIsInProperty(property, name='Root', oemcheck=True):
             my_links.update(getURIsInProperty(x, "{}#{}".format(name, n), oemcheck))
     return my_links
 
+
 def getURIfromOdata(property):
     if '.json' not in property[:-5].lower():
         if '/redfish/v1' in property or urlCheck.match(property):
             return property
     return None
+
             
 def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=None, expectedJson=None):
     """name
@@ -233,20 +240,18 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     message_list = []
     resource_stats = {}
 
-    resource_info = dict(profile.get('Resources'))
-
     # Validate top URI
     validateSuccess, counts, results, links, resource_obj = \
         validateSingleURI(URI, profile, uriName, expectedType, expectedSchema, expectedJson)
 
     if resource_obj:
         SchemaType = getType(resource_obj.jsondata.get('@odata.type', 'NoType'))
-        resource_stats[SchemaType] = {
-            "Exists": True,
-            "Writeable": False,
-            "URIsFound": [URI.rstrip('/')],
-            "SubordinateTo": set(),
-            "UseCasesFound": set()
+        resource_stats[SchemaType] = {}
+        resource_stats[SchemaType][uriName] = {
+            "Writeable": None, 
+            "URI": URI.rstrip('/'),
+            "SubordinateTo": None,
+            "UseCasesFound": None
         }
 
     # parent first, then child execution
@@ -259,7 +264,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             msg, m_success = interop.validateMinVersion(resource_obj.jsondata.get("RedfishVersion", "0"), serviceVersion)
             message_list.append(msg)
 
-        currentLinks = [(l, links[l], resource_obj) for l in links]
+        currentLinks = [(link, links[link], resource_obj) for link in links]
         # todo : churning a lot of links, causing possible slowdown even with set checks
         while len(currentLinks) > 0:
             newLinks = list()
@@ -305,18 +310,13 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 usecases_found = [msg.name.split('.')[-1] for msg in linkResults[linkName]['messages'] if 'UseCase' == msg.name.split('.')[0]]
 
                 if resource_stats.get(SchemaType) is None:
-                    resource_stats[SchemaType] = {
-                        "Exists": True,
-                        "Writeable": False,
-                        "URIsFound": [link.rstrip('/')],
-                        "SubordinateTo": set([tuple(reversed(subordinate_tree))]),
-                        "UseCasesFound": set(usecases_found),
-                    }
-                else:
-                    resource_stats[SchemaType]['Exists'] = True
-                    resource_stats[SchemaType]['URIsFound'].append(link.rstrip('/'))
-                    resource_stats[SchemaType]['SubordinateTo'].add(tuple(reversed(subordinate_tree)))
-                    resource_stats[SchemaType]['UseCasesFound'].union(usecases_found)
+                    resource_stats[SchemaType] = {}
+                resource_stats[SchemaType][linkName] = {
+                    "Writeable": None,
+                    "URI": link.rstrip('/'),
+                    "SubordinateTo": tuple(reversed(subordinate_tree)),
+                    "UseCasesFound": usecases_found,
+                }
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
@@ -328,6 +328,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
         
         # For every resource check ReadRequirement
         # TODO: verify if IfImplemented should report a fail if any fails exist.  Also verify the same for Recommended
+        # TODO: condense repeated code
         resources_in_profile = profile.get('Resources', [])
         for resource_type in resources_in_profile:
             profile_entry = resources_in_profile[resource_type]
@@ -338,14 +339,19 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
 
             does_resource_exist, expected_requirement = False, None
 
-            resource_exists, uris_found, subs_found = False, [], []
+            resource_exists, uris_found, subs_found, usecases_found = False, [], [], []
 
             # If exist and for what URIs...
             if resource_type in resource_stats:
-                resource_exists = resource_stats[resource_type]['Exists']
-                uris_found = resource_stats[resource_type]['URIsFound']
-                subs_found = resource_stats[resource_type]['SubordinateTo']
-                usecases_found = resource_stats[resource_type]['UseCasesFound']
+                all_resources = resource_stats[resource_type].values()
+                resource_exists = True
+                uris_found = []
+                subs_found, usecases_found = set(), set()
+                for resource in all_resources:
+                    uris_found.append(resource['URI'])
+                    for innerusecase in resource['UseCasesFound']:
+                        usecases_found.add(innerusecase)
+                    subs_found.add(resource['SubordinateTo'])
 
             # Before all else, UseCases takes priority
             if 'UseCases' in profile_entry:
@@ -369,6 +375,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     if uris_applied:
                         my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
                     message_list.append(my_msg)
+
                 continue  
 
             # Check conditionals, if it applies, get its requirement
@@ -401,6 +408,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                             my_msg.expected = "{} under {}".format(my_msg.expected, ", ".join(subordinate_condition))
                         message_list.append(my_msg)
 
+
             # Outside of ConditionalRequirements, check just for URIs
             # TODO: Verify if this should run if ConditionalRequirements exists
             expected_requirement = profile_entry.get("ReadRequirement", "Mandatory")
@@ -417,16 +425,17 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             if uris_applied:
                 my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
             message_list.append(my_msg)
+
             
     # interop service level checks
     finalResults = {}
 
     for item in message_list:
-        if item.success == interop.sEnum.WARN:
+        if item.success == interop.testResultEnum.WARN:
             message_counts['warn'] += 1
-        elif item.success == interop.sEnum.PASS:
+        elif item.success == interop.testResultEnum.PASS:
             message_counts['pass'] += 1
-        elif item.success == interop.sEnum.FAIL:
+        elif item.success == interop.testResultEnum.FAIL:
             message_counts['fail.{}'.format(item.name)] += 1
 
     finalResults['n/a'] = {'uri': "Service Level Requirements", 'success': message_counts.get('fail', 0) == 0,

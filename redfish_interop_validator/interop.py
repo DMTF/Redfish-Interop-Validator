@@ -3,7 +3,7 @@
 # Copyright 2016 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
-import re, copy
+import re
 from enum import Enum
 from collections import Counter
 
@@ -15,15 +15,19 @@ my_logger.setLevel(logging.DEBUG)
 
 config = {'WarnRecommended': False, 'WriteCheck': False}
 
-class sEnum(Enum):
+
+class testResultEnum(Enum):
     FAIL = 'FAIL'
     NOPASS = 'NO PASS'
     PASS = 'PASS'
     WARN = 'WARN'
     OK = 'OK'
     NA = 'N/A'
+    NOT_TESTED = 'NOT TESTED'
+
 
 REDFISH_ABSENT = 'n/a'
+
 
 class msgInterop:
     def __init__(self, name, profile_entry, expected, actual, success):
@@ -33,7 +37,7 @@ class msgInterop:
         self.actual = actual
         self.ignore = False
         if isinstance(success, bool):
-            self.success = sEnum.PASS if success else sEnum.FAIL
+            self.success = testResultEnum.PASS if success else testResultEnum.FAIL
         else:
             self.success = success
         self.parent_results = None
@@ -67,33 +71,33 @@ def validateComparisonAnyOfAllOf(profile_entry, property_path="Unspecified"):
             # OK if passing, FAIL if check fails and value is not in array
             for msg in my_msgs:
                 msg.ignore = False
-                msg.success = sEnum.NOPASS
+                msg.success = testResultEnum.NOPASS
                 msg.expected = '{} {} ({})'.format(msg.expected, expected_values, "Across All Resources")
 
             if my_compare == 'AnyOf':
                 if any([x in my_values for x in expected_values]):
                     my_logger.info('  PASS')
-                    top_msg.success = sEnum.PASS
+                    top_msg.success = testResultEnum.PASS
                     for msg in my_msgs:
-                        msg.success = sEnum.OK
+                        msg.success = testResultEnum.OK
                         if msg.actual in expected_values:
-                            msg.success = sEnum.PASS
+                            msg.success = testResultEnum.PASS
                 else:
                     my_logger.info('  FAIL')
                     for msg in my_msgs:
-                        msg.success = sEnum.FAIL
+                        msg.success = testResultEnum.FAIL
 
             if my_compare == 'AllOf':
                 if all([x in my_values for x in expected_values]):
                     my_logger.info('  PASS')
-                    top_msg.success = sEnum.PASS
+                    top_msg.success = testResultEnum.PASS
                     for msg in my_msgs:
-                        msg.success = sEnum.OK
+                        msg.success = testResultEnum.OK
                 else:
                     my_logger.info('  FAIL')
                     for msg in my_msgs:
                         if msg.actual not in expected_values:
-                            msg.success = sEnum.FAIL
+                            msg.success = testResultEnum.FAIL
 
         if property_profile.get('PropertyRequirements'):
             new_msgs = validateComparisonAnyOfAllOf(property_profile.get('PropertyRequirements'), '.'.join([property_path, key]))
@@ -134,7 +138,7 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
 
     if profile_entry == "IfImplemented":
         if propDoesNotExist:
-            paramPass = sEnum.NA
+            paramPass = testResultEnum.NA
         else:
             my_logger.debug('\tItem cannot be tested for Implementation')
 
@@ -142,9 +146,9 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
         my_logger.info('\tItem is recommended but does not exist')
         if config['WarnRecommended']:
             my_logger.warning('\tItem is recommended but does not exist, escalating to WARN')
-            paramPass = sEnum.WARN
+            paramPass = testResultEnum.WARN
         else:
-            paramPass = sEnum.NA
+            paramPass = testResultEnum.NA
 
     my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('ReadRequirement', original_profile_entry, 'Must Exist' if profile_entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
@@ -196,34 +200,44 @@ def findPropItemforString(propObj, itemname):
     return None
 
 
-def validateWriteRequirement(propObj, profile_entry, itemname):
+def validateWriteRequirement(profile_entry, parent_object_payload, resource_headers, item_name):
     """
     Validates if a property is WriteRequirement or not
     """
-    my_logger.debug('writeable \n\t' + str(profile_entry))
-    permission = 'Read'
-    expected = "OData.Permission/ReadWrite" if profile_entry else "Any"
-    if not config['WriteCheck']:
-        paramPass = True
-        return msgInterop('WriteRequirement', profile_entry, expected, permission, paramPass),\
-            paramPass
-    if profile_entry:
-        targetProp = findPropItemforString(propObj, itemname.replace('#', ''))
-        propAttr = None
-        if targetProp is not None:
-            propAttr = targetProp.propDict.get('OData.Permissions')
-        if propAttr is not None:
-            permission = propAttr.get('EnumMember', 'Read')
-            paramPass = permission \
-                == "OData.Permission/ReadWrite"
-        else:
-            paramPass = False
-    else:
-        paramPass = True
+    my_logger.verbose1('Is property writeable \n\t' + str(profile_entry))
 
-    my_logger.debug('\tpass ' + str(paramPass))
-    return msgInterop('WriteRequirement', profile_entry, expected, permission, paramPass),\
-        paramPass
+    # Check for Allow header, warn if missing
+    if resource_headers and 'Allow' in resource_headers:
+        writeable = 'PATCH' in resource_headers['Allow']
+        if not writeable:
+            my_logger.error('PATCH in Allow header not available, property is not writeable ' + str(profile_entry))
+            return msgInterop('WriteRequirement', profile_entry,
+                              'Is Writeable' if profile_entry == "Mandatory" else profile_entry,
+                              '-', testResultEnum.NOT_TESTED), True
+    else:
+        my_logger.warning('Unable to test writeable property, no Allow header available ' + str(profile_entry))
+        return msgInterop('WriteRequirement', profile_entry,
+                          'Is Writeable' if profile_entry == "Mandatory" else profile_entry,
+                          '-', testResultEnum.NOT_TESTED), True
+    
+    redfish_payload, _ = parent_object_payload
+
+    # Get Writeable Properties
+    if '@Redfish.WriteableProperties' not in redfish_payload:
+        my_logger.warning('Unable to test writeable property, no @Redfish.WriteableProperties available at the property level ' + str(profile_entry))
+        return msgInterop('WriteRequirement', profile_entry,
+                          'Is Writeable' if profile_entry == "Mandatory" else profile_entry,
+                          '-', testResultEnum.NOT_TESTED), True
+
+    writeable_properties = redfish_payload['@Redfish.WriteableProperties']
+
+    is_writeable = item_name in writeable_properties
+
+    if profile_entry == 'Mandatory' or profile_entry == 'Supported':
+        return msgInterop('WriteRequirement', profile_entry, 'Is Writeable', '-', is_writeable), is_writeable
+
+    else:
+        return msgInterop('WriteRequirement', profile_entry, '-', '-', testResultEnum.OK), True
 
 
 def checkComparison(val, compareType, target):
@@ -262,7 +276,7 @@ def checkComparison(val, compareType, target):
             paramPass = False
         else:
             vallink = val.get('@odata.id')
-            success, rf_payload, code, elapsed = callResourceURI(vallink)
+            success, rf_payload, code, elapsed, _ = callResourceURI(vallink)
             if success:
                 ourType = rf_payload.get('@odata.type')
                 if ourType is not None:
@@ -412,6 +426,7 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
         my_logger.error("Invalid Profile - No conditional given")
         raise ValueError('No conditional given for Comparison')
 
+
 def find_key_in_payload(path_to_key, redfish_parent_payload):
     """
     Finds a key in the payload tuple provided
@@ -448,6 +463,7 @@ def find_key_in_payload(path_to_key, redfish_parent_payload):
             key_exists = False
     return key_exists
 
+
 def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple, item_name):
     """
     Validate PropertyRequirements
@@ -468,7 +484,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
         replacement_property_exists = find_key_in_payload(my_path_entry, redfish_parent_payload)
 
         new_msg = msgInterop("{}.{}".format(item_name, "ReplacesProperty"), profile_entry["ReplacesProperty"], "-",
-                            "Exists" if replacement_property_exists else "DNE", sEnum.WARN if replacement_property_exists else sEnum.OK)
+                            "Exists" if replacement_property_exists else "DNE", testResultEnum.WARN if replacement_property_exists else testResultEnum.OK)
         msgs.append(new_msg)
         if replacement_property_exists:
             my_logger.warn('{}: This property replaces deprecated property {}, but does not exist, service should implement {}'.format(item_name, my_path_entry, item_name))
@@ -482,7 +498,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
         replacement_property_exists = find_key_in_payload(my_path_entry, redfish_parent_payload)
         
         new_msg = msgInterop("{}.{}".format(item_name, "ReplacedByProperty"), profile_entry["ReplacedByProperty"], "-",
-                            "Exists" if replacement_property_exists else "DNE", sEnum.PASS if replacement_property_exists else sEnum.OK)
+                            "Exists" if replacement_property_exists else "DNE", testResultEnum.PASS if replacement_property_exists else testResultEnum.OK)
         msgs.append(new_msg)
         if replacement_property_exists:
             my_logger.info('{}: Replacement property exists, step out of validating'.format(item_name))
@@ -539,7 +555,8 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
         msg.name = item_name + '.' + msg.name
 
         if "WriteRequirement" in profile_entry:
-            msg, success = validateWriteRequirement(propResourceObj, profile_entry["WriteRequirement"], item_name)
+            headers = propResourceObj.headers
+            msg, success = validateWriteRequirement(profile_entry.get('WriteRequirement', 'Mandatory'), redfish_parent_payload, headers, item_name)
             msgs.append(msg)
             msg.name = item_name + '.' + msg.name
             if not success:
@@ -601,14 +618,14 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
         msg, success = validateRequirement(profile_entry.get('ReadRequirement', "Mandatory"), rf_payload_item)
         msgs.append(msg)
         msg.name = actionname + '.' + msg.name
-        msg.success = sEnum.PASS if success else sEnum.FAIL
+        msg.success = testResultEnum.PASS if success else testResultEnum.FAIL
 
     propDoesNotExist = (rf_payload_item == REDFISH_ABSENT)
     if propDoesNotExist:
         return msgs, counts
     if "@Redfish.ActionInfo" in rf_payload_item:
         vallink = rf_payload_item['@Redfish.ActionInfo']
-        success, rf_payload_action, code, elapsed = callResourceURI(vallink)
+        success, rf_payload_action, code, elapsed, _ = callResourceURI(vallink)
         if not success:
             rf_payload_action = None
 
@@ -629,7 +646,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
                 values_array = rf_payload_item.get(str(k) + '@Redfish.AllowableValues', REDFISH_ABSENT)
             if values_array == REDFISH_ABSENT:
                 my_logger.warning('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(k))
-                msg = msgInterop('', item, '-', '-', sEnum.WARN)
+                msg = msgInterop('', item, '-', '-', testResultEnum.WARN)
                 msg.name = "{}.{}.{}".format(actionname, k, msg.name)
                 msgs.append(msg)
             else:
@@ -647,10 +664,10 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
                     msg.name = msg.name.replace('Supported', 'Recommended')
                     if config['WarnRecommended'] and not success:
                         my_logger.warning('\tRecommended parameters do not all exist, escalating to WARN')
-                        msg.success = sEnum.WARN
+                        msg.success = testResultEnum.WARN
                     elif not success:
                         my_logger.warning('\tRecommended parameters do not all exist, but are not Mandatory')
-                        msg.success = sEnum.PASS
+                        msg.success = testResultEnum.PASS
 
                     msgs.append(msg)
                     msg.name = "{}.{}.{}".format(actionname, k, msg.name)
@@ -659,9 +676,11 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     # if it doesn't exist, what should not be checked for action
     return msgs, counts
 
+
 URI_ID_REGEX = '\{[A-Za-z0-9]*Id\}'
 
 VALID_ID_REGEX = '([A-Za-z0-9.!#$&-;=?\[\]_~])+'
+
 
 def compareRedfishURI(expected_uris, uri):
     success = False
@@ -674,6 +693,7 @@ def compareRedfishURI(expected_uris, uri):
         success = True
     return success
 
+
 def checkInteropURI(r_obj, profile_entry):
     """
     Checks if the profile's URI applies to the particular resource
@@ -682,6 +702,7 @@ def checkInteropURI(r_obj, profile_entry):
 
     my_id, my_uri = r_obj.jsondata.get('Id'), r_obj.uri
     return compareRedfishURI(profile_entry, my_uri)
+
 
 def validateInteropResource(propResourceObj, interop_profile, rf_payload):
     """
@@ -719,7 +740,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
                 use_case_applies = False
 
             if use_case_applies:
-                my_msg = msgInterop("UseCase.{}".format(entry_title), '-', '-', '-', sEnum.OK)
+                my_msg = msgInterop("UseCase.{}".format(entry_title), '-', '-', '-', testResultEnum.OK)
 
                 msgs.append(my_msg)
 
@@ -730,8 +751,8 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
                 new_msgs, new_counts = validateInteropResource(propResourceObj, new_case, rf_payload)
 
-                if any([msg.success == sEnum.FAIL for msg in new_msgs]):
-                    my_msg.success = sEnum.FAIL
+                if any([msg.success == testResultEnum.FAIL for msg in new_msgs]):
+                    my_msg.success = testResultEnum.FAIL
 
                 msgs.extend(new_msgs)
                 counts.update(new_counts)
@@ -740,7 +761,6 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
                 my_logger.info('UseCase {} does not apply'.format(entry_title))
 
         return msgs, counts
-
     if "URIs" in interop_profile:
         # Check if the profile requirements apply to this particular instance
         if not checkInteropURI(propResourceObj, interop_profile['URIs']):
@@ -785,11 +805,11 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
         pass
 
     for item in [item for item in msgs if not item.ignore]:
-        if item.success == sEnum.WARN:
+        if item.success == testResultEnum.WARN:
             counts['warn'] += 1
-        elif item.success == sEnum.PASS:
+        elif item.success == testResultEnum.PASS:
             counts['pass'] += 1
-        elif item.success == sEnum.FAIL:
+        elif item.success == testResultEnum.FAIL:
             counts['fail.{}'.format(item.name)] += 1
         counts['totaltests'] += 1
     return msgs, counts
