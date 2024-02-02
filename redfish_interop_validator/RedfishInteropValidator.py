@@ -74,7 +74,7 @@ def main(argslist=None, configfile=None):
     argget.add_argument('--nooemcheck', action='store_false', dest='oemcheck', help='Don\'t check OEM items')
     argget.add_argument('--debugging', action="store_true", help='Output debug statements to text log, otherwise it only uses INFO')
     argget.add_argument('--required_profiles_dir', type=str, help='root directory for required profiles')
-    argget.add_argument('--collectionlimit', type=str, default='LogEntry 20', help='apply a limit to collections (format: RESOURCE1 COUNT1 RESOURCE2 COUNT2...)', nargs='+')
+    argget.add_argument('--collectionlimit', type=str, default=['LogEntry', '20'], help='apply a limit to collections (format: RESOURCE1 COUNT1 RESOURCE2 COUNT2...)', nargs='+')
 
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', nargs='+', help='interop profile with which to validate service against')
