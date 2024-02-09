@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.1.8] - 2024-02-09
+- Added 'collectionlimit' argument to limit the number of entries checked in a collection
+
 ## [2.1.7] - 2024-01-08
 - Fixed crash condition if a 'LinkToResource' comparison is performed and the link is not present
 - Changed results for 'Recommended' and 'IfImplemented' properties to show 'Not Tested' if the property is not present
