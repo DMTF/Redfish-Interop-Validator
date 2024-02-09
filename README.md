@@ -86,6 +86,7 @@ Modify the config\example.ini file to enter the system details under below secti
 | online_profiles       | boolean | Whether to download online profiles |
 | debugging             | boolean | Whether to print debug to log |
 | required_profiles_dir | string  | Option to set the root folder of required profiles |
+| collectionlimit       | string  | Sets a limit to links gathered from collections by type, e.g. `ComputerSystem 20` limits ComputerSystemCollection to 20 links |
 
 ### Payload options
 
