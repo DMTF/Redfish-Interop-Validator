@@ -17,7 +17,7 @@ import redfish_interop_validator.traverseInterop as traverseInterop
 from redfish_interop_validator.profile import getProfiles, checkProfileAgainstSchema, hashProfile
 from redfish_interop_validator.validateResource import validateSingleURI, validateURITree
 
-tool_version = '2.1.7'
+tool_version = '2.1.8'
 
 # Set up the custom debug levels
 VERBOSE1 = logging.INFO - 1
@@ -74,6 +74,7 @@ def main(argslist=None, configfile=None):
     argget.add_argument('--nooemcheck', action='store_false', dest='oemcheck', help='Don\'t check OEM items')
     argget.add_argument('--debugging', action="store_true", help='Output debug statements to text log, otherwise it only uses INFO')
     argget.add_argument('--required_profiles_dir', type=str, help='root directory for required profiles')
+    argget.add_argument('--collectionlimit', type=str, default=['LogEntry', '20'], help='apply a limit to collections (format: RESOURCE1 COUNT1 RESOURCE2 COUNT2...)', nargs='+')
 
     # Config information unique to Interop Validator
     argget.add_argument('profile', type=str, default='sample.json', nargs='+', help='interop profile with which to validate service against')
@@ -135,6 +136,10 @@ def main(argslist=None, configfile=None):
         my_logger.error('IP is missing ip/host')
         return 1, None, 'IP Incomplete'
 
+    if len(args.collectionlimit) % 2 != 0:
+        my_logger.error('Collection Limit requires two arguments per entry (ResourceType Count)')
+        return 1, None, 'Collection Limit Incomplete'
+    
     # Start printing config details, remove redundant/private info from print
     my_logger.info('Target URI: ' + args.ip)
     my_logger.info('\n'.join(

@@ -78,6 +78,15 @@ class rfService():
         self.config['certificatebundle'] = None
         self.config['timeout'] = 10
 
+        # NOTE: this is a validator limitation.  maybe move this to its own config inside validateResource
+        if self.config['collectionlimit']:
+            total_len = len(self.config['collectionlimit']) / 2
+            limit_string = ' '.join(self.config['collectionlimit'])
+            limit_array = [tuple(found_item.split(' ')) for found_item in re.findall(r"[A-Za-z]+ [0-9]+", limit_string)]
+            if len(limit_array) != total_len:
+                raise ValueError('Collection Limit array seems malformed, use format: RESOURCE1 COUNT1 RESOURCE2 COUNT2)...')
+            self.config['collectionlimit'] = {x[0]: int(x[1]) for x in limit_array}
+
         # httpprox = config['httpproxy']
         # httpsprox = config['httpsproxy']
         # self.proxies['http'] = httpprox if httpprox != "" else None

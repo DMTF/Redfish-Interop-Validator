@@ -23,7 +23,6 @@ class WarnFilter(logging.Filter):
 
 fmt = logging.Formatter('%(levelname)s - %(message)s')
 
-
 def create_logging_capture(this_logger):
     errorMessages = StringIO()
     warnMessages = StringIO()
@@ -124,11 +123,17 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     oemcheck = traverseInterop.config.get('oemcheck', True)
 
+    collection_limit = traverseInterop.config.get('collectionlimit', {'LogEntry': 20})
+
     if SchemaType not in profile_resources:
         my_logger.verbose1('Visited {}, type {}'.format(URI, SchemaType))
         # Get all links available
-        links = getURIsInProperty(jsondata, uriName, oemcheck)
-        return True, counts, results, links, resource_obj
+        links, limited_links = getURIsInProperty(jsondata, uriName, oemcheck, collection_limit)
+        return True, counts, results, (links, limited_links), resource_obj
+    
+    if '_count' not in profile_resources[SchemaType]:
+        profile_resources[SchemaType]['_count'] = 0
+    profile_resources[SchemaType]['_count'] += 1
 
     # Verify odata_id properly resolves to its parent if holding fragment
     odata_id = resource_obj.jsondata.get('@odata.id', '')
@@ -174,7 +179,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     my_logger.info('%s, %s\n', SchemaFullType, counts)
 
     # Get all links available
-    links = getURIsInProperty(resource_obj.jsondata, uriName, oemcheck)
+    links, limited_links = getURIsInProperty(resource_obj.jsondata, uriName, oemcheck, collection_limit)
 
     results[uriName]['warns'], results[uriName]['errors'] = get_my_capture(my_logger, whandler), get_my_capture(my_logger, ehandler)
 
@@ -188,35 +193,46 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     for msg in results[uriName]['messages']:
         msg.parent_results = results
 
-    return True, counts, results, links, resource_obj
+    return True, counts, results, (links, limited_links), resource_obj
 
 
 urlCheck = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
 allowable_annotations = ['@odata.id']
 
+def getURIsInProperty(property, name='Root', oemcheck=True, collection_limit={}):
+    my_links, limited_links = {}, {}
 
-def getURIsInProperty(property, name='Root', oemcheck=True):
-    my_links = {}
     # Return nothing if we are Oem
     if not oemcheck and name == 'Oem':
-        return my_links
+        return my_links, limited_links
     if isinstance(property, dict):
-        for x, y in property.items():
-            if '@' in x and x.lower() not in allowable_annotations:
+        for sub_name, value in property.items():
+            if '@' in sub_name and sub_name.lower() not in allowable_annotations:
                 continue
-            if isinstance(y, str) and x.lower() in ['@odata.id']:
-                my_link = getURIfromOdata(y)
+            if isinstance(value, str) and sub_name.lower() in ['@odata.id']:
+                my_link = getURIfromOdata(value)
                 if my_link:
                     if '/Oem/' not in my_link:
                         my_links[name] = my_link
                     if '/Oem/' in my_link and oemcheck:
                         my_links[name] = my_link
             else:
-                my_links.update(getURIsInProperty(y, "{}:{}".format(name, x), oemcheck))
+                new_links, new_limited_links = getURIsInProperty(value, "{}:{}".format(name, sub_name), oemcheck)
+                limited_links.update(new_limited_links)
+                parent_type = property.get('@odata.type', '')
+                if sub_name == 'Members' and 'Collection' in parent_type:
+                    my_type = getType(parent_type).split('Collection')[0]
+                    if my_type in collection_limit:
+                        new_limited_links = {x: new_links[x] for x in list(new_links.keys())[collection_limit[my_type]:]}
+                        new_links = {x: new_links[x] for x in list(new_links.keys())[:collection_limit[my_type]]}
+                        limited_links.update(new_limited_links)
+                my_links.update(new_links)
     if isinstance(property, list):
         for n, x in enumerate(property):
-            my_links.update(getURIsInProperty(x, "{}#{}".format(name, n), oemcheck))
-    return my_links
+            new_links, new_limited_links = getURIsInProperty(x, "{}#{}".format(name, n), oemcheck)
+            limited_links.update(new_limited_links)
+            my_links.update(new_links)
+    return my_links, limited_links
 
 
 def getURIfromOdata(property):
@@ -243,6 +259,10 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     # Validate top URI
     validateSuccess, counts, results, links, resource_obj = \
         validateSingleURI(URI, profile, uriName, expectedType, expectedSchema, expectedJson)
+    
+    links, limited_links = links
+    for skipped_link in limited_links:
+        allLinks.add(limited_links[skipped_link])
 
     if resource_obj:
         SchemaType = getType(resource_obj.jsondata.get('@odata.type', 'NoType'))
@@ -283,7 +303,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
 
                 # NOTE: unable to determine autoexpanded resources without Schema
                 else:
-                    linkSuccess, linkCounts, linkResults, innerLinks, linkobj = \
+                    linkSuccess, linkCounts, linkResults, inner_links, linkobj = \
                         validateSingleURI(link, profile, linkName, parent=parent)
 
                 allLinks.add(link.rstrip('/'))
@@ -294,7 +314,12 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 if not linkSuccess:
                     continue
 
-                innerLinksTuple = [(link, innerLinks[link], linkobj) for link in innerLinks]
+                inner_links, inner_limited_links = inner_links
+
+                for skipped_link in inner_limited_links:
+                    allLinks.add(inner_limited_links[skipped_link])
+
+                innerLinksTuple = [(link, inner_links[link], linkobj) for link in inner_links]
                 newLinks.extend(innerLinksTuple)
                 SchemaType = getType(linkobj.jsondata.get('@odata.type', 'NoType'))
 
