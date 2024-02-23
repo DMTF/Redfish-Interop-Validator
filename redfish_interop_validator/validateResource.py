@@ -101,7 +101,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         else:
             results[uriName]['payload'] = resource_obj.jsondata
 
-    except traverseInterop.AuthenticationError as e:
+    except traverseInterop.AuthenticationError:
         raise  # re-raise exception
     except Exception as e:
         my_logger.debug('Exception caught while creating ResourceObj', exc_info=1)
@@ -266,12 +266,12 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
 
     if resource_obj:
         SchemaType = getType(resource_obj.jsondata.get('@odata.type', 'NoType'))
-        resource_stats[SchemaType] = {}
-        resource_stats[SchemaType][uriName] = {
-            "Writeable": None, 
-            "URI": URI.rstrip('/'),
-            "SubordinateTo": None,
-            "UseCasesFound": None
+        resource_stats[SchemaType] = {
+            "Exists": True,
+            "Writeable": False,
+            "URIsFound": [URI.rstrip('/')],
+            "SubordinateTo": set(),
+            "UseCasesFound": set()
         }
 
     # parent first, then child execution
@@ -335,13 +335,18 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 usecases_found = [msg.name.split('.')[-1] for msg in linkResults[linkName]['messages'] if 'UseCase' == msg.name.split('.')[0]]
 
                 if resource_stats.get(SchemaType) is None:
-                    resource_stats[SchemaType] = {}
-                resource_stats[SchemaType][linkName] = {
-                    "Writeable": None,
-                    "URI": link.rstrip('/'),
-                    "SubordinateTo": tuple(reversed(subordinate_tree)),
-                    "UseCasesFound": usecases_found,
-                }
+                    resource_stats[SchemaType] = {
+                        "Exists": True,
+                        "Writeable": False,
+                        "URIsFound": [link.rstrip('/')],
+                        "SubordinateTo": set([tuple(reversed(subordinate_tree))]),
+                        "UseCasesFound": set(usecases_found),
+                    }
+                else:
+                    resource_stats[SchemaType]['Exists'] = True
+                    resource_stats[SchemaType]['URIsFound'].append(link.rstrip('/'))
+                    resource_stats[SchemaType]['SubordinateTo'].add(tuple(reversed(subordinate_tree)))
+                    resource_stats[SchemaType]['UseCasesFound'].union(usecases_found)
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
@@ -353,7 +358,6 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
         
         # For every resource check ReadRequirement
         # TODO: verify if IfImplemented should report a fail if any fails exist.  Also verify the same for Recommended
-        # TODO: condense repeated code
         resources_in_profile = profile.get('Resources', [])
         for resource_type in resources_in_profile:
             profile_entry = resources_in_profile[resource_type]
@@ -364,19 +368,14 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
 
             does_resource_exist, expected_requirement = False, None
 
-            resource_exists, uris_found, subs_found, usecases_found = False, [], [], []
+            resource_exists, uris_found, subs_found = False, [], []
 
             # If exist and for what URIs...
             if resource_type in resource_stats:
-                all_resources = resource_stats[resource_type].values()
-                resource_exists = True
-                uris_found = []
-                subs_found, usecases_found = set(), set()
-                for resource in all_resources:
-                    uris_found.append(resource['URI'])
-                    for innerusecase in resource['UseCasesFound']:
-                        usecases_found.add(innerusecase)
-                    subs_found.add(resource['SubordinateTo'])
+                resource_exists = resource_stats[resource_type]['Exists']
+                uris_found = resource_stats[resource_type]['URIsFound']
+                subs_found = resource_stats[resource_type]['SubordinateTo']
+                usecases_found = resource_stats[resource_type]['UseCasesFound']
 
             # Before all else, UseCases takes priority
             if 'UseCases' in profile_entry:
@@ -400,7 +399,6 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     if uris_applied:
                         my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
                     message_list.append(my_msg)
-
                 continue  
 
             # Check conditionals, if it applies, get its requirement
@@ -433,7 +431,6 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                             my_msg.expected = "{} under {}".format(my_msg.expected, ", ".join(subordinate_condition))
                         message_list.append(my_msg)
 
-
             # Outside of ConditionalRequirements, check just for URIs
             # TODO: Verify if this should run if ConditionalRequirements exists
             expected_requirement = profile_entry.get("ReadRequirement", "Mandatory")
@@ -450,7 +447,6 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             if uris_applied:
                 my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
             message_list.append(my_msg)
-
             
     # interop service level checks
     finalResults = {}
