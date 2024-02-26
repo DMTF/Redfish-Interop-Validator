@@ -213,7 +213,7 @@ def validateWriteRequirement(profile_entry, parent_object_payload, resource_head
             my_logger.error('PATCH in Allow header not available, property is not writeable ' + str(profile_entry))
             return msgInterop('WriteRequirement', profile_entry,
                               'Is Writeable' if profile_entry == "Mandatory" else profile_entry,
-                              '-', testResultEnum.NOT_TESTED), True
+                              '-', testResultEnum.FAIL), True
     else:
         my_logger.warning('Unable to test writeable property, no Allow header available ' + str(profile_entry))
         return msgInterop('WriteRequirement', profile_entry,
@@ -230,6 +230,11 @@ def validateWriteRequirement(profile_entry, parent_object_payload, resource_head
                           '-', testResultEnum.NOT_TESTED), True
 
     writeable_properties = redfish_payload['@Redfish.WriteableProperties']
+    if not isinstance(writeable_properties, list):
+        my_logger.warning('Unable to test writeable property, @Redfish.WriteableProperties is not an array ' + str(profile_entry))
+        return msgInterop('WriteRequirement', profile_entry,
+                          'Is Writeable' if profile_entry == "Mandatory" else profile_entry,
+                          '-', testResultEnum.WARN), True
 
     is_writeable = item_name in writeable_properties
 
