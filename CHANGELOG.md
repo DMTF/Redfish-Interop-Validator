@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.1.9] - 2024-02-26
+- Added property WriteRequirement checks based on the usage of the 'Allow' response header and the '@Redfish.WriteableProperties' term
+
 ## [2.1.8] - 2024-02-09
 - Added 'collectionlimit' argument to limit the number of entries checked in a collection
 
