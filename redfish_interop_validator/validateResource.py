@@ -3,19 +3,23 @@
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Service-Validator/blob/master/LICENSE.md
 
 import logging
+import re
 from collections import Counter
 from io import StringIO
 
 import redfish_interop_validator.traverseInterop as traverseInterop
 import redfish_interop_validator.interop as interop
-from redfish_interop_validator.redfish import getType, getNamespace
+from redfish_interop_validator.redfish import getType
 from redfish_interop_validator.interop import REDFISH_ABSENT
 
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
+
+
 class WarnFilter(logging.Filter):
     def filter(self, rec):
         return rec.levelno == logging.WARN
+
 
 fmt = logging.Formatter('%(levelname)s - %(message)s')
 
@@ -97,7 +101,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         else:
             results[uriName]['payload'] = resource_obj.jsondata
 
-    except traverseInterop.AuthenticationError as e:
+    except traverseInterop.AuthenticationError:
         raise  # re-raise exception
     except Exception as e:
         my_logger.debug('Exception caught while creating ResourceObj', exc_info=1)
@@ -191,12 +195,13 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     return True, counts, results, (links, limited_links), resource_obj
 
-import re
+
 urlCheck = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
 allowable_annotations = ['@odata.id']
 
 def getURIsInProperty(property, name='Root', oemcheck=True, collection_limit={}):
     my_links, limited_links = {}, {}
+
     # Return nothing if we are Oem
     if not oemcheck and name == 'Oem':
         return my_links, limited_links
@@ -229,11 +234,13 @@ def getURIsInProperty(property, name='Root', oemcheck=True, collection_limit={})
             my_links.update(new_links)
     return my_links, limited_links
 
+
 def getURIfromOdata(property):
     if '.json' not in property[:-5].lower():
         if '/redfish/v1' in property or urlCheck.match(property):
             return property
     return None
+
             
 def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=None, expectedJson=None):
     """name
@@ -248,8 +255,6 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     error_messages = StringIO()
     message_list = []
     resource_stats = {}
-
-    resource_info = dict(profile.get('Resources'))
 
     # Validate top URI
     validateSuccess, counts, results, links, resource_obj = \
@@ -279,7 +284,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             msg, m_success = interop.validateMinVersion(resource_obj.jsondata.get("RedfishVersion", "0"), serviceVersion)
             message_list.append(msg)
 
-        currentLinks = [(l, links[l], resource_obj) for l in links]
+        currentLinks = [(link, links[link], resource_obj) for link in links]
         # todo : churning a lot of links, causing possible slowdown even with set checks
         while len(currentLinks) > 0:
             newLinks = list()
@@ -447,11 +452,11 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     finalResults = {}
 
     for item in message_list:
-        if item.success == interop.sEnum.WARN:
+        if item.success == interop.testResultEnum.WARN:
             message_counts['warn'] += 1
-        elif item.success == interop.sEnum.PASS:
+        elif item.success == interop.testResultEnum.PASS:
             message_counts['pass'] += 1
-        elif item.success == interop.sEnum.FAIL:
+        elif item.success == interop.testResultEnum.FAIL:
             message_counts['fail.{}'.format(item.name)] += 1
 
     finalResults['n/a'] = {'uri': "Service Level Requirements", 'success': message_counts.get('fail', 0) == 0,

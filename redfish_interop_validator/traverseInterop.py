@@ -59,6 +59,7 @@ def startService(config):
     config = currentService.config
     return currentService
 
+
 class rfService():
     def __init__(self, my_config):
         traverseLogger.info('Setting up service...')
@@ -117,7 +118,7 @@ class rfService():
         target_version = 'n/a'
 
         # get Version
-        success, data, status, delay = self.callResourceURI('/redfish/v1')
+        success, data, status, delay, _ = self.callResourceURI('/redfish/v1')
         if not success:
             traverseLogger.warning('Could not get ServiceRoot')
         else:
@@ -166,21 +167,20 @@ class rfService():
         Makes a call to a given URI or URL
 
         param arg1: path to URI "/example/1", or URL "http://example.com"
-        return: (success boolean, data, request status code)
+        return: (success boolean, data, request status code, full response)
         """
         # rs-assertions: 6.4.1, including accept, content-type and odata-versions
         # rs-assertion: handle redirects?  and target permissions
         # rs-assertion: require no auth for serviceroot calls
         if URILink is None:
             traverseLogger.warning("This URI is empty!")
-            return False, None, -1, 0
+            return False, None, -1, 0, None
 
         config = self.config
         # proxies = self.proxies
         ConfigIP, UseSSL, AuthType, ChkCert, ChkCertBundle, timeout, Token = config['configuri'], config['usessl'], config['authtype'], \
                 config['certificatecheck'], config['certificatebundle'], config['timeout'], config['token']
         # CacheMode, CacheDir = config['cachemode'], config['cachefilepath']
-
 
         scheme, netloc, path, params, query, fragment = urlparse(URILink)
         inService = scheme == '' and netloc == ''
@@ -245,7 +245,7 @@ class rfService():
         response = None
         try:
             if payload is not None: # and CacheMode == 'Prefer':
-                return True, payload, -1, 0
+                return True, payload, -1, 0, response
             response = self.session.get(URLDest, headers=headers, auth=auth, verify=certVal, timeout=timeout)  # only proxy non-service
             expCode = [200]
             elapsed = response.elapsed.total_seconds()
@@ -284,7 +284,7 @@ class rfService():
                         except ValueError:
                             pass
 
-                return decoded is not None, decoded, statusCode, elapsed
+                return decoded is not None, decoded, statusCode, elapsed, response
             elif statusCode == 401:
                 if inService and AuthType in ['Basic', 'Token']:
                     if AuthType == 'Token':
@@ -295,7 +295,7 @@ class rfService():
                                               .format(URILink, statusCode, responses[statusCode], cred_type, AuthType))
             elif statusCode >= 400:
                 # Error accessing the resource (beyond auth errors)
-                return False, None, statusCode, elapsed
+                return False, None, statusCode, elapsed, response
 
         except requests.exceptions.SSLError as e:
             traverseLogger.error("SSLError on {}: {}".format(URILink, repr(e)))
@@ -318,8 +318,8 @@ class rfService():
                 traverseLogger.debug("payload: {}".format(response.text))
 
         if payload is not None:
-            return True, payload, -1, 0
-        return False, None, statusCode, elapsed
+            return True, payload, -1, 0, response
+        return False, None, statusCode, elapsed, response
 
 
 def callResourceURI(URILink):
@@ -330,30 +330,40 @@ def callResourceURI(URILink):
         return currentService.callResourceURI(URILink)
 
 
-def createResourceObject(name, uri, jsondata=None, typename=None, context=None, parent=None, isComplex=False, topVersion=None, top_of_resource=None):
+def createResourceObject(name, uri, jsondata=None, typename=None, context=None, parent=None, isComplex=False):
     """
     Factory for resource object, move certain work here
     """    # Create json from service or from given
 
     if jsondata is None and not isComplex:
-        success, jsondata, status, rtime = callResourceURI(uri)
+        success, jsondata, status, _, response = callResourceURI(uri)
         traverseLogger.debug('{}, {}, {}'.format(success, jsondata, status))
         if not success:
             my_logger.error('{}:  URI could not be acquired: {}'.format(uri, status))
             return None, status
     else:
-        success, jsondata, status, rtime = True, jsondata, -1, 0
-    newResource = ResourceObj(name, uri, jsondata, typename, context, parent, isComplex, topVersion=topVersion, top_of_resource=top_of_resource)
+        success, jsondata, status, _, response = True, jsondata, -1, 0, None
+
+    # Collect our resource header
+    if response:
+        my_header = response.headers
+    elif parent and parent.headers:
+        my_header = parent.headers
+    else:
+        my_header = None
+    
+    newResource = ResourceObj(name, uri, jsondata, typename, context, parent, isComplex, headers=my_header)
 
     return newResource, status
 
 
 class ResourceObj:
-    def __init__(self, name: str, uri: str, jsondata: dict, typename: str, context: str, parent=None, isComplex=False, forceType=False, topVersion=None, top_of_resource=None):
+    def __init__(self, name: str, uri: str, jsondata: dict, typename: str, context: str, parent=None, isComplex=False, forceType=False, headers=None):
         self.initiated = False
         self.parent = parent
         self.uri, self.name = uri, name
         self.rtime = 0
+        self.headers = headers
         self.status = -1
         self.isRegistry = False
         self.errorIndex = {
@@ -361,9 +371,6 @@ class ResourceObj:
 
         oem = config.get('oemcheck', True)
         acquiredtype = typename if forceType else jsondata.get('@odata.type', typename)
-
-        if topVersion is not None:
-            parent_type = topVersion
 
         # Check if we provide a valid json
         self.jsondata = jsondata
@@ -420,10 +427,6 @@ class ResourceObj:
         typename = self.typename
 
         self.initiated = True
-
-    def getResourceProperties(self):
-        allprops = self.propertyList + self.additionalList[:min(len(self.additionalList), 100)]
-        return allprops
 
     @staticmethod
     def checkPayloadConformance(jsondata, uri):
