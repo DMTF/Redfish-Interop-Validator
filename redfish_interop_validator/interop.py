@@ -214,10 +214,10 @@ def validateWriteRequirement(profile_entry, parent_object_payload, resource_head
             result_not_supported = testResultEnum.WARN
         else:
             result_not_supported = testResultEnum.NA
-        expected_str = "Should Be Writable"
+        expected_str = "Recommended"
     else:
         result_not_supported = testResultEnum.NA
-        expected_str = profile_entry
+        expected_str = "Any"
 
     # Check for Allow header, warn if missing
     if resource_headers and 'Allow' in resource_headers:
@@ -245,7 +245,7 @@ def validateWriteRequirement(profile_entry, parent_object_payload, resource_head
     is_writeable = item_name in writeable_properties
 
     return msgInterop('WriteRequirement', profile_entry, expected_str, 'Writable' if is_writeable else 'Not Writable',
-                      testResultEnum.OK if is_writeable else result_not_supported), True
+                      testResultEnum.PASS if is_writeable else result_not_supported), True
 
 def checkComparison(val, compareType, target):
     """
