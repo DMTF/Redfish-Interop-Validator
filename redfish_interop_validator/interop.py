@@ -206,44 +206,46 @@ def validateWriteRequirement(profile_entry, parent_object_payload, resource_head
     """
     my_logger.verbose1('Is property writeable \n\t' + str(profile_entry))
 
+    if profile_entry == "Mandatory" or profile_entry == "Supported":
+        result_not_supported = testResultEnum.FAIL
+        expected_str = "Must Be Writable"
+    elif profile_entry == "Recommended":
+        if config['WarnRecommended']:
+            result_not_supported = testResultEnum.WARN
+        else:
+            result_not_supported = testResultEnum.NA
+        expected_str = "Should Be Writable"
+    else:
+        result_not_supported = testResultEnum.NA
+        expected_str = profile_entry
+
     # Check for Allow header, warn if missing
     if resource_headers and 'Allow' in resource_headers:
         writeable = 'PATCH' in resource_headers['Allow']
         if not writeable:
-            my_logger.error('PATCH in Allow header not available, property is not writeable ' + str(profile_entry))
-            return msgInterop('WriteRequirement', profile_entry,
-                              'Is Writeable' if profile_entry == "Mandatory" else profile_entry,
-                              '-', testResultEnum.FAIL), True
+            if profile_entry == "Mandatory":
+                my_logger.error('PATCH in Allow header not available, property is not writeable ' + str(profile_entry))
+            return msgInterop('WriteRequirement', profile_entry, expected_str, 'PATCH not supported', result_not_supported), True
     else:
         my_logger.warning('Unable to test writeable property, no Allow header available ' + str(profile_entry))
-        return msgInterop('WriteRequirement', profile_entry,
-                          'Is Writeable' if profile_entry == "Mandatory" else profile_entry,
-                          '-', testResultEnum.NOT_TESTED), True
+        return msgInterop('WriteRequirement', profile_entry, expected_str, 'No Allow response header', testResultEnum.NOT_TESTED), True
     
     redfish_payload, _ = parent_object_payload
 
     # Get Writeable Properties
     if '@Redfish.WriteableProperties' not in redfish_payload:
         my_logger.warning('Unable to test writeable property, no @Redfish.WriteableProperties available at the property level ' + str(profile_entry))
-        return msgInterop('WriteRequirement', profile_entry,
-                          'Is Writeable' if profile_entry == "Mandatory" else profile_entry,
-                          '-', testResultEnum.NOT_TESTED), True
+        return msgInterop('WriteRequirement', profile_entry, expected_str, '@Redfish.WriteableProperties not in response', testResultEnum.NOT_TESTED), True
 
     writeable_properties = redfish_payload['@Redfish.WriteableProperties']
     if not isinstance(writeable_properties, list):
         my_logger.warning('Unable to test writeable property, @Redfish.WriteableProperties is not an array ' + str(profile_entry))
-        return msgInterop('WriteRequirement', profile_entry,
-                          'Is Writeable' if profile_entry == "Mandatory" else profile_entry,
-                          '-', testResultEnum.WARN), True
+        return msgInterop('WriteRequirement', profile_entry, expected_str, '@Redfish.WriteableProperties not an array', testResultEnum.WARN), True
 
     is_writeable = item_name in writeable_properties
 
-    if profile_entry == 'Mandatory' or profile_entry == 'Supported':
-        return msgInterop('WriteRequirement', profile_entry, 'Is Writeable', '-', is_writeable), is_writeable
-
-    else:
-        return msgInterop('WriteRequirement', profile_entry, '-', '-', testResultEnum.OK), True
-
+    return msgInterop('WriteRequirement', profile_entry, expected_str, 'Writable' if is_writeable else 'Not Writable',
+                      testResultEnum.OK if is_writeable else result_not_supported), True
 
 def checkComparison(val, compareType, target):
     """
