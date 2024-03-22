@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.2.0] - 2024-03-22
+- Corrected 'WriteRequirement' checking to not produce errors when a property is marked as 'Recommended', but writes are not supported
+
 ## [2.1.9] - 2024-02-26
 - Added property WriteRequirement checks based on the usage of the 'Allow' response header and the '@Redfish.WriteableProperties' term
 
