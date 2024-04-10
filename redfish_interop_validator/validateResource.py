@@ -346,7 +346,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     resource_stats[SchemaType]['Exists'] = True
                     resource_stats[SchemaType]['URIsFound'].append(link.rstrip('/'))
                     resource_stats[SchemaType]['SubordinateTo'].add(tuple(reversed(subordinate_tree)))
-                    resource_stats[SchemaType]['UseCasesFound'].union(usecases_found)
+                    resource_stats[SchemaType]['UseCasesFound'] = resource_stats[SchemaType]['UseCasesFound'].union(usecases_found)
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks
