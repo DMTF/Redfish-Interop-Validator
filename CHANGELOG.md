@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.2.1] - 2024-04-19
+- Fixed use case checking to only report an error if zero resources are found that match a mandatory use case
+
 ## [2.2.0] - 2024-03-22
 - Corrected 'WriteRequirement' checking to not produce errors when a property is marked as 'Recommended', but writes are not supported
 
