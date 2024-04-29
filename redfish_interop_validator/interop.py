@@ -724,14 +724,22 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
     if "UseCases" in interop_profile:
         for use_case in interop_profile['UseCases']:
-            entry_title = use_case.get("UseCaseTitle", "NoName").replace(' ','_')
-            my_logger.debug('UseCase {}'.format(entry_title))
+            entry_title = use_case.get("UseCaseTitle", "NoName").replace(' ', '_')
+            entry_type = use_case.get("UseCaseType", "Normal")
+            my_logger.debug('UseCase {} {}'.format(entry_title, entry_type))
 
             # Check if we have a valid UseCase
-            if 'URIs' not in use_case and 'UseCaseKeyProperty' not in use_case:
+            if 'URIs' not in use_case and 'UseCaseKeyProperty' not in use_case and entry_type != 'AbsentResource':
                 my_logger.error('UseCase does not have URIs or UseCaseKeyProperty...')
 
-            if 'UseCaseKeyProperty' in use_case:
+            if entry_type == 'AbsentResource':
+                my_status = rf_payload.get('Status')
+                if my_status:
+                    use_case_applies = my_status.get('State') == 'Absent'
+                else:
+                    use_case_applies = False
+
+            elif 'UseCaseKeyProperty' in use_case:
                 entry_key, entry_comparison, entry_values = use_case['UseCaseKeyProperty'], use_case['UseCaseComparison'], use_case['UseCaseKeyValues']
 
                 _, use_case_applies = checkComparison(rf_payload.get(entry_key), entry_comparison, entry_values)
@@ -742,7 +750,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
             elif 'URIs' in use_case:
                 use_case_applies = checkInteropURI(propResourceObj, use_case['URIs'])
-            
+
             else:
                 use_case_applies = False
 
