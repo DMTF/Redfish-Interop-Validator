@@ -192,6 +192,9 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     for msg in results[uriName]['messages']:
         msg.parent_results = results
+        if msg.success == interop.testResultEnum.NOT_TESTED:
+            counts['notTested'] += 1
+
 
     return True, counts, results, (links, limited_links), resource_obj
 
