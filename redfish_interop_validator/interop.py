@@ -738,6 +738,8 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
                     use_case_applies = my_status.get('State') == 'Absent'
                 else:
                     use_case_applies = False
+                if 'URIs' in use_case:
+                    use_case_applies = use_case_applies and checkInteropURI(propResourceObj, use_case['URIs'])
 
             elif 'UseCaseKeyProperty' in use_case:
                 entry_key, entry_comparison, entry_values = use_case['UseCaseKeyProperty'], use_case['UseCaseComparison'], use_case['UseCaseKeyValues']
