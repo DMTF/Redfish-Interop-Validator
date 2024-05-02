@@ -620,51 +620,95 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     my_logger.verbose1('actionRequirement \n\tval: ' + str(rf_payload_item if not isinstance(
         rf_payload_item, dict) else 'dict') + ' ' + str(profile_entry))
 
+    action_readrequirement = profile_entry.get('ReadRequirement', "Mandatory")
+    actioninfo_requirement = profile_entry.get('ActionInfo', "None")
+
     if "ReadRequirement" in profile_entry:
         # problem: if dne, skip
-        msg, success = validateRequirement(profile_entry.get('ReadRequirement', "Mandatory"), rf_payload_item)
+        msg, success = validateRequirement(action_readrequirement, rf_payload_item)
         msgs.append(msg)
         msg.name = actionname + '.' + msg.name
         msg.success = testResultEnum.PASS if success else testResultEnum.FAIL
-
+    
     propDoesNotExist = (rf_payload_item == REDFISH_ABSENT)
     if propDoesNotExist:
         return msgs, counts
+
     if "@Redfish.ActionInfo" in rf_payload_item:
         vallink = rf_payload_item['@Redfish.ActionInfo']
         success, rf_payload_action, code, elapsed, _ = callResourceURI(vallink)
         if not success:
             rf_payload_action = None
 
+    if 'ActionInfo' in profile_entry and actioninfo_requirement in ["None"]:
+        # Create message if None is explicitly listed in the profile
+        msg = msgInterop('ActionInfo', 'None', '-', '-', testResultEnum.OK)
+        msgs.append(msg)
+
+    if actioninfo_requirement not in ["None"]:
+        if propDoesNotExist:
+            # not tested if action isn't present
+            msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.NOT_TESTED)
+
+        elif actioninfo_requirement == "Mandatory":
+            if rf_payload_action is None:
+                if "@Redfish.ActionInfo" in rf_payload_item:
+                    my_logger.error('Mandatory @Redfish.ActionInfo listed on action but URI get was not successful')
+                else:
+                    my_logger.error('@Redfish.ActionInfo not listed, but is Mandatory')
+                msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.ERROR)
+            else:
+                msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.PASS)
+
+        elif actioninfo_requirement == "Recommended":
+            if rf_payload_action is None:
+                if "@Redfish.ActionInfo" in rf_payload_item:
+                    my_logger.warn('Recommended @Redfish.ActionInfo listed on action but URI get was not successful')
+                    msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.WARN)
+                else:
+                    my_logger.info('Recommended @Redfish.ActionInfo not listed')
+                    msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.PASS)
+            else:
+                msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.PASS)
+
+        else:
+            my_logger.warn('Term "ActionInfo" has unknown value {}'.format(actioninfo_requirement))
+            msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.WARN)
+
+        msgs.append(msg)
+
     # problem: if dne, skip
     if "Parameters" in profile_entry:
-        innerDict = profile_entry["Parameters"]
+        parameter_dictionary = profile_entry["Parameters"]
         # problem: if dne, skip
         # assume mandatory
-        for k in innerDict:
-            item = innerDict[k]
+        for param in parameter_dictionary:
+            item = parameter_dictionary[param]
+            # Get Allowable Values for parameter
             values_array = None
+            # If our action info exists at all, prefer it
             if rf_payload_action is not None:
-                action_by_name = rf_payload_action['Parameters']
-                my_action = [x for x in action_by_name if x['Name'] == k]
-                if my_action:
-                    values_array = my_action[0].get('AllowableValues')
+                parameter_by_name = rf_payload_action['Parameters']
+                my_parameter = [x for x in parameter_by_name if x['Name'] == param]
+                if my_parameter:
+                    values_array = my_parameter[0].get('AllowableValues')
+            # Otherwise check for AllowableValues as additional property
             if values_array is None:
-                values_array = rf_payload_item.get(str(k) + '@Redfish.AllowableValues', REDFISH_ABSENT)
+                values_array = rf_payload_item.get(str(param) + '@Redfish.AllowableValues', REDFISH_ABSENT)
             if values_array == REDFISH_ABSENT:
-                my_logger.warning('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(k))
+                my_logger.warning('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(param))
                 msg = msgInterop('', item, '-', '-', testResultEnum.WARN)
-                msg.name = "{}.{}.{}".format(actionname, k, msg.name)
+                msg.name = "{}.{}.{}".format(actionname, param, msg.name)
                 msgs.append(msg)
             else:
                 msg, success = validateRequirement(item.get('ReadRequirement', "Mandatory"), values_array)
                 msgs.append(msg)
-                msg.name = "{}.{}.{}".format(actionname, k, msg.name)
+                msg.name = "{}.{}.{}".format(actionname, param, msg.name)
                 if "ParameterValues" in item:
                     msg, success = validateSupportedValues(
                             item["ParameterValues"], values_array)
                     msgs.append(msg)
-                    msg.name = "{}.{}.{}".format(actionname, k, msg.name)
+                    msg.name = "{}.{}.{}".format(actionname, param, msg.name)
                 if "RecommendedValues" in item:
                     msg, success = validateSupportedValues(
                             item["RecommendedValues"], values_array)
@@ -677,7 +721,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
                         msg.success = testResultEnum.PASS
 
                     msgs.append(msg)
-                    msg.name = "{}.{}.{}".format(actionname, k, msg.name)
+                    msg.name = "{}.{}.{}".format(actionname, param, msg.name)
     # consider requirement before anything else, what if action
     # if the action doesn't exist, you can't check parameters
     # if it doesn't exist, what should not be checked for action
