@@ -643,6 +643,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     if 'ActionInfo' in profile_entry and actioninfo_requirement in ["None"]:
         # Create message if None is explicitly listed in the profile
         msg = msgInterop('ActionInfo', 'None', '-', '-', testResultEnum.OK)
+        msg.name = actionname + '.' + msg.name
         msgs.append(msg)
 
     if actioninfo_requirement not in ["None"]:
@@ -653,20 +654,20 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
         elif actioninfo_requirement == "Mandatory":
             if rf_payload_action is None:
                 if "@Redfish.ActionInfo" in rf_payload_item:
-                    my_logger.error('Mandatory @Redfish.ActionInfo listed on action but URI get was not successful')
+                    my_logger.error('Mandatory @Redfish.ActionInfo for {} listed on action but URI get was not successful'.format(actionname))
                 else:
-                    my_logger.error('@Redfish.ActionInfo not listed, but is Mandatory')
-                msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.ERROR)
+                    my_logger.error('@Redfish.ActionInfo for {} not listed, but is Mandatory'.format(actionname))
+                msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.FAIL)
             else:
                 msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.PASS)
 
         elif actioninfo_requirement == "Recommended":
             if rf_payload_action is None:
                 if "@Redfish.ActionInfo" in rf_payload_item:
-                    my_logger.warn('Recommended @Redfish.ActionInfo listed on action but URI get was not successful')
+                    my_logger.warn('Recommended @Redfish.ActionInfo for {} listed on action but URI get was not successful'.format(actionname))
                     msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.WARN)
                 else:
-                    my_logger.info('Recommended @Redfish.ActionInfo not listed')
+                    my_logger.info('Recommended @Redfish.ActionInfo for {} not listed'.format(actionname))
                     msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.PASS)
             else:
                 msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.PASS)
@@ -674,7 +675,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
         else:
             my_logger.warn('Term "ActionInfo" has unknown value {}'.format(actioninfo_requirement))
             msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.WARN)
-
+        msg.name = actionname + '.' + msg.name
         msgs.append(msg)
 
     # problem: if dne, skip
