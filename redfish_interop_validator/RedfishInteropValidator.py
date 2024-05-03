@@ -17,7 +17,7 @@ import redfish_interop_validator.traverseInterop as traverseInterop
 from redfish_interop_validator.profile import getProfiles, checkProfileAgainstSchema, hashProfile
 from redfish_interop_validator.validateResource import validateSingleURI, validateURITree
 
-tool_version = '2.2.1'
+tool_version = '2.2.2'
 
 # Set up the custom debug levels
 VERBOSE1 = logging.INFO - 1

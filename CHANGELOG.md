@@ -1,5 +1,9 @@
 # Change Log
 
+## [2.2.2] - 2024-05-03
+- Added support for testing 'ActionInfo' requirements
+- Corrected comparison testing behavior when a property is not present to not produce false failures
+
 ## [2.2.1] - 2024-04-19
 - Fixed use case checking to only report an error if zero resources are found that match a mandatory use case
 
