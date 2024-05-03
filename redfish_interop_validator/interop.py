@@ -247,6 +247,7 @@ def validateWriteRequirement(profile_entry, parent_object_payload, resource_head
     return msgInterop('WriteRequirement', profile_entry, expected_str, 'Writable' if is_writeable else 'Not Writable',
                       testResultEnum.PASS if is_writeable else result_not_supported), True
 
+
 def checkComparison(val, compareType, target):
     """
     Validate a given comparison option, given a value and a target set
@@ -557,7 +558,8 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
         # problem: if dne, skip?
 
         # Read Requirement is default mandatory if not present
-        msg, success = validateRequirement(profile_entry.get('ReadRequirement', 'Mandatory'), redfish_value, parent_object_tuple=redfish_parent_payload)
+        requirement_entry = profile_entry.get('ReadRequirement', 'Mandatory')
+        msg, requirement_success = validateRequirement(requirement_entry, redfish_value, parent_object_tuple=redfish_parent_payload)
         msgs.append(msg)
         msg.name = item_name + '.' + msg.name
 
@@ -582,7 +584,12 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             # Default to AnyOf
 
             my_compare = profile_entry.get("Comparison", "AnyOf")
-            msg, success = checkComparison(redfish_value, my_compare, profile_entry.get("Values", []))
+            my_values = profile_entry.get("Values", [])
+            # If absent and not comparing for absence...
+            if redfish_value == REDFISH_ABSENT and my_compare not in ['Absent', 'Present']:
+                msg, success = msgInterop('Comparison', my_values, my_compare, REDFISH_ABSENT, testResultEnum.NOT_TESTED), True
+            else:
+                msg, success = checkComparison(redfish_value, my_compare, my_values)
             msgs.append(msg)
             msg.name = item_name + '.' + msg.name
 
