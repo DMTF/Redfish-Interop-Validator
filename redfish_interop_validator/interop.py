@@ -247,6 +247,7 @@ def validateWriteRequirement(profile_entry, parent_object_payload, resource_head
     return msgInterop('WriteRequirement', profile_entry, expected_str, 'Writable' if is_writeable else 'Not Writable',
                       testResultEnum.PASS if is_writeable else result_not_supported), True
 
+
 def checkComparison(val, compareType, target):
     """
     Validate a given comparison option, given a value and a target set
@@ -278,6 +279,7 @@ def checkComparison(val, compareType, target):
             else:
                 continue
         paramPass = len(alltarget) == len(target)
+
     if compareType == "LinkToResource":
         if val == REDFISH_ABSENT:
             paramPass = False
@@ -299,7 +301,7 @@ def checkComparison(val, compareType, target):
     if compareType == "Present":
         paramPass = val != REDFISH_ABSENT
 
-    if isinstance(target, list):
+    if isinstance(target, list) and val != REDFISH_ABSENT:
         if compareType == "Equal":
             paramPass = val in target
         elif compareType == "NotEqual":
@@ -316,6 +318,10 @@ def checkComparison(val, compareType, target):
                     paramPass = val <= value
                 if paramPass is False:
                     break
+    elif compareType in ["Equal", "NotEqual", "GreaterThan", "GreaterThanOrEqual", "LessThan", "LessThanOrEqual"]:
+        if not isinstance(target, list):
+            my_logger.warn('CompareType {} requires a list of values'.format(compareType))
+
     my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('Comparison', target, compareType, val, paramPass),\
         paramPass
@@ -744,7 +750,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
             elif 'UseCaseKeyProperty' in use_case:
                 entry_key, entry_comparison, entry_values = use_case['UseCaseKeyProperty'], use_case['UseCaseComparison'], use_case['UseCaseKeyValues']
 
-                _, use_case_applies = checkComparison(rf_payload.get(entry_key), entry_comparison, entry_values)
+                _, use_case_applies = checkComparison(rf_payload.get(entry_key, REDFISH_ABSENT), entry_comparison, entry_values)
 
                 # Check if URI applies to this usecase as well
                 if 'URIs' in use_case:
@@ -773,8 +779,6 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
                 msgs.extend(new_msgs)
                 counts.update(new_counts)
-                # Terminate after applicable usecase is found.
-                return msgs, counts
 
             else:
                 my_logger.info('UseCase {} does not apply'.format(entry_title))
