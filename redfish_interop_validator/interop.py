@@ -773,6 +773,8 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
                 msgs.extend(new_msgs)
                 counts.update(new_counts)
+                # Terminate after applicable usecase is found.
+                return msgs, counts
 
             else:
                 my_logger.info('UseCase {} does not apply'.format(entry_title))
