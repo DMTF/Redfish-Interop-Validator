@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.2.3] - 2024-05-31
+- Added support for 'UseCaseType' term for 'AbsentResource' usage
+
 ## [2.2.2] - 2024-05-03
 - Added support for testing 'ActionInfo' requirements
 - Corrected comparison testing behavior when a property is not present to not produce false failures
