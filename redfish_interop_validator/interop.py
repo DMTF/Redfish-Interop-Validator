@@ -279,6 +279,7 @@ def checkComparison(val, compareType, target):
             else:
                 continue
         paramPass = len(alltarget) == len(target)
+
     if compareType == "LinkToResource":
         if val == REDFISH_ABSENT:
             paramPass = False
@@ -300,7 +301,7 @@ def checkComparison(val, compareType, target):
     if compareType == "Present":
         paramPass = val != REDFISH_ABSENT
 
-    if isinstance(target, list):
+    if isinstance(target, list) and val != REDFISH_ABSENT:
         if compareType == "Equal":
             paramPass = val in target
         elif compareType == "NotEqual":
@@ -317,6 +318,10 @@ def checkComparison(val, compareType, target):
                     paramPass = val <= value
                 if paramPass is False:
                     break
+    elif compareType in ["Equal", "NotEqual", "GreaterThan", "GreaterThanOrEqual", "LessThan", "LessThanOrEqual"]:
+        if not isinstance(target, list):
+            my_logger.warn('CompareType {} requires a list of values'.format(compareType))
+
     my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('Comparison', target, compareType, val, paramPass),\
         paramPass
@@ -776,17 +781,27 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
     if "UseCases" in interop_profile:
         for use_case in interop_profile['UseCases']:
-            entry_title = use_case.get("UseCaseTitle", "NoName").replace(' ','_')
-            my_logger.debug('UseCase {}'.format(entry_title))
+            entry_title = use_case.get("UseCaseTitle", "NoName").replace(' ', '_')
+            entry_type = use_case.get("UseCaseType", "Normal")
+            my_logger.debug('UseCase {} {}'.format(entry_title, entry_type))
 
             # Check if we have a valid UseCase
-            if 'URIs' not in use_case and 'UseCaseKeyProperty' not in use_case:
+            if 'URIs' not in use_case and 'UseCaseKeyProperty' not in use_case and entry_type != 'AbsentResource':
                 my_logger.error('UseCase does not have URIs or UseCaseKeyProperty...')
 
-            if 'UseCaseKeyProperty' in use_case:
+            if entry_type == 'AbsentResource':
+                my_status = rf_payload.get('Status')
+                if my_status:
+                    use_case_applies = my_status.get('State') == 'Absent'
+                else:
+                    use_case_applies = False
+                if 'URIs' in use_case:
+                    use_case_applies = use_case_applies and checkInteropURI(propResourceObj, use_case['URIs'])
+
+            elif 'UseCaseKeyProperty' in use_case:
                 entry_key, entry_comparison, entry_values = use_case['UseCaseKeyProperty'], use_case['UseCaseComparison'], use_case['UseCaseKeyValues']
 
-                _, use_case_applies = checkComparison(rf_payload.get(entry_key), entry_comparison, entry_values)
+                _, use_case_applies = checkComparison(rf_payload.get(entry_key, REDFISH_ABSENT), entry_comparison, entry_values)
 
                 # Check if URI applies to this usecase as well
                 if 'URIs' in use_case:
@@ -794,7 +809,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
             elif 'URIs' in use_case:
                 use_case_applies = checkInteropURI(propResourceObj, use_case['URIs'])
-            
+
             else:
                 use_case_applies = False
 
