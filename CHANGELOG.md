@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.2.4] - 2024-06-14
+- Hide password and token parameters from console output when running the tool from a config file
+
 ## [2.2.3] - 2024-05-31
 - Added support for 'UseCaseType' term for 'AbsentResource' usage
 
