@@ -51,42 +51,42 @@ Modify the config\example.ini file to enter the system details under below secti
 
 ### [Tool]
 
-| Variable  | Type   | Definition |
-| :---      | :---   | :---       |
-| Version   | string | Internal config version (optional) |
-| Copyright | string | _DMTF_ copyright (optional) |
-| verbose   | int    | level of verbosity (0-3) |
+| Variable   | CLI Argument  | Type    | Definition |
+| :---       | :---          | :---    | :---       |
+| `verbose`  | `-v`          | integer | Verbosity of tool in stdout; 0 to 3, 3 being the greatest level of verbosity. |
 
 ### [Interop]
 
-| Variable  | Type   | Definition |
-| :---      | :---   | :---       |
-| Profile   | string | name of the testing profile (mandatory) |
-| Schema    | string | name of json schema to test profile against |
+Note: These arguments are only supplied via the CLI to the tool and are not specified in the configuration file.
+
+| CLI Argument  | Type   | Definition |
+| :---          | :---   | :---       |
+| `profile`     | string | The name of the testing profile (mandatory). |
+| `--schema`    | string | The filepath and name of the schema file to verify the format of the profile. |
 
 ### [Host]
 
-| Variable    | Type   | Definition |
-| :---        | :---   | :---       |
-| ip          | string  | Host of testing system, formatted as https:// ip : port (can use http as well) |
-| username    | string  | Username for Basic authentication |
-| password    | string  | Password for Basic authentication (removed from logs) |
-| description | string  | Description of system being tested (optional) |
-| forceauth   | boolean | Force authentication even on http servers |
-| authtype    | string  | Authorization type (Basic | Session | Token | None) |
-| token       | string  | Token string for Token authentication |
+| Variable           | CLI Argument         | Type    | Definition |
+| :---               | :---                 | :---    | :---       |
+| `ip`               | `-r`                 | string  | The address of the Redfish service (with scheme); example: 'https://123.45.6.7:8000'. |
+| `username`         | `-u`                 | string  | The username for authentication. |
+| `password`         | `-p`                 | string  | The password for authentication. |
+| `description`      | `--description`      | string  | The description of the system for identifying logs; if none is given, a value is produced from information in the service root. |
+| `forceauth`        | `--forceauth`        | boolean | Force authentication on unsecure connections; 'True' or 'False'. |
+| `authtype`         | `--authtype`         | string  | Authorization type; 'None', 'Basic', 'Session', or 'Token'. |
+| `token`            | `--token`            | string  | Token when 'authtype' is 'Token'. |
 
 ### [Validator]
 
-| Variable              | Type   | Definition |
-| :---                  | :---   | :---       |
-| payload               | string  | Option to test a specific payload or resource tree (see below) |
-| logdir                | string  | Place to save logs and run configs |
-| oemcheck              | boolean | Whether to check Oem items on service |
-| online_profiles       | boolean | Whether to download online profiles |
-| debugging             | boolean | Whether to print debug to log |
-| required_profiles_dir | string  | Option to set the root folder of required profiles |
-| collectionlimit       | string  | Sets a limit to links gathered from collections by type, e.g. `ComputerSystem 20` limits ComputerSystemCollection to 20 links |
+| Variable                | CLI Argument              | Type    | Definition |
+| :---                    | :---                      | :---    | :---       |
+| `payload`               | `--payload`               | string  | The mode to validate payloads ('Tree', 'Single', 'SingleFile', or 'TreeFile') followed by resource/filepath; see below. |
+| `logdir`                | `--logdir`                | string  | The directory for generated report files; default: 'logs'. |
+| `oemcheck`              | `--nooemcheck`            | boolean | Whether to check OEM items on service; 'True' or 'False'. |
+| `online_profiles`       | `--no_online_profiles`    | boolean | Whether to download online profiles; 'True' or 'False'. |
+| `debugging`             | `--debugging`             | boolean | Output debug statements to text log, otherwise it only uses INFO; 'True' or 'False'. |
+| `required_profiles_dir` | `--required_profiles_dir` | string  | Option to set the root folder of required profiles |
+| `collectionlimit`       | `--collectionlimit`       | string  | Sets a limit to links gathered from collections by type (schema name).<br/>Example 1: `ComputerSystem 20` limits ComputerSystemCollection to 20 links.<br/>Example 2: `ComputerSystem 20 LogEntry 10` limits ComputerSystemCollection to 20 links and LogEntryCollection to 10 links. |
 
 ### Payload options
 
