@@ -158,7 +158,11 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
     for cnt, item in enumerate(results):
         entry = []
         val = results[item]
-        rtime = '(response time: {})'.format(val['rtime'])
+        response_time = val.get('rtime')
+        if isinstance(response_time, int) and response_time >= 0:
+            rtime = '(response time: {})'.format(response_time)
+        else:
+            rtime = ''
 
         if len(val['messages']) == 0 and len(val['errors']) == 0 and len(val['warns']) == 0:
             continue
