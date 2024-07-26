@@ -158,20 +158,25 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
     for cnt, item in enumerate(results):
         entry = []
         val = results[item]
-        rtime = '(response time: {})'.format(val['rtime'])
+        response_time = val.get('rtime')
+        if isinstance(response_time, float) and response_time >= 0:
+            rtime = '(response time: {})'.format(response_time)
+        else:
+            rtime = ''
 
         if len(val['messages']) == 0 and len(val['errors']) == 0 and len(val['warns']) == 0:
             continue
 
         # uri block
-        prop_type = val['fulltype']
+        prop_type, type_name = val['fulltype'], ''
         if prop_type is not None:
-            namespace = getNamespace(prop_type)
             type_name = getType(prop_type)
 
-        infos_a = [str(val.get(x)) for x in ['uri', 'samplemapped'] if val.get(x) not in ['',None]]
-        infos_a.append(rtime)
-        infos_a.append(type_name)
+        infos_a = [str(val.get(x)) for x in ['uri', 'samplemapped'] if val.get(x) not in ['', None]]
+        if rtime != '':
+            infos_a.append(rtime)
+        if type_name:
+            infos_a.append(type_name)
         uriTag = tag.tr(tag.th(infoBlock(infos_a, '&ensp;'), 'class="titlerow bluebg"'))
         entry.append(uriTag)
 

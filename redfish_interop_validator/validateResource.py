@@ -66,7 +66,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
                         'messages': messages,
                         'errors': '',
                         'warns': '',
-                        'rtime': '',
+                        'rtime': 'n/a',
                         'context': '',
                         'fulltype': '',
                         'rcode': 0,
@@ -465,7 +465,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     finalResults['n/a'] = {'uri': "Service Level Requirements", 'success': message_counts.get('fail', 0) == 0,
                            'counts': message_counts,
                            'messages': message_list, 'errors': error_messages.getvalue(), 'warns': '',
-                           'rtime': '', 'context': '', 'fulltype': ''}
+                           'rtime': None, 'context': '', 'fulltype': ''}
     finalResults.update(results)
     error_messages.close()
 

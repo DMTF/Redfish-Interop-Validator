@@ -336,13 +336,13 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
     """    # Create json from service or from given
 
     if jsondata is None and not isComplex:
-        success, jsondata, status, _, response = callResourceURI(uri)
+        success, jsondata, status, response_time, response = callResourceURI(uri)
         traverseLogger.debug('{}, {}, {}'.format(success, jsondata, status))
         if not success:
             my_logger.error('{}:  URI could not be acquired: {}'.format(uri, status))
             return None, status
     else:
-        success, jsondata, status, _, response = True, jsondata, -1, 0, None
+        success, jsondata, status, response_time, response = True, jsondata, -1, 0, None
 
     # Collect our resource header
     if response:
@@ -353,6 +353,8 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
         my_header = None
     
     newResource = ResourceObj(name, uri, jsondata, typename, context, parent, isComplex, headers=my_header)
+
+    newResource.rtime = response_time
 
     return newResource, status
 
