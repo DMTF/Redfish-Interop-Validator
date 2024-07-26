@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.2.6] - 2024-07-26
+- Fixed reporting of resource response times in the test report
+
 ## [2.2.5] - 2024-06-28
 - Corrected handling of 'collectionlimit' when specified in a config file
 
