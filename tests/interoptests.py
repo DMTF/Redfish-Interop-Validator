@@ -26,10 +26,11 @@ class ValidatorTest(TestCase):
 
     def test_requirement(self):
         entries = ['Mandatory', 'Recommended', 'Mandatory', 'Recommended']
-        vals = ['Ok', riv.REDFISH_ABSENT, riv.REDFISH_ABSENT, 'Ok']
-        boolist = [True, True, False, True]
+        vals = [{}, riv.REDFISH_ABSENT, riv.REDFISH_ABSENT, {}]
+        boolist = [True, riv.testResultEnum.NA, False, True]
         for e, v, b in zip(entries, vals, boolist):
-            self.assertTrue(riv.validateRequirement(e, v)[1] == b, str(e + ' ' + v))
+            _msg, result_value = riv.validateRequirement(e, v) 
+            self.assertTrue(result_value == b, str(e + ' ' + str(v)))
 
     def test_mincount(self):
         x = 'x'

@@ -1,0 +1,19 @@
+{
+    "SchemaDefinition": "RedfishInteroperabilityProfile.v1_5_0",
+    "ProfileName": "ChassisType4",
+    "ProfileVersion": "1.0.0",
+    "Purpose": "Ensures at least one chassis is an 'Enclosure' and a 'Blade'.  This test should pass.",
+    "Resources": {
+        "Chassis": {
+            "PropertyRequirements": {
+                "ChassisType": {
+                    "Comparison": "AllOf",
+                    "Values": [
+                        "Enclosure",
+                        "Blade"
+                    ]
+                }
+            }
+        }
+    }
+}

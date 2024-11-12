@@ -168,7 +168,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     profile_resources = profile_resources.get(SchemaType)
     try:
         propMessages, propCounts = interop.validateInteropResource(resource_obj, profile_resources, jsondata)
-        messages = messages.extend(propMessages)
+        messages.extend(propMessages)
         counts.update(propCounts)
         my_logger.info('{} of {} tests passed.'.format(counts['pass'] + counts['warn'], counts['totaltests']))
     except Exception:
@@ -312,8 +312,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 allLinks.add(link.rstrip('/'))
 
                 results.update(linkResults)
-                counts.update(linkCounts)
-
+            
                 if not linkSuccess:
                     continue
 

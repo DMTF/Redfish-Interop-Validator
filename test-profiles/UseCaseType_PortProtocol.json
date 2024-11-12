@@ -1,0 +1,23 @@
+{
+    "SchemaDefinition": "RedfishInteroperabilityProfile.v1_5_0",
+    "ProfileName": "UseCaseType_PortProtocol",
+    "ProfileVersion": "1.0.0",
+    "Purpose": "Test for UseCaseType 'PortProtocol'.  Should pass one test for each PortMetrics in public-acd.",
+    "Resources": {
+        "Sensor": {
+            "UseCases": [
+                {
+                    "UseCaseTitle": "Port Metrics",
+                    "UseCaseType": "PortProtocol",
+                    "UseCaseComparison": "Equal",
+                    "UseCaseKeyValues": [
+                        "RackMount"
+                    ],
+                    "PropertyRequirements": {
+                        "PhysicalContext": {}
+                    }
+                }
+            ]
+        }
+    }
+}

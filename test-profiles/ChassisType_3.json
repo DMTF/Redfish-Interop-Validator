@@ -1,0 +1,19 @@
+{
+    "SchemaDefinition": "RedfishInteroperabilityProfile.v1_5_0",
+    "ProfileName": "ChassisType2",
+    "ProfileVersion": "1.0.0",
+    "Purpose": "Ensures at least one chassis is an 'Enclosure' or a 'Rack'.  This test should pass (MultiBladeEncl is an Enclosure).",
+    "Resources": {
+        "Chassis": {
+            "PropertyRequirements": {
+                "ChassisType": {
+                    "Comparison": "AnyOf",
+                    "Values": [
+                        "Enclosure",
+                        "Rack"
+                    ]
+                }
+            }
+        }
+    }
+}
