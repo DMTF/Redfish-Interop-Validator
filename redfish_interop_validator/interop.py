@@ -826,6 +826,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
                     _, use_case_applies = checkComparison(target_payload.get(entry_key, REDFISH_ABSENT), entry_comparison, entry_values)
                 else:
+                    my_logger.verbose1('Type {} was not found in parent typechain'.format(target_type))
                     use_case_applies = False
 
 
