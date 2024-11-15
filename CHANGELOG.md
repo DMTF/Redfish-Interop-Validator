@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.2.7] - 2024-11-15
+- Added support for 'ChassisType', 'DriveProtocol', 'MemoryType', 'PortProtocol', and 'ProcessorType' values for 'UseCaseType'
+
 ## [2.2.6] - 2024-07-26
 - Fixed reporting of resource response times in the test report
 
