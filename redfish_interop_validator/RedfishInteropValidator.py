@@ -90,7 +90,7 @@ def main(argslist=None, configfile=None):
     if configfile is None:
         configfile = args.config
 
-    startTick = datetime.now()
+    start_tick = datetime.now()
 
     # Set logging file
     standard_out.setLevel(logging.INFO - args.verbose if args.verbose < 3 else logging.DEBUG)
@@ -101,7 +101,7 @@ def main(argslist=None, configfile=None):
         os.makedirs(logpath)
 
     fmt = logging.Formatter('%(levelname)s - %(message)s')
-    file_handler = logging.FileHandler(datetime.strftime(startTick, os.path.join(logpath, "InteropLog_%m_%d_%Y_%H%M%S.txt")))
+    file_handler = logging.FileHandler(datetime.strftime(start_tick, os.path.join(logpath, "InteropLog_%m_%d_%Y_%H%M%S.txt")))
     file_handler.setLevel(min(logging.INFO if not args.debugging else logging.DEBUG, standard_out.level))
     file_handler.setFormatter(fmt)
     my_logger.addHandler(file_handler)
@@ -121,7 +121,7 @@ def main(argslist=None, configfile=None):
     else:
         from redfish_interop_validator.config import convert_args_to_config
         my_logger.info('Writing config file to log directory')
-        configfilename = datetime.strftime(startTick, os.path.join(logpath, "ConfigFile_%m_%d_%Y_%H%M%S.ini"))
+        configfilename = datetime.strftime(start_tick, os.path.join(logpath, "ConfigFile_%m_%d_%Y_%H%M%S.ini"))
         my_config = convert_args_to_config(args)
         with open(configfilename, 'w') as f:
             my_config.write(f)
@@ -144,7 +144,7 @@ def main(argslist=None, configfile=None):
     my_logger.info('Target URI: ' + args.ip)
     my_logger.info('\n'.join(
         ['{}: {}'.format(x, vars(args)[x] if x not in ['password'] else '******') for x in sorted(list(vars(args).keys() - set(['description']))) if vars(args)[x] not in ['', None]]))
-    my_logger.info('Start time: ' + startTick.strftime('%x - %X'))
+    my_logger.info('Start time: ' + start_tick.strftime('%x - %X'))
     my_logger.info("")
 
     # Start our service
@@ -162,7 +162,7 @@ def main(argslist=None, configfile=None):
         my_uuid = currentService.service_root.get('UUID', 'No UUID')
         setattr(args, 'description', 'My Target System {}, version {}, {}'.format(my_name, my_version, my_uuid))
 
-    my_logger.info('Description of service: {}'.format(args.description))
+    my_logger.info('Description of service: {}\n'.format(args.description))
 
     # Interop Profile handling
     my_profiles = []
@@ -183,17 +183,12 @@ def main(argslist=None, configfile=None):
 
     if args.required_profiles_dir is not None:
         my_paths += glob.glob("{}/**/".format(args.required_profiles_dir), recursive=True)
-
-    # Create a list of profiles, required imports, and show their hashes
-    all_profiles = []
-    for name, profile in my_profiles:
-        all_profiles.extend(getProfiles(profile, [os.getcwd()] + my_paths, online=args.online_profiles))
-
-    my_logger.info('\nProfile Hashes: ')
-    for profile in all_profiles:
-        profileName = profile.get('ProfileName')
-        profileVersion = profile.get('ProfileVersion')
-        my_logger.info('profile: {} {}, dict md5 hash: {}'.format(profileName, profileVersion, hashProfile(profile)))
+    
+    my_logger.info('Profile Hashes (run-time): ')
+    for file_name, profile in my_profiles:
+        profile_name = profile.get('ProfileName')
+        profile_version = profile.get('ProfileVersion')
+        my_logger.info('profile: {} {} {}, dict md5 hash: {}'.format(file_name, profile_name, profile_version, hashProfile(profile)))
 
     # Start main
     status_code = 1
@@ -220,28 +215,57 @@ def main(argslist=None, configfile=None):
 
     try:
         results = None
-        for profile in all_profiles:
-            if 'single' in pmode:
-                success, _, resultsNew, _, _ = validateSingleURI(ppath, profile, 'Target', expectedJson=jsonData)
-            elif 'tree' in pmode:
-                success, _, resultsNew, _, _ = validateURITree(ppath, profile, 'Target', expectedJson=jsonData)
-            else:
-                success, _, resultsNew, _, _ = validateURITree('/redfish/v1/', profile, 'ServiceRoot', expectedJson=jsonData)
-            profileName = profile.get('ProfileName')
-            if results is None:
-                results = resultsNew
-            else:
-                for item in resultsNew:
-                    for x in resultsNew[item]['messages']:
-                        x.name = profileName + ' -- ' + x.name
-                    if item in results:
-                        innerCounts = results[item]['counts']
-                        innerCounts.update(resultsNew[item]['counts'])
-                        results[item]['messages'].extend(resultsNew[item]['messages'])
-                    else:
-                        results[item] = resultsNew[item]
-                    # resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
-                    # results.update(resultsNew)
+        processed_profiles = set()
+        for file_name, profile in my_profiles:
+            profile_name = profile.get('ProfileName')
+            profile_version = profile.get('ProfileVersion')
+
+            # Create a list of profiles, required imports, and show their hashes
+            included_profiles, required_by_resource = getProfiles(profile, [os.getcwd()] + my_paths, online=args.online_profiles)
+
+            all_profiles = [profile] + included_profiles
+
+            my_logger.info('Profile Hashes (included by {}): '.format(file_name))
+            for inner_profile in included_profiles:
+                inner_profile_name = profile.get('ProfileName')
+                inner_profile_version = profile.get('ProfileVersion')
+                my_logger.info('\t{} {}, dict md5 hash: {}'.format(inner_profile_name, inner_profile_version, hashProfile(inner_profile)))
+
+            my_logger.info('Profile Hashes (required by Resource): '.format(file_name))
+            for inner_profile in required_by_resource:
+                inner_profile_name = profile.get('ProfileName')
+                inner_profile_version = profile.get('ProfileVersion')
+                my_logger.info('\t{} {}, dict md5 hash: {}'.format(inner_profile_name, inner_profile_version, hashProfile(inner_profile)))
+
+            import pdb; pdb.set_trace()
+
+            for profile_to_process in all_profiles:
+                processing_profile_name = profile_to_process.get('ProfileName')
+                if processing_profile_name not in processed_profiles:
+                    processed_profiles.add(profile_name)
+                else:
+                    my_logger.warn("Profile {} already processed".format({}))
+
+                if 'single' in pmode:
+                    success, _, new_results, _, _ = validateSingleURI(ppath, profile_to_process, 'Target', expectedJson=jsonData)
+                elif 'tree' in pmode:
+                    success, _, new_results, _, _ = validateURITree(ppath, profile_to_process, 'Target', expectedJson=jsonData)
+                else:
+                    success, _, new_results, _, _ = validateURITree('/redfish/v1/', profile_to_process, 'ServiceRoot', expectedJson=jsonData)
+                if results is None:
+                    results = new_results
+                else:
+                    for item in new_results:
+                        for x in new_results[item]['messages']:
+                            x.name = profile_name + ' -- ' + x.name
+                        if item in results:
+                            inner_counts = results[item]['counts']
+                            inner_counts.update(new_results[item]['counts'])
+                            results[item]['messages'].extend(new_results[item]['messages'])
+                        else:
+                            results[item] = new_results[item]
+                        # resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
+                        # results.update(resultsNew)
     except traverseInterop.AuthenticationError as e:
         # log authentication error and terminate program
         my_logger.error('{}'.format(e))
@@ -253,51 +277,51 @@ def main(argslist=None, configfile=None):
     except Exception as e:
         my_logger.error('Failed to log out of service; session may still be active ({})'.format(e))
 
-    finalCounts = Counter()
-    nowTick = datetime.now()
-    my_logger.info('Elapsed time: {}'.format(str(nowTick - startTick).rsplit('.', 1)[0]))
+    final_counts = Counter()
+    now_tick = datetime.now()
+    my_logger.info('Elapsed time: {}'.format(str(now_tick - start_tick).rsplit('.', 1)[0]))
 
     for item in results:
-        innerCounts = results[item]['counts']
+        inner_counts = results[item]['counts']
 
         # detect if there are error messages for this resource, but no failure counts; if so, add one to the innerCounts
         counters_all_pass = True
-        for countType in sorted(innerCounts.keys()):
-            if innerCounts.get(countType) == 0:
+        for count_type in sorted(inner_counts.keys()):
+            if inner_counts.get(count_type) == 0:
                 continue
-            if any(x in countType for x in ['problem', 'fail', 'bad', 'exception']):
+            if any(x in count_type for x in ['problem', 'fail', 'bad', 'exception']):
                 counters_all_pass = False
-            if 'fail' in countType or 'exception' in countType:
-                my_logger.error('{} {} errors in {}'.format(innerCounts[countType], countType, results[item]['uri']))
-            innerCounts[countType] += 0
+            if 'fail' in count_type or 'exception' in count_type:
+                my_logger.error('{} {} errors in {}'.format(inner_counts[count_type], count_type, results[item]['uri']))
+            inner_counts[count_type] += 0
         error_messages_present = False
         if results[item]['errors'] is not None and len(results[item]['errors']) > 0:
             error_messages_present = True
         if results[item]['warns'] is not None and len(results[item]['warns']) > 0:
-            innerCounts['warningPresent'] = 1
+            inner_counts['warningPresent'] = 1
         if counters_all_pass and error_messages_present:
-            innerCounts['failErrorPresent'] = 1
+            inner_counts['failErrorPresent'] = 1
 
-        finalCounts.update(results[item]['counts'])
+        final_counts.update(results[item]['counts'])
 
     import redfish_interop_validator.tohtml as tohtml
 
     fails = 0
-    for key in [key for key in finalCounts.keys()]:
-        if finalCounts[key] == 0:
-            del finalCounts[key]
+    for key in [key for key in final_counts.keys()]:
+        if final_counts[key] == 0:
+            del final_counts[key]
             continue
         if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
-            fails += finalCounts[key]
+            fails += final_counts[key]
 
-    html_str = tohtml.renderHtml(results, finalCounts, tool_version, startTick, nowTick, currentService.config)
+    html_str = tohtml.renderHtml(results, final_counts, tool_version, start_tick, now_tick, currentService.config)
 
-    lastResultsPage = datetime.strftime(startTick, os.path.join(logpath, "InteropHtmlLog_%m_%d_%Y_%H%M%S.html"))
+    lastResultsPage = datetime.strftime(start_tick, os.path.join(logpath, "InteropHtmlLog_%m_%d_%Y_%H%M%S.html"))
 
     tohtml.writeHtml(html_str, lastResultsPage)
 
     success = success and not (fails > 0)
-    my_logger.info("\n".join('{}: {}   '.format(x, y) for x, y in sorted(finalCounts.items())))
+    my_logger.info("\n".join('{}: {}   '.format(x, y) for x, y in sorted(final_counts.items())))
 
     # dump cache info to debug log
     my_logger.debug('callResourceURI() -> {}'.format(currentService.callResourceURI.cache_info()))

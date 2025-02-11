@@ -105,50 +105,61 @@ def getProfileFromRepo(profilename, repo=None):
         return None
 
 
-def getProfiles(profile, directories, chain=None, online=False):
-    alldata = [profile]
-    if 'RequiredProfiles' not in profile:
-        my_logger.debug('No such item RequiredProfiles')
+def parseProfileInclude(target_name, target_profile_info, directories, online):
+    min_version = splitVersionString(target_profile_info.get('MinVersion', '1.0.0'))
+    target_version = 'v{}_{}_{}'.format(*min_version)
+    target_file = '{}.{}'.format(target_name, 'json')
+
+    # get max filename
+    repo = target_profile_info.get('Repository')
+    if online:
+        data = getProfileFromRepo(target_file, repo)
     else:
-        profileName = profile.get('ProfileName')
-        if chain is None:
-            chain = []
-        if profileName in chain:
-            my_logger.error('Suspected duplicate/cyclical import error: {} {}'.format(chain, profileName))
-            return []
-        chain.append(profileName)
+        data = None
 
-        requiredProfiles = profile['RequiredProfiles']
-        for item in requiredProfiles:
-            targetName = item
-            rp = requiredProfiles[targetName]
-            min_version = splitVersionString(rp.get('MinVersion', '1.0.0'))
-            targetVersion = 'v{}_{}_{}'.format(*min_version)
-            targetFile = '{}.{}'.format(targetName, 'json')
+    if data is None:
+        target_list = list(getProfilesMatchingName(target_file, directories))
+        if len(target_list) > 0:
+            max_version = (1,0,0)
+            for target_name in target_list:
+                with open(target_name) as f:
+                    my_profile = json.load(f)
+                    my_version = splitVersionString(my_profile.get('ProfileVersion', '1.0.0'))
+                    max_version = max(max_version, my_version)
+                    if my_version == max_version or data is None:
+                        data = my_profile
+            if min_version > max_version:
+                my_logger.warning('File version smaller than target MinVersion')
+        else:
+            my_logger.error('Could not acquire this profile {} {}'.format(target_name, repo))
+            data = None
 
-            # get max filename
-            repo = rp.get('Repository')
-            if online:
-                data = getProfileFromRepo(targetFile, repo)
-            else:
-                data = None
+    return data
 
-            if data is None:
-                targetList = list(getProfilesMatchingName(targetFile, directories))
-                if len(targetList) > 0:
-                    max_version = (1,0,0)
-                    for item in targetList:
-                        with open(item) as f:
-                            my_profile = json.load(f)
-                            my_version = splitVersionString(my_profile.get('ProfileVersion', '1.0.0'))
-                            max_version = max(max_version, my_version)
-                            if my_version == max_version or data == None:
-                                data = my_profile
-                    if min_version > max_version:
-                        my_logger.warning('File version smaller than target MinVersion')
-                else:
-                    my_logger.error('Could not acquire this profile {} {}'.format(targetName, repo))
-                    continue
 
-            alldata.extend(getProfiles(data, directories, chain))
-    return alldata
+def getProfiles(profile, directories, chain=None, online=False):
+    profile_includes, required_by_resource = [], []
+    
+    profile_name = profile.get('ProfileName')
+    if chain is None:
+        chain = []
+    if profile_name in chain:
+        my_logger.error('Suspected duplicate/cyclical import error: {} {}'.format(chain, profile_name))
+        return []
+    chain.append(profile_name)
+
+    required_profiles = profile.get('RequiredProfiles')
+    for target_name in required_profiles:
+        target_profile_info = required_profiles[target_name]
+        print(target_name)
+
+        profile_data = parseProfileInclude(target_name, target_profile_info, directories, online)
+
+        if profile_data:
+            profile_includes.append(profile_data)
+
+            inner_includes, inner_reqs = getProfiles(profile_data, directories, chain)
+            profile_includes.extend(inner_includes)
+            required_by_resource.extend(inner_reqs)
+
+    return profile_includes, required_by_resource
