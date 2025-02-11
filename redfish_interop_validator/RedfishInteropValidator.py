@@ -237,8 +237,6 @@ def main(argslist=None, configfile=None):
                 inner_profile_version = profile.get('ProfileVersion')
                 my_logger.info('\t{} {}, dict md5 hash: {}'.format(inner_profile_name, inner_profile_version, hashProfile(inner_profile)))
 
-            import pdb; pdb.set_trace()
-
             for profile_to_process in all_profiles:
                 processing_profile_name = profile_to_process.get('ProfileName')
                 if processing_profile_name not in processed_profiles:
