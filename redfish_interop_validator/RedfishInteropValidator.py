@@ -255,15 +255,15 @@ def main(argslist=None, configfile=None):
                 if results is None:
                     results = new_results
                 else:
-                    for item in new_results:
-                        for x in new_results[item]['messages']:
+                    for item_name, item in new_results.items():
+                        for x in item['messages']:
                             x.name = profile_name + ' -- ' + x.name
-                        if item in results:
-                            inner_counts = results[item]['counts']
-                            inner_counts.update(new_results[item]['counts'])
-                            results[item]['messages'].extend(new_results[item]['messages'])
+                        if item_name in results:
+                            inner_counts = results[item_name]['counts']
+                            inner_counts.update(item['counts'])
+                            results[item_name]['messages'].extend(item['messages'])
                         else:
-                            results[item] = new_results[item]
+                            results[item_name] = item
                         # resultsNew = {profileName+key: resultsNew[key] for key in resultsNew if key in results}
                         # results.update(resultsNew)
     except traverseInterop.AuthenticationError as e:
