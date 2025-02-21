@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.2.8] - 2025-02-21
+- Added support for the 'RequiredResourceProfile' term
+
 ## [2.2.7] - 2024-11-15
 - Added support for 'ChassisType', 'DriveProtocol', 'MemoryType', 'PortProtocol', and 'ProcessorType' values for 'UseCaseType'
 

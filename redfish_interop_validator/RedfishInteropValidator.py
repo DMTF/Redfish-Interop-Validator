@@ -1,6 +1,6 @@
 
 # Copyright Notice:
-# Copyright 2017-2024 DMTF. All rights reserved.
+# Copyright 2017-2025 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
 import os
@@ -17,7 +17,7 @@ import redfish_interop_validator.traverseInterop as traverseInterop
 from redfish_interop_validator.profile import getProfiles, checkProfileAgainstSchema, hashProfile
 from redfish_interop_validator.validateResource import validateSingleURI, validateURITree
 
-tool_version = '2.2.7'
+tool_version = '2.2.8'
 
 # Set up the custom debug levels
 VERBOSE1 = logging.INFO - 1
