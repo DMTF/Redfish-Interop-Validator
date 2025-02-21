@@ -1,0 +1,30 @@
+{
+    "SchemaDefinition": "RedfishInteroperabilityProfile.v1_5_0",
+    "ProfileName": "UseCaseType_PortProtocol",
+    "ProfileVersion": "1.0.0",
+    "Purpose": "Test for UseCaseType 'ProcessorType'.  Should pass one test for each SubProcessor in public-tower.",
+    "Resources": {
+        "Processor": {
+            "UseCases": [
+                {
+                    "UseCaseTitle": "Sub Processor",
+                    "UseCaseType": "ProcessorType",
+                    "UseCaseComparison": "Equal",
+                    "UseCaseKeyValues": [
+                        "CPU"
+                    ],
+                    "PropertyRequirements": {
+                        "ProcessorType": {
+                            "ReadRequirement": "Mandatory",
+                            "Comparison": "AnyOf",
+                            "Values": [
+                                "Thread",
+                                "Core"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

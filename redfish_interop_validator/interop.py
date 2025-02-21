@@ -767,6 +767,15 @@ def checkInteropURI(r_obj, profile_entry):
     my_id, my_uri = r_obj.jsondata.get('Id'), r_obj.uri
     return compareRedfishURI(profile_entry, my_uri)
 
+# Expected Type, Key
+entry_type_table = {
+    'ChassisType': ("Chassis", "ChassisType"),
+    'DriveProtocol': ("Drive", "Protocol"),
+    'MemoryType': ("Memory", "MemoryType"),
+    'PortProtocol': ("Port", "PortProtocol"),
+    'ProcessorType': ("Processor", "ProcessorType"),
+}
+
 
 def validateInteropResource(propResourceObj, interop_profile, rf_payload):
     """
@@ -783,11 +792,12 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
         for use_case in interop_profile['UseCases']:
             entry_title = use_case.get("UseCaseTitle", "NoName").replace(' ', '_')
             entry_type = use_case.get("UseCaseType", "Normal")
+            my_parent = propResourceObj.parent
             my_logger.debug('UseCase {} {}'.format(entry_title, entry_type))
 
             # Check if we have a valid UseCase
-            if 'URIs' not in use_case and 'UseCaseKeyProperty' not in use_case and entry_type != 'AbsentResource':
-                my_logger.error('UseCase does not have URIs or UseCaseKeyProperty...')
+            if ('URIs' not in use_case) and ('UseCaseKeyProperty' not in use_case) and (entry_type not in ['AbsentResource'] + list(entry_type_table.keys())):
+                my_logger.error('UseCase does not have URIs or valid UseCase...')
 
             if entry_type == 'AbsentResource':
                 my_status = rf_payload.get('Status')
@@ -797,6 +807,28 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
                     use_case_applies = False
                 if 'URIs' in use_case:
                     use_case_applies = use_case_applies and checkInteropURI(propResourceObj, use_case['URIs'])
+            
+            elif entry_type in entry_type_table:
+                target_type_found = False
+                target_type, entry_key = entry_type_table[entry_type]
+                entry_comparison, entry_values = use_case['UseCaseComparison'], use_case['UseCaseKeyValues']
+
+                # Iterate until we find our target type, if not found then use case cannot apply
+                while my_parent is not None and not target_type_found:
+                    parent_type = getType(my_parent.jsondata.get('@odata.type', 'NoType'))
+                    target_type_found = parent_type == target_type
+                    if not target_type_found:
+                        my_parent = my_parent.parent
+
+                if target_type_found:
+                    target_payload = my_parent.jsondata
+                    target_value = target_payload.get(entry_key)
+
+                    _, use_case_applies = checkComparison(target_payload.get(entry_key, REDFISH_ABSENT), entry_comparison, entry_values)
+                else:
+                    my_logger.verbose1('Type {} was not found in parent typechain'.format(target_type))
+                    use_case_applies = False
+
 
             elif 'UseCaseKeyProperty' in use_case:
                 entry_key, entry_comparison, entry_values = use_case['UseCaseKeyProperty'], use_case['UseCaseComparison'], use_case['UseCaseKeyValues']

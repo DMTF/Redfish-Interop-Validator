@@ -1,0 +1,20 @@
+{
+    "SchemaDefinition": "RedfishInteroperabilityProfile.v1_5_0",
+    "ProfileName": "ChassisType5",
+    "ProfileVersion": "1.0.0",
+    "Purpose": "Ensures at least one chassis is an 'Enclosure'.  This test should pass.",
+    "Resources": {
+        "Thermal": {
+            "PropertyRequirements": {
+                "Temperatures": {
+                    "PropertyRequirements": {
+                        "PhysicalContext": { 
+                            "Comparison": "AllOf",
+                            "Values": [ "Intake", "CPU" ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

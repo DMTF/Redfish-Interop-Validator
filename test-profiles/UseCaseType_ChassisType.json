@@ -1,0 +1,23 @@
+{
+    "SchemaDefinition": "RedfishInteroperabilityProfile.v1_5_0",
+    "ProfileName": "UseCaseType_ChassisType",
+    "ProfileVersion": "1.0.0",
+    "Purpose": "Test for UseCaseType 'ChassisType'.  Should pass one test for every Sensor in public-rackmount1.",
+    "Resources": {
+        "Sensor": {
+            "UseCases": [
+                {
+                    "UseCaseTitle": "Chassis Sensor",
+                    "UseCaseType": "ChassisType",
+                    "UseCaseComparison": "Equal",
+                    "UseCaseKeyValues": [
+                        "RackMount"
+                    ],
+                    "PropertyRequirements": {
+                        "PhysicalContext": {}
+                    }
+                }
+            ]
+        }
+    }
+}
