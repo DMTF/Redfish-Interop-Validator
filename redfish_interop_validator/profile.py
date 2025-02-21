@@ -164,7 +164,7 @@ def getProfiles(profile, directories, chain=None, online=False):
 
     # Gather all included profiles, these are each run independently in validateResource.
     # TODO: Process them simultaneously in validateResource, to avoid polling the target machine multiple times
-    required_profiles = profile.get('RequiredProfiles')
+    required_profiles = profile.get('RequiredProfiles', {})
     for target_name, target_profile_info in required_profiles.items():
         profile_data = parseProfileInclude(target_name, target_profile_info, directories, online)
 
