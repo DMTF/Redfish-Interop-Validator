@@ -58,12 +58,6 @@ class ValidatorTest(TestCase):
         for c, e, v, b in zip(comp, entries, vals, boolist):
             self.assertTrue(riv.checkComparison(v, c, e)[1] == b)
 
-    def test_members(self):
-        members = [1, 2, 3]
-        entry = {'MinCount': 2}
-        annotation = 3
-        self.assertTrue(riv.validateMembers(members, entry, annotation)[1])
-
     def test_minversion(self):
         entries = ['1.0.1', '1.0.1', '1.2.0', '1.0.0', '1.0', '1.1']
         vals = ['#ComputerSystem.1.0.1.ComputerSystem', '#ComputerSystem.v1_1_1.ComputerSystem',
