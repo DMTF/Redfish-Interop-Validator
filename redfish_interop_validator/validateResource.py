@@ -263,7 +263,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     validateSuccess, counts, results, links, resource_obj = \
         validateSingleURI(URI, profile, uriName, expectedType, expectedSchema, expectedJson)
     
-    links, limited_links = links
+    links, limited_links = links if links else ({}, {})
     for skipped_link in limited_links:
         allLinks.add(limited_links[skipped_link])
 
@@ -396,7 +396,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
 
                     my_logger.info('Validating UseCase {} of {} ReadRequirement'.format(entry_title, resource_type))
 
-                    my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
+                    my_msg, _ = interop.validateRequirementResource(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
                     my_msg.name = 'UseCase.{}.{}'.format(entry_title, my_msg.name)
                     if uris_applied:
                         my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
@@ -425,7 +425,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     expected_requirement = condition.get("ReadRequirement")
                     if expected_requirement:
                         my_logger.info('Validating {} Conditional ReadRequirement'.format(resource_type))
-                        my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
+                        my_msg, _ = interop.validateRequirementResource(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
                         my_msg.name = '{}.Conditional.{}'.format(resource_type, my_msg.name)
                         if uris_applied:
                             my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))
@@ -444,7 +444,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                 does_resource_exist = resource_exists
 
             my_logger.info('Validating {} ReadRequirement'.format(resource_type))
-            my_msg, _ = interop.validateRequirement(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
+            my_msg, _ = interop.validateRequirementResource(expected_requirement, 'Exists' if does_resource_exist else REDFISH_ABSENT)
             my_msg.name = '{}.{}'.format(resource_type, my_msg.name)
             if uris_applied:
                 my_msg.expected = "{} at {}".format(my_msg.expected, ", ".join(uris_applied))

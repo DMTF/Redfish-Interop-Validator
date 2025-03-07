@@ -106,14 +106,50 @@ def validateComparisonAnyOfAllOf(profile_entry, property_path="Unspecified"):
     return all_msgs
 
 
+def validateRequirementResource(profile_entry, rf_payload_item=None, parent_object_tuple=None):
+    """
+    Validates Requirement profile_entry for Resources
+
+    Has different resolutions than when validating at a per Property level
+    """
+    resource_exists = (rf_payload_item != REDFISH_ABSENT)
+    my_logger.debug('Testing Resource ReadRequirement \n\texpected:' + str(profile_entry) + ', exists: ' + str(resource_exists))
+
+    original_profile_entry = profile_entry
+
+    if profile_entry == "IfPopulated":
+        profile_entry = "Recommended"
+
+    paramPass = profile_entry != "Mandatory" or \
+        profile_entry == "Mandatory" and resource_exists
+
+    if profile_entry == "IfImplemented":
+        if not resource_exists:
+            paramPass = testResultEnum.NA
+        else:
+            my_logger.debug('\tItem cannot be tested for Implementation')
+
+    if profile_entry == "Recommended" and not resource_exists:
+        my_logger.info('\tItem is recommended but does not exist')
+        if config['WarnRecommended']:
+            my_logger.warning('\tItem is recommended but does not exist, escalating to WARN')
+            paramPass = testResultEnum.WARN
+        else:
+            paramPass = testResultEnum.NA
+
+    my_logger.debug('\tpass ' + str(paramPass))
+    return msgInterop('ReadRequirement', original_profile_entry, 'Must Exist' if profile_entry == "Mandatory" else 'Any', 'Exists' if resource_exists else 'DNE', paramPass),\
+        paramPass
+
+
 def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, parent_object_tuple=None):
     """
     Validates Requirement profile_entry
 
     By default, only the first parameter is necessary and will always Pass if none given
     """
-    propDoesNotExist = (rf_payload_item == REDFISH_ABSENT)
-    my_logger.debug('Testing ReadRequirement \n\texpected:' + str(profile_entry) + ', exists: ' + str(not propDoesNotExist))
+    prop_exists = (rf_payload_item != REDFISH_ABSENT)
+    my_logger.debug('Testing ReadRequirement \n\texpected:' + str(profile_entry) + ', exists: ' + str(prop_exists))
     # If we're not mandatory, pass automatically, else fail
     # However, we have other entries "IfImplemented" and "Conditional"
     # note: Mandatory is default!! if present in the profile.  Make sure this is made sure.
@@ -133,16 +169,16 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
     if profile_entry == "Conditional" and conditional:
         profile_entry = "Mandatory"
 
-    paramPass = not profile_entry == "Mandatory" or \
-        profile_entry == "Mandatory" and not propDoesNotExist
+    paramPass = profile_entry != "Mandatory" or \
+        profile_entry == "Mandatory" and prop_exists
 
     if profile_entry == "IfImplemented":
-        if propDoesNotExist:
+        if not prop_exists:
             paramPass = testResultEnum.NA
         else:
             my_logger.debug('\tItem cannot be tested for Implementation')
 
-    if profile_entry == "Recommended" and propDoesNotExist:
+    if profile_entry == "Recommended" and not prop_exists:
         my_logger.info('\tItem is recommended but does not exist')
         if config['WarnRecommended']:
             my_logger.warning('\tItem is recommended but does not exist, escalating to WARN')
@@ -151,7 +187,7 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
             paramPass = testResultEnum.NA
 
     my_logger.debug('\tpass ' + str(paramPass))
-    return msgInterop('ReadRequirement', original_profile_entry, 'Must Exist' if profile_entry == "Mandatory" else 'Any', 'Exists' if not propDoesNotExist else 'DNE', paramPass),\
+    return msgInterop('ReadRequirement', original_profile_entry, 'Must Exist' if profile_entry == "Mandatory" else 'Any', 'Exists' if prop_exists else 'DNE', paramPass),\
         paramPass
 
 
@@ -325,19 +361,6 @@ def checkComparison(val, compareType, target):
     my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('Comparison', target, compareType, val, paramPass),\
         paramPass
-
-
-def validateMembers(members, profile_entry, annotation):
-    """
-    Validate an profile_entry of Members and its count annotation
-    """
-    my_logger.debug('Testing members \n\t' + str((members, profile_entry, annotation)))
-    if not validateRequirement('Mandatory', members):
-        return False
-    if "MinCount" in profile_entry:
-        mincount, mincountpass = validateMinCount(members, profile_entry["MinCount"], annotation)
-        mincount.name = 'MembersMinCount'
-    return mincount, mincountpass
 
 
 def validateMinVersion(version, profile_entry):
