@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.2.9] - 2025-03-07
+- Corrected the testing for 'IfPopulated' when used as a resource-level read requirement to not fail the test if not found
+
 ## [2.2.8] - 2025-02-21
 - Added support for the 'RequiredResourceProfile' term
 
