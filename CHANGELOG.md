@@ -1,5 +1,9 @@
 # Change Log
 
+## [2.3.0] - 2025-05-02
+- Fixed tool to allow for profiles that do not define a 'Resources' section
+- Fixed regular expression for variable URI segments to not require 'Id' at the end of the string
+
 ## [2.2.9] - 2025-03-07
 - Corrected the testing for 'IfPopulated' when used as a resource-level read requirement to not fail the test if not found
 
