@@ -764,18 +764,18 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     return msgs, counts
 
 
-URI_ID_REGEX = '\{[A-Za-z0-9]*Id\}'
+URI_ID_REGEX = '\{[A-Za-z0-9]+\}'
 
-VALID_ID_REGEX = '([A-Za-z0-9.!#$&-;=?\[\]_~])+'
+VALID_ID_REGEX = '[A-Za-z0-9.!#$&-;=?\[\]_~]+'
 
 
 def compareRedfishURI(expected_uris, uri):
     success = False
     # If we have our URIs
     if expected_uris is not None:
-        my_uri_regex = "^{}$".format("|".join(expected_uris))
-        my_uri_regex = re.sub(URI_ID_REGEX, VALID_ID_REGEX, my_uri_regex)
-        success = re.fullmatch(my_uri_regex, uri) is not None
+        regex_pattern = "^{}$".format("|".join(expected_uris))
+        regex_pattern = re.sub(URI_ID_REGEX, VALID_ID_REGEX, regex_pattern)
+        success = re.fullmatch(regex_pattern, uri) is not None
     else:
         success = True
     return success
