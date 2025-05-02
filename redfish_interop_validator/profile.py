@@ -176,7 +176,7 @@ def getProfiles(profile, directories, chain=None, online=False):
             required_by_resource.extend(inner_reqs)
         
     # Process all RequiredResourceProfile by modifying profiles
-    profile_resources = profile.get('Resources')
+    profile_resources = profile.get('Resources', {})
     
     for resource_name, resource in profile_resources.items():
         # Modify just the resource or its UseCases.  Should not have concurrent UseCases and RequiredResourceProfile in Resource
