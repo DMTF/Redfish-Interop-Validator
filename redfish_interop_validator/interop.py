@@ -71,7 +71,7 @@ def validateComparisonAnyOfAllOf(profile_entry, property_path="Unspecified"):
             # OK if passing, FAIL if check fails and value is not in array
             for msg in my_msgs:
                 msg.ignore = False
-                msg.success = testResultEnum.NOPASS
+                msg.success = testResultEnum.OK
                 msg.expected = '{} {} ({})'.format(msg.expected, expected_values, "Across All Resources")
 
             if my_compare == 'AnyOf':
@@ -79,25 +79,23 @@ def validateComparisonAnyOfAllOf(profile_entry, property_path="Unspecified"):
                     my_logger.info('  PASS')
                     top_msg.success = testResultEnum.PASS
                     for msg in my_msgs:
-                        msg.success = testResultEnum.OK
                         if msg.actual in expected_values:
                             msg.success = testResultEnum.PASS
                 else:
                     my_logger.info('  FAIL')
-                    for msg in my_msgs:
-                        msg.success = testResultEnum.FAIL
 
             if my_compare == 'AllOf':
                 if all([x in my_values for x in expected_values]):
                     my_logger.info('  PASS')
                     top_msg.success = testResultEnum.PASS
                     for msg in my_msgs:
-                        msg.success = testResultEnum.OK
+                        if msg.actual in expected_values:
+                            msg.success = testResultEnum.PASS
                 else:
                     my_logger.info('  FAIL')
                     for msg in my_msgs:
-                        if msg.actual not in expected_values:
-                            msg.success = testResultEnum.FAIL
+                        if msg.actual in expected_values:
+                            msg.success = testResultEnum.PASS
 
         if property_profile.get('PropertyRequirements'):
             new_msgs = validateComparisonAnyOfAllOf(property_profile.get('PropertyRequirements'), '.'.join([property_path, key]))
