@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.3.1] - 2025-05-23
+- Updated reporting of AllOf and AnyOf tests to not penalize resources for not contributing to passing criteria
+
 ## [2.3.0] - 2025-05-02
 - Fixed tool to allow for profiles that do not define a 'Resources' section
 - Fixed regular expression for variable URI segments to not require 'Id' at the end of the string
