@@ -2,24 +2,23 @@
 # Copyright 2017-2025 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Service-Validator/blob/master/LICENSE.md
 
-import requests
-import sys
 import re
 import os
 import json
-import random
-from collections import OrderedDict, namedtuple
 from functools import lru_cache
 import logging
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from urllib.parse import urlparse, urlunparse
 from http.client import responses
+from collections import OrderedDict
 
-from redfish_interop_validator.redfish import createContext, getNamespace, getNamespaceUnversioned, getType, navigateJsonFragment
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+from redfish_interop_validator.helper import createContext, getNamespace, getNamespaceUnversioned, getType, navigateJsonFragment
 from redfish_interop_validator.session import rfSession
 
-traverseLogger = logging.getLogger(__name__)
-my_logger = traverseLogger
+my_logger = logging.getLogger('rsv')
+
 currentService = None
 config = {}
 
@@ -39,7 +38,7 @@ def getLogger():
     """
     Grab logger for tools that might use this lib
     """
-    return traverseLogger
+    return my_logger
 
 
 def startService(config):
@@ -62,7 +61,7 @@ def startService(config):
 
 class rfService():
     def __init__(self, my_config):
-        traverseLogger.info('Setting up service...')
+        my_logger.info('Setting up service...')
         global config
         config = my_config
         self.config = my_config
@@ -105,7 +104,7 @@ class rfService():
         self.currentSession = None
         if not self.config['usessl'] and not self.config['forceauth']:
             if config['username'] not in ['', None] or config['password'] not in ['', None]:
-                traverseLogger.warning('Attempting to authenticate on unchecked http/https protocol is insecure, if necessary please use ForceAuth option.  Clearing auth credentials...')
+                my_logger.warning('Authentication Credentials Warning: Attempting to authenticate on unchecked http/https protocol is insecure, if necessary please use ForceAuth option.  Clearing auth credentials...')
                 config['username'] = ''
                 config['password'] = ''
         if config['authtype'].lower() == 'session':
@@ -120,15 +119,15 @@ class rfService():
         # get Version
         success, data, status, delay, _ = self.callResourceURI('/redfish/v1')
         if not success:
-            traverseLogger.warning('Could not get ServiceRoot')
+            my_logger.warning('Service Warning: Could not get ServiceRoot')
         else:
             if 'RedfishVersion' not in data:
-                traverseLogger.warning('Could not get RedfishVersion from ServiceRoot')
+                my_logger.warning('Service Warning: Could not get RedfishVersion from ServiceRoot')
             else:
-                traverseLogger.info('Redfish Version of Service: {}'.format(data['RedfishVersion']))
+                my_logger.info('Redfish Version of Service: {}'.format(data['RedfishVersion']))
                 target_version = data['RedfishVersion']
         if target_version in ['1.0.0', 'n/a']:
-            traverseLogger.warning('!!Version of target may produce issues!!')
+            my_logger.warning('Service Version Warning: !!Version of target may produce issues!!')
         
         self.service_root = data
 
@@ -173,7 +172,7 @@ class rfService():
         # rs-assertion: handle redirects?  and target permissions
         # rs-assertion: require no auth for serviceroot calls
         if URILink is None:
-            traverseLogger.warning("This URI is empty!")
+            my_logger.warning("Missing URI Warning: Given URI is empty!")
             return False, None, -1, 0, None
 
         config = self.config
@@ -195,7 +194,7 @@ class rfService():
         isXML = False
         if "$metadata" in path or ".xml" in path[:-5]:
             isXML = True
-            traverseLogger.debug('Should be XML')
+            my_logger.debug('Should be XML')
 
         ExtraHeaders = None
         if 'extrajsonheaders' in config and not isXML:
@@ -209,7 +208,7 @@ class rfService():
                 '/redfish/v1/$metadata' in URILink
 
             auth = None if noauthchk else (config.get('username'), config.get('password'))
-            traverseLogger.debug('dont chkauth' if noauthchk else 'chkauth')
+            my_logger.debug('dont chkauth' if noauthchk else 'chkauth')
 
             # if CacheMode in ["Fallback", "Prefer"]:
             #     payload = rfService.getFromCache(URILink, CacheDir)
@@ -227,7 +226,7 @@ class rfService():
         headers = {}
         headers.update(commonHeader)
         if not noauthchk and inService and UseSSL:
-            traverseLogger.debug('successauthchk')
+            my_logger.debug('successauthchk')
             if AuthType == 'Session':
                 currentSession = currentService.currentSession
                 headers.update({"X-Auth-Token": currentSession.getSessionKey()})
@@ -240,7 +239,7 @@ class rfService():
         certVal = ChkCertBundle if ChkCert and ChkCertBundle not in [None, ""] else ChkCert
 
         # rs-assertion: must have application/json or application/xml
-        traverseLogger.debug('callingResourceURI {}with authtype {} and ssl {}: {} {}'.format(
+        my_logger.debug('callingResourceURI {}with authtype {} and ssl {}: {} {}'.format(
             'out of service ' if not inService else '', AuthType, UseSSL, URILink, headers))
         response = None
         try:
@@ -250,36 +249,36 @@ class rfService():
             expCode = [200]
             elapsed = response.elapsed.total_seconds()
             statusCode = response.status_code
-            traverseLogger.debug('{}, {}, {},\nTIME ELAPSED: {}'.format(statusCode, expCode, response.headers, elapsed))
+            my_logger.debug('{}, {}, {},\nTIME ELAPSED: {}'.format(statusCode, expCode, response.headers, elapsed))
             if statusCode in expCode:
                 contenttype = response.headers.get('content-type')
                 if contenttype is None:
-                    traverseLogger.error("Content-type not found in header: {}".format(URILink))
+                    my_logger.error("Missing ContentType Error: Content-type not found in header: {}".format(URILink))
                     contenttype = ''
                 if 'application/json' in contenttype:
-                    traverseLogger.debug("This is a JSON response")
+                    my_logger.debug("This is a JSON response")
                     decoded = response.json(object_pairs_hook=OrderedDict)
                     # navigate fragment
                     decoded = navigateJsonFragment(decoded, URILink)
                     if decoded is None:
-                        traverseLogger.error("The JSON pointer in the fragment of this URI is not constructed properly: {}".format(URILink))
+                        my_logger.error("JSON Pointer Error: The JSON pointer in the fragment of this URI is not constructed properly: {}".format(URILink))
                 elif 'application/xml' in contenttype:
                     decoded = response.text
                 elif 'text/xml' in contenttype:
                     # non-service schemas can use "text/xml" Content-Type
                     if inService:
-                        traverseLogger.warning("Incorrect content type 'text/xml' for file within service {}".format(URILink))
+                        my_logger.warning("Response Content-Type :Warning: Incorrect content type 'text/xml' for file within service {}".format(URILink))
                     decoded = response.text
                 else:
-                    traverseLogger.error("This URI did NOT return XML or Json contenttype, is this not a Redfish resource (is this redirected?): {}".format(URILink))
+                    my_logger.error("Redfish Response Error: {} did NOT return XML or Json contenttype, is this not a Redfish resource (is this redirected?)".format(URILink))
                     decoded = None
                     if isXML:
-                        traverseLogger.info('Attempting to interpret as XML')
+                        my_logger.info('Attempting to interpret as XML')
                         decoded = response.text
                     else:
                         try:
                             json.loads(response.text)
-                            traverseLogger.info('Attempting to interpret as JSON')
+                            my_logger.info('Attempting to interpret as JSON')
                             decoded = response.json(object_pairs_hook=OrderedDict)
                         except ValueError:
                             pass
@@ -298,24 +297,24 @@ class rfService():
                 return False, None, statusCode, elapsed, response
 
         except requests.exceptions.SSLError as e:
-            traverseLogger.error("SSLError on {}: {}".format(URILink, repr(e)))
-            traverseLogger.debug("output: ", exc_info=True)
+            my_logger.warning("SSLError on {}: {}".format(URILink, repr(e)))
+            my_logger.debug("output: ", exc_info=True)
         except requests.exceptions.ConnectionError as e:
-            traverseLogger.error("ConnectionError on {}: {}".format(URILink, repr(e)))
-            traverseLogger.debug("output: ", exc_info=True)
+            my_logger.warning("ConnectionError on {}: {}".format(URILink, repr(e)))
+            my_logger.debug("output: ", exc_info=True)
         except requests.exceptions.Timeout as e:
-            traverseLogger.error("Request has timed out ({}s) on resource {}".format(timeout, URILink))
-            traverseLogger.debug("output: ", exc_info=True)
+            my_logger.warning("Request has timed out ({}s) on resource {}".format(timeout, URILink))
+            my_logger.debug("output: ", exc_info=True)
         except requests.exceptions.RequestException as e:
-            traverseLogger.error("Request has encounted a problem when getting resource {}: {}".format(URILink, repr(e)))
-            traverseLogger.debug("output: ", exc_info=True)
+            my_logger.warning("Request has encounted a problem when getting resource {}: {}".format(URILink, repr(e)))
+            my_logger.debug("output: ", exc_info=True)
         except AuthenticationError as e:
             raise e  # re-raise exception
         except Exception as e:
-            traverseLogger.error("A problem when getting resource {} has occurred: {}".format(URILink, repr(e)))
-            traverseLogger.debug("output: ", exc_info=True)
+            my_logger.warning("A problem when getting resource {} has occurred: {}".format(URILink, repr(e)))
+            my_logger.debug("output: ", exc_info=True)
             if response and response.text:
-                traverseLogger.debug("payload: {}".format(response.text))
+                my_logger.debug("payload: {}".format(response.text))
 
         if payload is not None:
             return True, payload, -1, 0, response
@@ -324,7 +323,7 @@ class rfService():
 
 def callResourceURI(URILink):
     if currentService is None:
-        traverseLogger.warning("The current service is not setup!  Program must configure the service before contacting URIs")
+        my_logger.warning("Service Setup Warning: The current service is not setup!  Program must configure the service before contacting URIs")
         raise RuntimeError
     else:
         return currentService.callResourceURI(URILink)
@@ -337,9 +336,9 @@ def createResourceObject(name, uri, jsondata=None, typename=None, context=None, 
 
     if jsondata is None and not isComplex:
         success, jsondata, status, response_time, response = callResourceURI(uri)
-        traverseLogger.debug('{}, {}, {}'.format(success, jsondata, status))
+        my_logger.debug('{}, {}, {}'.format(success, jsondata, status))
         if not success:
-            my_logger.error('{}:  URI could not be acquired: {}'.format(uri, status))
+            my_logger.error('Request Error: URI {} could not be acquired ({})'.format(uri, status))
             return None, status
     else:
         success, jsondata, status, response_time, response = True, jsondata, -1, 0, None
@@ -368,8 +367,6 @@ class ResourceObj:
         self.headers = headers
         self.status = -1
         self.isRegistry = False
-        self.errorIndex = {
-        }
 
         oem = config.get('oemcheck', True)
         acquiredtype = typename if forceType else jsondata.get('@odata.type', typename)
@@ -377,25 +374,23 @@ class ResourceObj:
         # Check if we provide a valid json
         self.jsondata = jsondata
 
-        traverseLogger.debug("payload: {}".format(json.dumps(self.jsondata, indent=4, sort_keys=True)))
+        my_logger.debug("payload: {}".format(json.dumps(self.jsondata, indent=4, sort_keys=True)))
 
         if not isinstance(self.jsondata, dict):
-            traverseLogger.error("Resource no longer a dictionary...")
+            my_logger.error("Resource Value Error: Json Data was not a dictionary")
             raise ValueError('This Resource is no longer a Dictionary')
 
         # Check for @odata.id (todo: regex)
         odata_id = self.jsondata.get('@odata.id')
         if odata_id is None and not isComplex:
             if self.isRegistry:
-                traverseLogger.debug('{}: @odata.id missing, but not required for Registry resource'
-                                     .format(self.uri))
+                my_logger.debug('{}: @odata.id missing, but not required for Registry resource'.format(self.uri))
             else:
-                traverseLogger.error('{}: Json does not contain @odata.id'.format(self.uri))
+                my_logger.error('Missing Odata.Id Error: {} does not contain @odata.id'.format(self.uri))
 
         # Get our real type (check for version)
         if acquiredtype is None:
-            traverseLogger.error(
-                '{}:  Json does not contain @odata.type or NavType'.format(uri))
+            my_logger.error('Missing Type Error: {} does not contain @odata.type or NavType'.format(uri))
             raise ValueError
         if acquiredtype is not typename and isComplex:
             context = None
@@ -415,12 +410,12 @@ class ResourceObj:
                 context = createContext(acquiredtype)
                 if self.isRegistry:
                     # If this is a Registry resource, @odata.context is not required; do our best to construct one
-                    traverseLogger.debug('{}: @odata.context missing from Registry resource; constructed context {}'
+                    my_logger.debug('{}: @odata.context missing from Registry resource; constructed context {}'
                                          .format(acquiredtype, context))
                 elif isComplex:
                     pass
                 else:
-                    traverseLogger.debug('{}:  Json does not contain @odata.context'.format(uri))
+                    my_logger.debug('{}:  Json does not contain @odata.context'.format(uri))
 
         self.context = context
 
@@ -447,20 +442,20 @@ class ResourceObj:
                 paramPass = re.match(
                     '(\/.*)+(#([a-zA-Z0-9_.-]*\.)+[a-zA-Z0-9_.-]*)?', decoded[key]) is not None
                 if not paramPass:
-                    traverseLogger.error("{} {}: Expected format is /path/to/uri, but received: {}".format(uri, key, decoded[key]))
+                    my_logger.error("Payload Conformance Error: {} {}, Expected format is /path/to/uri, but received: {}".format(uri, key, decoded[key]))
                 else:
                     if decoded[key] != uri:
-                        traverseLogger.warning("{} {}: Expected @odata.id to match URI link {}".format(uri, key, decoded[key]))
+                        my_logger.warning("Payload Conformance Error: {} {}, Expected @odata.id to match URI link {}".format(uri, key, decoded[key]))
             elif key == '@odata.count':
                 paramPass = isinstance(decoded[key], int)
                 if not paramPass:
-                    traverseLogger.error("{} {}: Expected an integer, but received: {}".format(uri, key, decoded[key]))
+                    my_logger.error("Payload Conformance Error: {} {}, Expected an integer, but received: {}".format(uri, key, decoded[key]))
             elif key == '@odata.context':
                 paramPass = isinstance(decoded[key], str)
                 paramPass = re.match(
                     '/redfish/v1/\$metadata#([a-zA-Z0-9_.-]*\.)[a-zA-Z0-9_.-]*', decoded[key]) is not None
                 if not paramPass:
-                    traverseLogger.warning("{} {}: Expected format is /redfish/v1/$metadata#ResourceType, but received: {}".format(uri, key, decoded[key]))
+                    my_logger.warning("Payload Conformance Error: {} {}, Expected format is /redfish/v1/$metadata#ResourceType, but received: {}".format(uri, key, decoded[key]))
                     messages[key] = (decoded[key], 'odata',
                                     'Exists',
                                     'WARN')
@@ -470,12 +465,10 @@ class ResourceObj:
                 paramPass = re.match(
                     '#([a-zA-Z0-9_.-]*\.)+[a-zA-Z0-9_.-]*', decoded[key]) is not None
                 if not paramPass:
-                    traverseLogger.error("{} {}: Expected format is #Namespace.Type, but received: {}".format(uri, key, decoded[key]))
+                    my_logger.error("Payload Conformance Error: {} {}, Expected format is #Namespace.Type, but received: {}".format(uri, key, decoded[key]))
             else:
                 paramPass = True
 
             success = success and paramPass
 
-            messages[key] = (decoded[key], 'odata',
-                            'Exists',
-                            'PASS' if paramPass else 'FAIL')
+            messages[key] = (decoded[key], 'odata', 'Exists', 'PASS' if paramPass else 'FAIL')

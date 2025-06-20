@@ -43,7 +43,6 @@ def compareMinVersion(version, min_version):
     # use array comparison, which compares each sequential number
     return min_split < payload_split
 
-
 def navigateJsonFragment(decoded, URILink):
     if '#' in URILink:
         URIfragless, frag = tuple(URILink.rsplit('#', 1))
@@ -55,14 +54,14 @@ def navigateJsonFragment(decoded, URILink):
                 decoded = decoded.get(item)
             elif isinstance(decoded, list):
                 if not item.isdigit():
-                    my_logger.error("This URI ({}) is accessing an array, but this is not an index: {}".format(URILink, item))
+                    my_logger.error("URI Destination Error: This URI ({}) is accessing an array, but this is not an index: {}".format(URILink, item))
                     return None
                 if int(item) >= len(decoded):
-                    my_logger.error("This URI ({}) is accessing an array, but the index is too large for an array of size {}: {}".format(URILink, len(decoded), item))
+                    my_logger.error("URI Destination Error: This URI ({}) is accessing an array, but the index is too large for an array of size {}: {}".format(URILink, len(decoded), item))
                     return None
                 decoded = decoded[int(item)]
             else:
-                my_logger.error("This URI ({}) has resolved to an invalid object that is neither an array or dictionary".format(URILink))
+                my_logger.error("URI Destination Error: This URI ({}) has resolved to an invalid object that is neither an array or dictionary".format(URILink))
                 return None
     return decoded
 

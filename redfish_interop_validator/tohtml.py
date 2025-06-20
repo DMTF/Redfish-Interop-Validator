@@ -4,18 +4,26 @@
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
 
-if __name__ != '__main__':
-    from redfish_interop_validator.redfish import getNamespace, getType
-else:
+from types import SimpleNamespace
+from collections import Counter
+import json
+import re
+from redfish_interop_validator.helper import getType
+import redfish_interop_validator.RedfishLogo as logo
+from redfish_interop_validator.logger import LOG_ENTRY, Level
+from redfish_interop_validator.interop import testResultEnum
+
+if __name__ == '__main__':
     import argparse
     from bs4 import BeautifulSoup
-    import os, csv
-import redfish_interop_validator.RedfishLogo as logo
-import logging
-from types import SimpleNamespace
+    import os
+    import csv
 
-my_logger = logging.getLogger()
-my_logger.setLevel(logging.DEBUG)
+
+# hack in tagnames into module namespace
+tag = SimpleNamespace(**{tagName: lambda string, attr=None, tag=tagName: wrapTag(string, tag=tag, attr=attr)\
+    for tagName in ['tr', 'td', 'th', 'div', 'b', 'table', 'body', 'head', 'summary']})
+
 
 def wrapTag(string, tag='div', attr=None):
     string = str(string)
@@ -23,10 +31,6 @@ def wrapTag(string, tag='div', attr=None):
     if attr is not None:
         ltag = '<{} {}>'.format(tag, attr)
     return ltag + string + rtag
-
-# hack in tagnames into module namespace
-tag = SimpleNamespace(**{tagName: lambda string, attr=None, tag=tagName: wrapTag(string, tag=tag, attr=attr)\
-    for tagName in ['tr', 'td', 'th', 'div', 'b', 'table', 'body', 'head', 'summary']})
 
 
 def infoBlock(strings, split='<br/>', ffunc=None, sort=True):
@@ -64,7 +68,7 @@ def applySuccessColor(num, entry):
 
 
 def applyInfoSuccessColor(num, entry):
-    if 'fail' in entry or 'exception' in entry:
+    if any(x in entry for x in ['fail', 'exception', 'error', 'problem', 'err']):
         style = 'class="fail"'
     elif 'warn' in entry:
         style = 'class="warn"'
@@ -73,8 +77,9 @@ def applyInfoSuccessColor(num, entry):
     return tag.div(entry, attr=style)
 
 
-def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
+def renderHtml(results, tool_version, startTick, nowTick, service):
     # Render html
+    config = service.config
     config_str = ', '.join(sorted(list(config.keys() - set(['systeminfo', 'targetip', 'password', 'description']))))
     sysDescription, ConfigURI = (config['description'], config['ip'])
     logpath = config['logdir']
@@ -83,25 +88,26 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
     htmlPage = ''
     htmlStrTop = '<head><title>Conformance Test Summary</title>\
             <style>\
+            .pass {background-color:#99EE99}\
             .column {\
                 float: left;\
-                width: 45%;\
+                width: 40%;\
             }\
-            .pass {background-color:#99EE99}\
             .fail {background-color:#EE9999}\
             .warn {background-color:#EEEE99}\
             .bluebg {background-color:#BDD6EE}\
             .button {padding: 12px; display: inline-block}\
             .center {text-align:center;}\
-            .log {text-align:left; white-space:pre-wrap; word-wrap:break-word; font-size:smaller}\
+            .log {text-align:left; white-space:pre-wrap; word-wrap:break-word; font-size:smaller; padding: 6px}\
             .title {background-color:#DDDDDD; border: 1pt solid; font-height: 30px; padding: 8px}\
             .titlesub {padding: 8px}\
             .titlerow {border: 2pt solid}\
             .results {transition: visibility 0s, opacity 0.5s linear; display: none; opacity: 0}\
+            .payload {transition: visibility 0s, opacity 0.5s linear; display: none; opacity: 0}\
             .resultsShow {display: block; opacity: 1}\
             body {background-color:lightgrey; border: 1pt solid; text-align:center; margin-left:auto; margin-right:auto}\
             th {text-align:center; background-color:beige; border: 1pt solid}\
-            td {text-align:left; background-color:white; border: 1pt solid; word-wrap:break-word;}\
+            td {text-align:left; background-color:white; border: 1pt solid; word-wrap:break-word; overflow:hidden;}\
             table {width:90%; margin: 0px auto; table-layout:fixed;}\
             .titletable {width:100%}\
             </style>\
@@ -124,55 +130,76 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
 
     htmlStrBodyHeader += tag.tr(tag.th(infoBlock(infos)))
 
+    htmlStrBodyHeader += tag.tr(tag.th('Test Summary', 'class="bluebg titlerow"'))
     infos = {'System': ConfigURI, 'Description': sysDescription}
+    infos['Target'] = ", ".join(service.config['payload']) if service.config['payload'] else 'Complete System Test'
     htmlStrBodyHeader += tag.tr(tag.th(infoBlock(infos)))
 
     infos = {'Profile': config['profile'], 'Schema': config['schema']}
     htmlStrBodyHeader += tag.tr(tag.th(infoBlock(infos)))
 
-    infos = {x: config[x] for x in config if x not in ['systeminfo', 'targetip', 'password', 'description', 'profile', 'schema']}
-    block = tag.tr(tag.th(infoBlock(infos, '|||')))
-    for num, block in enumerate(block.split('|||'), 1):
-        sep = '<br/>' if num % 4 == 0 else ',&ensp;'
-        sep = '' if num == len(infos) else sep
-        htmlStrBodyHeader += block + sep
+    summary = Counter()
 
+    for k, my_result in results.items():
+        for msg in my_result['messages']:
+            if msg.result in [testResultEnum.PASS]:
+                summary['pass'] += 1
+            if msg.result in [testResultEnum.NOT_TESTED]:
+                summary['not_tested'] += 1
+        for record in my_result['records']:
+            if record.levelname.lower() in ['error', 'warning']:
+                summary[record.levelname.lower()] += 1
+            if record.result:
+                summary[record.result] += 1
+
+    important_block = tag.div('<b>Results Summary</b>')
+    important_block += tag.div(", ".join([
+        'Pass: {}'.format(summary['pass']),
+        'Fail: {}'.format(summary['error']),
+        'Warning: {}'.format(summary['warning']),
+        'Not Tested: {}'.format(summary['not_tested']),
+        ]))
+    htmlStrBodyHeader += tag.tr(tag.td(important_block, 'class="center"'))
+
+    infos = {x: config[x] for x in config if x not in ['systeminfo', 'ip', 'password', 'description']}
     infos_left, infos_right = dict(), dict()
-    for key in sorted(finalCounts.keys()):
-        if finalCounts.get(key) == 0:
-            continue
+    for key in sorted(infos.keys()):
         if len(infos_left) <= len(infos_right):
-            infos_left[key] = finalCounts[key]
+            infos_left[key] = infos[key]
         else:
-            infos_right[key] = finalCounts[key]
+            infos_right[key] = infos[key]
 
-    htmlStrCounts = (tag.div(infoBlock(infos_left), 'class=\'column log\'') + tag.div(infoBlock(infos_right), 'class=\'column log\''))
+    htmlButtons = '<div class="button warn" onClick="arr = document.getElementsByClassName(\'results\'); for (var i = 0; i < arr.length; i++){arr[i].classList.add(\'resultsShow\')};">Expand All</div>'
+    htmlButtons += '<div class="button fail" onClick="arr = document.getElementsByClassName(\'results\'); for (var i = 0; i < arr.length; i++){arr[i].classList.remove(\'resultsShow\')};">Collapse All</div>'
+    htmlButtons += tag.div('Show Configuration', attr='class="button pass" onClick="document.getElementById(\'resNumConfig\').classList.toggle(\'resultsShow\');"')
 
-    htmlStrBodyHeader += tag.tr(tag.td(htmlStrCounts))
+    htmlStrBodyHeader += tag.tr(tag.th('Full Test Report', 'class="titlerow bluebg"'))
+    htmlStrBodyHeader += tag.tr(tag.th(htmlButtons))
 
-    htmlStrTotal = '</div><div class="button warn" onClick="arr = document.getElementsByClassName(\'results\'); for (var i = 0; i < arr.length; i++){arr[i].className = \'results resultsShow\'};">Expand All</div>'
-    htmlStrTotal += '</div><div class="button fail" onClick="arr = document.getElementsByClassName(\'results\'); for (var i = 0; i < arr.length; i++){arr[i].className = \'results\'};">Collapse All</div>'
+    block = tag.td(tag.div(infoBlock(infos_left), 'class=\'column log\'') \
+            + tag.div(infoBlock(infos_right), 'class=\'column log\''), 
+            'id=\'resNumConfig\' class=\'results\'')
 
-    htmlStrBodyHeader += tag.tr(tag.td(htmlStrTotal))
+    htmlStrBodyHeader += tag.tr(block)
 
     for cnt, item in enumerate(results):
         entry = []
-        val = results[item]
-        response_time = val.get('rtime')
-        if isinstance(response_time, float) and response_time >= 0:
-            rtime = '(response time: {})'.format(response_time)
-        else:
+        my_result = results[item]
+        response_time = my_result.get('rtime')
+        rtime = '(response time: {})'.format(my_result['rtime'])
+        rcode = my_result['rcode']
+        if rcode == -1 or my_result['rtime'] == 0:
             rtime = ''
 
-        if len(val['messages']) == 0 and len(val['errors']) == 0 and len(val['warns']) == 0:
+        if len(my_result['messages']) == 0 and len(my_result['records']) == 0:
             continue
 
         # uri block
-        prop_type, type_name = val['fulltype'], ''
+        prop_type, type_name = my_result['fulltype'], ''
         if prop_type is not None:
             type_name = getType(prop_type)
 
-        infos_a = [str(val.get(x)) for x in ['uri', 'samplemapped'] if val.get(x) not in ['', None]]
+        infos_a = [str(my_result.get(x)) for x in ['uri', 'samplemapped'] if my_result.get(x) not in ['', None]]
         if rtime != '':
             infos_a.append(rtime)
         if type_name:
@@ -181,22 +208,42 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
         entry.append(uriTag)
 
         # info block
-        infos_b = [str(val.get(x)) for x in ['uri'] if val.get(x) not in ['',None]]
+        infos_b = [str(my_result.get(x)) for x in ['uri'] if my_result.get(x) not in ['',None]]
         infos_b.append(rtime)
         infos_b.append(tag.div('Show Results', attr='class="button warn" onClick="document.getElementById(\'resNum{}\').classList.toggle(\'resultsShow\');"'.format(cnt)))
         buttonTag = tag.td(infoBlock(infos_b), 'class="title" style="width:30%"')
 
-        infos_content = [str(val.get(x)) for x in ['context', 'origin', 'fulltype']]
+        infos_content = [str(my_result.get(x)) for x in ['context', 'origin', 'fulltype']]
         infos_c = {y: x for x,y in zip(infos_content, ['Context', 'File Origin', 'Resource Type'])}
         infosTag = tag.td(infoBlock(infos_c), 'class="titlesub log" style="width:40%"')
 
-        success = val['success']
+        success = my_result['success']
         if success:
-            getTag = tag.td('GET Success', 'class="pass"')
+            if rcode != -1:
+                getTag = tag.td('GET Success HTTP Code ({})'.format(rcode), 'class="pass"')
+            else:
+                getTag = tag.td('GET Success', 'class="pass"')
         else:
-            getTag = tag.td('GET Inaccessible', 'class="warn"')
+            getTag = tag.td('GET Inaccessible HTTP Code ({})'.format(rcode), 'class="warn"')
 
-        countsTag = tag.td(infoBlock(val['counts'], split='', ffunc=applyInfoSuccessColor), 'class="log"')
+        if rcode == None:
+            getTag = tag.td('-', 'class="pass"')
+
+        my_summary = Counter()
+
+        for msg in my_result['messages']:
+            if msg.result in [testResultEnum.PASS]:
+                my_summary['pass'] += 1
+            if msg.result in [testResultEnum.NOT_TESTED]:
+                my_summary['not_tested'] += 1
+
+        for record in my_result['records']:
+            if record.levelname.lower() in ['error', 'warning']:
+                my_summary[record.levelname.lower()] += 1
+            if record.result:
+                my_summary[record.result] += 1
+
+        countsTag = tag.td(infoBlock(my_summary, split='', ffunc=applyInfoSuccessColor), 'class="log"')
 
         rhead = ''.join([buttonTag, infosTag, getTag, countsTag])
         for x in [('tr',), ('table', 'class=titletable'), ('td', 'class=titlerow'), ('tr')]:
@@ -205,27 +252,27 @@ def renderHtml(results, finalCounts, tool_version, startTick, nowTick, config):
 
         # actual table
         rows = [(str(i.name),
-            str(i.entry), str(i.expected), str(i.actual), str(i.success.value)) for i in val['messages']]
-        titles = ['Property Name', 'Value', 'Expected', 'Actual', 'Result']
+            str(i.entry), str(i.expected), str(i.actual), str(i.result.value)) for i in my_result['messages']]
+        titles = ['Name', 'Value', 'Expected', 'Actual', 'Result']
         widths = ['15','30','30','10','15']
         tableHeader = tableBlock(rows, titles, widths, ffunc=applySuccessColor)
 
         #    lets wrap table and errors and warns into one single column table
         tableHeader = tag.tr(tag.td((tableHeader)))
 
+        infos_a = [str(my_result.get(x)) for x in ['uri'] if my_result.get(x) not in ['',None]]
+        infos_a.append(rtime)
+
+        errors = [x for x in my_result['records'] if x.levelno == Level.ERROR]
+        warns = [x for x in my_result['records'] if x.levelno == Level.WARN]
+
         # warns and errors
-        errors = val['errors']
-        if len(errors) == 0:
-            errors = 'No errors'
-        infos = errors.split('\n')
-        errorTags = tag.tr(tag.td(infoBlock(infos), 'class="fail log"'))
+        errors = ['No errors'] if len(errors) == 0 else [x.msg for x in errors]
+        errorTags = tag.tr(tag.td(infoBlock(errors), 'class="fail log"'))
 
-        warns = val['warns']
-        if len(warns) == 0:
-            warns = 'No warns'
-        infos = warns.split('\n')
-        warnTags = tag.tr(tag.td(infoBlock(infos), 'class="warn log"'))
-
+        warns = ['No warns'] if len(warns) == 0 else [x.msg for x in warns]
+        warnTags = tag.tr(tag.td(infoBlock(warns), 'class="warn log"'))
+    
         tableHeader += errorTags
         tableHeader += warnTags
         tableHeader = tag.table(tableHeader)
