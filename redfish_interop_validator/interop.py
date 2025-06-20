@@ -5,16 +5,15 @@
 
 import re
 from enum import Enum
-from collections import Counter
 
 import logging
-from redfish_interop_validator.redfish import getNamespaceUnversioned, getType, getNamespace
+from redfish_interop_validator.helper import getNamespaceUnversioned, getType, getNamespace
 from redfish_interop_validator.traverseInterop import callResourceURI
-my_logger = logging.getLogger()
+
+my_logger = logging.getLogger('rsv')
 my_logger.setLevel(logging.DEBUG)
 
 config = {'WarnRecommended': False, 'WriteCheck': False}
-
 
 class testResultEnum(Enum):
     FAIL = 'FAIL'
@@ -30,16 +29,16 @@ REDFISH_ABSENT = 'n/a'
 
 
 class msgInterop:
-    def __init__(self, name, profile_entry, expected, actual, success):
+    def __init__(self, name, profile_entry, expected, actual, result):
         self.name = name
         self.entry = profile_entry
         self.expected = expected
         self.actual = actual
         self.ignore = False
-        if isinstance(success, bool):
-            self.success = testResultEnum.PASS if success else testResultEnum.FAIL
+        if isinstance(result, bool):
+            self.result = testResultEnum.PASS if result else testResultEnum.FAIL
         else:
-            self.success = success
+            self.result = result
         self.parent_results = None
 
 
@@ -71,31 +70,31 @@ def validateComparisonAnyOfAllOf(profile_entry, property_path="Unspecified"):
             # PASS if value contributes
             for msg in my_msgs:
                 msg.ignore = False
-                msg.success = testResultEnum.OK
+                msg.result = testResultEnum.OK
                 msg.expected = '{} {} ({})'.format(msg.expected, expected_values, "Across All Resources")
 
             if my_compare == 'AnyOf':
                 if any([x in my_values for x in expected_values]):
                     my_logger.info('  PASS')
-                    top_msg.success = testResultEnum.PASS
+                    top_msg.result = testResultEnum.PASS
                     for msg in my_msgs:
                         if msg.actual in expected_values:
-                            msg.success = testResultEnum.PASS
+                            msg.result = testResultEnum.PASS
                 else:
                     my_logger.info('  FAIL')
 
             if my_compare == 'AllOf':
                 if all([x in my_values for x in expected_values]):
                     my_logger.info('  PASS')
-                    top_msg.success = testResultEnum.PASS
+                    top_msg.result = testResultEnum.PASS
                     for msg in my_msgs:
                         if msg.actual in expected_values:
-                            msg.success = testResultEnum.PASS
+                            msg.result = testResultEnum.PASS
                 else:
                     my_logger.info('  FAIL')
                     for msg in my_msgs:
                         if msg.actual in expected_values:
-                            msg.success = testResultEnum.PASS
+                            msg.result = testResultEnum.PASS
 
         if property_profile.get('PropertyRequirements'):
             new_msgs = validateComparisonAnyOfAllOf(property_profile.get('PropertyRequirements'), '.'.join([property_path, key]))
@@ -130,7 +129,7 @@ def validateRequirementResource(profile_entry, rf_payload_item=None, parent_obje
     if profile_entry == "Recommended" and not resource_exists:
         my_logger.info('\tItem is recommended but does not exist')
         if config['WarnRecommended']:
-            my_logger.warning('\tItem is recommended but does not exist, escalating to WARN')
+            my_logger.warning('Recommended Resource Warning: Item is recommended but does not exist, escalating to WARN')
             paramPass = testResultEnum.WARN
         else:
             paramPass = testResultEnum.NA
@@ -179,7 +178,7 @@ def validateRequirement(profile_entry, rf_payload_item=None, conditional=False, 
     if profile_entry == "Recommended" and not prop_exists:
         my_logger.info('\tItem is recommended but does not exist')
         if config['WarnRecommended']:
-            my_logger.warning('\tItem is recommended but does not exist, escalating to WARN')
+            my_logger.warning('Recommended Item Warning: Item is recommended but does not exist, escalating to WARN')
             paramPass = testResultEnum.WARN
         else:
             paramPass = testResultEnum.NA
@@ -193,7 +192,7 @@ def isPropertyValid(profilePropName, rObj):
     for prop in rObj.getResourceProperties():
         if profilePropName == prop.propChild:
             return None, True
-    my_logger.error('{} - Does not exist in ResourceType Schema, please consult profile provided'.format(profilePropName))
+    my_logger.error('Resource Schema Error: {} - Does not exist in ResourceType Schema, please consult profile provided'.format(profilePropName))
     return msgInterop('PropertyValidity', profilePropName, 'Should Exist', 'in ResourceType Schema', False), False
 
 
@@ -258,22 +257,22 @@ def validateWriteRequirement(profile_entry, parent_object_payload, resource_head
         writeable = 'PATCH' in resource_headers['Allow']
         if not writeable:
             if profile_entry == "Mandatory":
-                my_logger.error('PATCH in Allow header not available, property is not writeable ' + str(profile_entry))
+                my_logger.error('Allow Header Error: PATCH in Allow header not available, property is not writeable ' + str(profile_entry))
             return msgInterop('WriteRequirement', profile_entry, expected_str, 'PATCH not supported', result_not_supported), True
     else:
-        my_logger.warning('Unable to test writeable property, no Allow header available ' + str(profile_entry))
+        my_logger.warning('Allow Header Warning: Unable to test writeable property, no Allow header available ' + str(profile_entry))
         return msgInterop('WriteRequirement', profile_entry, expected_str, 'No Allow response header', testResultEnum.NOT_TESTED), True
     
     redfish_payload, _ = parent_object_payload
 
     # Get Writeable Properties
     if '@Redfish.WriteableProperties' not in redfish_payload:
-        my_logger.warning('Unable to test writeable property, no @Redfish.WriteableProperties available at the property level ' + str(profile_entry))
+        my_logger.warning('WriteableProperties Warning: Unable to test writeable property, no @Redfish.WriteableProperties available at the property level ' + str(profile_entry))
         return msgInterop('WriteRequirement', profile_entry, expected_str, '@Redfish.WriteableProperties not in response', testResultEnum.NOT_TESTED), True
 
     writeable_properties = redfish_payload['@Redfish.WriteableProperties']
     if not isinstance(writeable_properties, list):
-        my_logger.warning('Unable to test writeable property, @Redfish.WriteableProperties is not an array ' + str(profile_entry))
+        my_logger.warning('WriteableProperties Warning: Unable to test writeable property, @Redfish.WriteableProperties is not an array ' + str(profile_entry))
         return msgInterop('WriteRequirement', profile_entry, expected_str, '@Redfish.WriteableProperties not an array', testResultEnum.WARN), True
 
     is_writeable = item_name in writeable_properties
@@ -290,7 +289,7 @@ def checkComparison(val, compareType, target):
     vallist = val if isinstance(val, list) else [val]
     paramPass = False
     if compareType is None:
-        my_logger.error('CompareType not available in payload')
+        my_logger.error('CompareType Profile Error: CompareType not available in profile or missing')
 
     # NOTE: In our current usage, AnyOf and AllOf in this context is only for ConditionalRequirements -> CompareProperty
     # Which checks if a particular property inside of this instance applies
@@ -354,7 +353,7 @@ def checkComparison(val, compareType, target):
                     break
     elif compareType in ["Equal", "NotEqual", "GreaterThan", "GreaterThanOrEqual", "LessThan", "LessThanOrEqual"]:
         if not isinstance(target, list):
-            my_logger.warn('CompareType {} requires a list of values'.format(compareType))
+            my_logger.warning('CompareType Profile Warning: CompareType {} requires a list of values'.format(compareType))
 
     my_logger.debug('\tpass ' + str(paramPass))
     return msgInterop('Comparison', target, compareType, val, paramPass),\
@@ -431,20 +430,20 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
         else:
             comparePropNames = [profile_entry["CompareProperty"]]
         if "CompareType" not in profile_entry:
-            my_logger.error("Invalid Profile - CompareType is required for CompareProperty but not found")
+            my_logger.error("Invalid Profile Error: CompareType is required for CompareProperty but not found")
             raise ValueError('CompareType missing with CompareProperty')
         if "CompareValues" not in profile_entry and profile_entry['CompareType'] not in ['Absent', 'Present']:
-            my_logger.error("Invalid Profile - CompareValues is required for CompareProperty but not found")
+            my_logger.error("Invalid Profile Error: CompareValues is required for CompareProperty but not found")
             raise ValueError('CompareValues missing with CompareProperty')
         if "CompareValues" in profile_entry and profile_entry['CompareType'] in ['Absent', 'Present']:
-            my_logger.warning("Invalid Profile - CompareValues is not required for CompareProperty Absent or Present ")
+            my_logger.warning("Invalid Profile Warning: CompareValues found, but is not required for CompareProperty Absent or Present ")
 
         rf_payload_item, rf_payload = rf_payload_tuple
         while rf_payload is not None and (not isinstance(rf_payload_item, dict) or comparePropNames[0] not in rf_payload_item):
             rf_payload_item, rf_payload = rf_payload
 
         if rf_payload_item is None:
-            my_logger.error('Could not acquire expected CompareProperty {}'.format(comparePropNames[0]))
+            my_logger.error('CompareProperty Error: Could not acquire expected CompareProperty {}, Profile path did not resolve correctly or property does not exist'.format(comparePropNames[0]))
             return False
 
         compareProp = rf_payload_item.get(comparePropNames[0], REDFISH_ABSENT)
@@ -457,7 +456,7 @@ def checkConditionalRequirement(propResourceObj, profile_entry, rf_payload_tuple
         compareType = profile_entry.get("CompareType", profile_entry.get("Comparison"))
         return checkComparison(compareProp, compareType, profile_entry.get("CompareValues", []))[1]
     else:
-        my_logger.error("Invalid Profile - No conditional given")
+        my_logger.error("Invalid Profile Error: No conditional given for Comparison")
         raise ValueError('No conditional given for Comparison')
 
 
@@ -503,7 +502,6 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
     Validate PropertyRequirements
     """
     msgs = []
-    counts = Counter()
 
     # TODO: Change rf_payload_tuple to a more natural implementation (like an object)
     redfish_value, redfish_parent_payload = rf_payload_tuple
@@ -521,11 +519,11 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
                             "Exists" if replacement_property_exists else "DNE", testResultEnum.WARN if replacement_property_exists else testResultEnum.OK)
         msgs.append(new_msg)
         if replacement_property_exists:
-            my_logger.warn('{}: This property replaces deprecated property {}, but does not exist, service should implement {}'.format(item_name, my_path_entry, item_name))
-            return msgs, counts
+            my_logger.warning('Deprecated Property Warning: {} replaces deprecated property {}, but does not exist, service should implement {}'.format(item_name, my_path_entry, item_name))
+            return msgs
         else:
             if profile_entry.get('ReadRequirement', 'Mandatory'):
-                my_logger.error('{}: Replaced property {} does not exist, {} should be implemented'.format(item_name, my_path_entry, item_name))
+                my_logger.error('Deprecated Property Error: {}... replaced property {} does not exist, {} should be implemented'.format(item_name, my_path_entry, item_name))
 
     if "ReplacedByProperty" in profile_entry:
         my_path_entry = profile_entry.get("ReplacedByProperty")
@@ -536,7 +534,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
         msgs.append(new_msg)
         if replacement_property_exists:
             my_logger.info('{}: Replacement property exists, step out of validating'.format(item_name))
-            return msgs, counts
+            return msgs
         else:
             my_logger.info('{}: Replacement property does not exist, continue validating'.format(item_name))
 
@@ -548,9 +546,8 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             try:
                 if checkConditionalRequirement(propResourceObj, item, rf_payload_tuple):
                     my_logger.info("\tCondition DOES apply")
-                    conditionalMsgs, conditionalCounts = validatePropertyRequirement(
+                    conditionalMsgs = validatePropertyRequirement(
                         propResourceObj, item, rf_payload_tuple, item_name)
-                    counts.update(conditionalCounts)
                     for item in conditionalMsgs:
                         item.name = item.name.replace('.', '.Conditional.', 1)
                     msgs.extend(conditionalMsgs)
@@ -558,7 +555,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
                     my_logger.info("\tCondition does not apply")
             except ValueError as e:
                 my_logger.info("\tCondition was skipped due to payload error")
-                counts['errorProfileComparisonError'] += 1
+                # counts['errorProfileComparisonError'] += 1
 
     # If we're working with a list, then consider MinCount, Comparisons, then execute on each item
     # list based comparisons include AnyOf and AllOf
@@ -568,14 +565,13 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msg, success = validateMinCount(redfish_value, profile_entry["MinCount"],
                                 redfish_parent_payload[0].get(item_name.split('.')[-1] + '@odata.count', 0))
             if not success:
-                my_logger.error("MinCount failed")
+                my_logger.error("MinCount Error: Number of elements less than expected")
             msgs.append(msg)
             msg.name = item_name + '.' + msg.name
         cnt = 0
         for item in redfish_value:
-            listmsgs, listcounts = validatePropertyRequirement(
+            listmsgs = validatePropertyRequirement(
                 propResourceObj, profile_entry, (item, redfish_parent_payload), item_name + '#' + str(cnt))
-            counts.update(listcounts)
             msgs.extend(listmsgs)
             cnt += 1
 
@@ -595,7 +591,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msgs.append(msg)
             msg.name = item_name + '.' + msg.name
             if not success:
-                my_logger.error("WriteRequirement failed")
+                my_logger.error("WriteRequirement Error")
 
         if "MinSupportValues" in profile_entry:
             msg, success = validateSupportedValues(
@@ -604,7 +600,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msgs.append(msg)
             msg.name = item_name + '.' + msg.name
             if not success:
-                my_logger.error("MinSupportValues failed")
+                my_logger.error("MinSupportValues Error")
 
         if "Values" in profile_entry:
             # Default to AnyOf
@@ -626,20 +622,19 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
                     profile_entry['_msgs'] = []
                 profile_entry['_msgs'].append(msg)
             elif not success:
-                my_logger.error("Comparison failed")
+                my_logger.error("Comparison Error: Expected {} of {}".format(my_compare, my_values))
 
         if "PropertyRequirements" in profile_entry:
             innerDict = profile_entry["PropertyRequirements"]
             if isinstance(redfish_value, dict):
                 for item in innerDict:
                     my_logger.debug('inside complex ' + item_name + '.' + item)
-                    complexMsgs, complexCounts = validatePropertyRequirement(
+                    complexMsgs = validatePropertyRequirement(
                         propResourceObj, innerDict[item], (redfish_value.get(item, REDFISH_ABSENT), rf_payload_tuple), item)
                     msgs.extend(complexMsgs)
-                    counts.update(complexCounts)
             else:
                 my_logger.info('complex {} is missing or not a dictionary'.format(item_name))
-    return msgs, counts
+    return msgs
 
 
 def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
@@ -648,7 +643,6 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
     """
     rf_payload_item, rf_payload = rf_payload_tuple
     rf_payload_action = None
-    counts = Counter()
     msgs = []
     my_logger.verbose1('actionRequirement \n\tval: ' + str(rf_payload_item if not isinstance(
         rf_payload_item, dict) else 'dict') + ' ' + str(profile_entry))
@@ -661,11 +655,11 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
         msg, success = validateRequirement(action_readrequirement, rf_payload_item)
         msgs.append(msg)
         msg.name = actionname + '.' + msg.name
-        msg.success = testResultEnum.PASS if success else testResultEnum.FAIL
+        msg.result = testResultEnum.PASS if success else testResultEnum.FAIL
     
     propDoesNotExist = (rf_payload_item == REDFISH_ABSENT)
     if propDoesNotExist:
-        return msgs, counts
+        return msgs
 
     if "@Redfish.ActionInfo" in rf_payload_item:
         vallink = rf_payload_item['@Redfish.ActionInfo']
@@ -687,9 +681,9 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
         elif actioninfo_requirement == "Mandatory":
             if rf_payload_action is None:
                 if "@Redfish.ActionInfo" in rf_payload_item:
-                    my_logger.error('Mandatory @Redfish.ActionInfo for {} listed on action but URI get was not successful'.format(actionname))
+                    my_logger.error('ActionInfo Payload Error: Mandatory @Redfish.ActionInfo for {} listed on action but URI get was not successful'.format(actionname))
                 else:
-                    my_logger.error('@Redfish.ActionInfo for {} not listed, but is Mandatory'.format(actionname))
+                    my_logger.error('ActionInfo Payload Error: @Redfish.ActionInfo for {} not listed, but is Mandatory'.format(actionname))
                 msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.FAIL)
             else:
                 msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.PASS)
@@ -697,16 +691,16 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
         elif actioninfo_requirement == "Recommended":
             if rf_payload_action is None:
                 if "@Redfish.ActionInfo" in rf_payload_item:
-                    my_logger.warn('Recommended @Redfish.ActionInfo for {} listed on action but URI get was not successful'.format(actionname))
+                    my_logger.warn('ActionInfo Payload Warning: Recommended @Redfish.ActionInfo for {} listed on action but URI get was not successful'.format(actionname))
                     msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.WARN)
                 else:
-                    my_logger.info('Recommended @Redfish.ActionInfo for {} not listed'.format(actionname))
+                    my_logger.info('ActionInfo Payload Warning: Recommended @Redfish.ActionInfo for {} not listed'.format(actionname))
                     msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.PASS)
             else:
                 msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.PASS)
 
         else:
-            my_logger.warn('Term "ActionInfo" has unknown value {}'.format(actioninfo_requirement))
+            my_logger.warning('ActionInfo Profile Warning: Term "ActionInfo" has unknown value {}'.format(actioninfo_requirement))
             msg = msgInterop('ActionInfo', actioninfo_requirement, '-', '-', testResultEnum.WARN)
         msg.name = actionname + '.' + msg.name
         msgs.append(msg)
@@ -730,7 +724,7 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
             if values_array is None:
                 values_array = rf_payload_item.get(str(param) + '@Redfish.AllowableValues', REDFISH_ABSENT)
             if values_array == REDFISH_ABSENT:
-                my_logger.warning('\tNo such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(param))
+                my_logger.warning('Missing ActionInfo Warning: No such ActionInfo exists for this Action, and no AllowableValues exists.  Cannot validate the following parameters: {}'.format(param))
                 msg = msgInterop('', item, '-', '-', testResultEnum.WARN)
                 msg.name = "{}.{}.{}".format(actionname, param, msg.name)
                 msgs.append(msg)
@@ -748,18 +742,18 @@ def validateActionRequirement(profile_entry, rf_payload_tuple, actionname):
                             item["RecommendedValues"], values_array)
                     msg.name = msg.name.replace('Supported', 'Recommended')
                     if config['WarnRecommended'] and not success:
-                        my_logger.warning('\tRecommended parameters do not all exist, escalating to WARN')
-                        msg.success = testResultEnum.WARN
+                        my_logger.warning('Missing Parameters Warning: Recommended parameters do not all exist, escalating to WARN')
+                        msg.result = testResultEnum.WARN
                     elif not success:
-                        my_logger.warning('\tRecommended parameters do not all exist, but are not Mandatory')
-                        msg.success = testResultEnum.PASS
+                        my_logger.info('Recommended parameters do not all exist, but are not Mandatory')
+                        msg.result = testResultEnum.PASS
 
                     msgs.append(msg)
                     msg.name = "{}.{}.{}".format(actionname, param, msg.name)
     # consider requirement before anything else, what if action
     # if the action doesn't exist, you can't check parameters
     # if it doesn't exist, what should not be checked for action
-    return msgs, counts
+    return msgs
 
 
 URI_ID_REGEX = '\{[A-Za-z0-9]+\}'
@@ -805,7 +799,6 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
     msgs = []
     my_logger.info('### Validating an InteropResource')
     my_logger.debug(str(interop_profile))
-    counts = Counter()
     # rf_payload_tuple provides the chain of dicts containing dicts, needed for CompareProperty
     rf_payload_tuple = (rf_payload, None)
 
@@ -818,7 +811,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
 
             # Check if we have a valid UseCase
             if ('URIs' not in use_case) and ('UseCaseKeyProperty' not in use_case) and (entry_type not in ['AbsentResource'] + list(entry_type_table.keys())):
-                my_logger.error('UseCase does not have URIs or valid UseCase...')
+                my_logger.error('UseCase Profile Error: UseCase does not have URIs or valid UseCase...')
 
             if entry_type == 'AbsentResource':
                 my_status = rf_payload.get('Status')
@@ -876,23 +869,22 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
                 # Remove URIs
                 new_case = {key: val for key, val in use_case.items() if key not in ['URIs']}
 
-                new_msgs, new_counts = validateInteropResource(propResourceObj, new_case, rf_payload)
+                new_msgs = validateInteropResource(propResourceObj, new_case, rf_payload)
 
-                if any([msg.success == testResultEnum.FAIL for msg in new_msgs]):
-                    my_msg.success = testResultEnum.FAIL
+                if any([msg.result == testResultEnum.FAIL for msg in new_msgs]):
+                    my_msg.result = testResultEnum.FAIL
 
                 msgs.extend(new_msgs)
-                counts.update(new_counts)
 
             else:
                 my_logger.info('UseCase {} does not apply'.format(entry_title))
 
-        return msgs, counts
+        return msgs
     if "URIs" in interop_profile:
         # Check if the profile requirements apply to this particular instance
         if not checkInteropURI(propResourceObj, interop_profile['URIs']):
             my_logger.info('Skipping resource; URI is not listed')
-            return msgs, counts
+            return msgs
     if "MinVersion" in interop_profile:
         my_type = propResourceObj.jsondata.get('@odata.type', 'NoType')
         msg, success = validateMinVersion(my_type, interop_profile['MinVersion'])
@@ -902,8 +894,7 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
         for item in innerDict:
             # NOTE: Program no longer performs fuzzy checks for misnamed properties, since there is no schema
             my_logger.info('### Validating PropertyRequirements for {}'.format(item))
-            pmsgs, pcounts = validatePropertyRequirement(propResourceObj, innerDict[item], (rf_payload.get(item, REDFISH_ABSENT), rf_payload_tuple), item)
-            counts.update(pcounts)
+            pmsgs = validatePropertyRequirement(propResourceObj, innerDict[item], (rf_payload.get(item, REDFISH_ABSENT), rf_payload_tuple), item)
             msgs.extend(pmsgs)
     if "ActionRequirements" in interop_profile:
         innerDict = interop_profile["ActionRequirements"]
@@ -913,30 +904,18 @@ def validateInteropResource(propResourceObj, interop_profile, rf_payload):
             my_type = getNamespaceUnversioned(propResourceObj.jsondata.get('@odata.type', 'NoType'))
             actionName = my_type + '.' + item
             if actionName in actionsJson:
-                my_logger.warning('{} should be #{}'.format(actionName, actionName))
+                my_logger.warning('ActionName Payload Warning: {} should be #{}'.format(actionName, actionName))
             else:
                 actionName = '#' + my_type + '.' + item
             
-            amsgs, acounts = validateActionRequirement(innerDict[item], (actionsJson.get(
+            amsgs = validateActionRequirement(innerDict[item], (actionsJson.get(
                 actionName, REDFISH_ABSENT), rf_payloadInnerTuple), actionName)
-            counts.update(acounts)
             msgs.extend(amsgs)
     if "CreateResource" in interop_profile:
         my_logger.info('Skipping CreateResource')
-        pass
     if "DeleteResource" in interop_profile:
         my_logger.info('Skipping DeleteResource')
-        pass
     if "UpdateResource" in interop_profile:
         my_logger.info('Skipping UpdateResource')
-        pass
 
-    for item in [item for item in msgs if not item.ignore]:
-        if item.success == testResultEnum.WARN:
-            counts['warn'] += 1
-        elif item.success == testResultEnum.PASS:
-            counts['pass'] += 1
-        elif item.success == testResultEnum.FAIL:
-            counts['fail.{}'.format(item.name)] += 1
-        counts['totaltests'] += 1
-    return msgs, counts
+    return msgs

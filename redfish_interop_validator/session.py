@@ -29,7 +29,7 @@ class rfSession:
         self.chkCert = False
 
         if logger is None:
-            self.logger = logging.getLogger(__name__)
+            self.logger = logging.getLogger('rsv')
             self.logger.setLevel(logging.DEBUG)
             ch = logging.StreamHandler(sys.stdout)
             ch.setLevel(logging.INFO)
@@ -45,7 +45,7 @@ class rfSession:
         sr = requests.get(self.server + '/redfish/v1/', verify=self.chkCert, headers=commonHeader, proxies=self.proxies)
         success = sr.status_code in [200, 204] and sr.json() is not None
         if not success:
-            self.logger.error('Could not retrieve service root to start Session')
+            self.logger.error('Session Error: Could not retrieve service root to start Session')
             return False
         links = sr.json().get('Links')
         if links is not None:
@@ -56,7 +56,7 @@ class rfSession:
             else:
                 sessionsURI = sessionsObj.get('@odata.id', '/redfish/v1/SessionService/Sessions')
         else:
-            self.logger.error('Could not retrieve service root link to start Session')
+            self.logger.error('Session Error: Could not retrieve service root link to start Session')
             return False
 
         response = requests.post(self.server + sessionsURI, json=payload, verify=self.chkCert,
@@ -82,11 +82,11 @@ class rfSession:
                 self.logger.info('{}'.format(response.text))
             self.logger.info('Headers: {}'.format(response.headers))
             if statusCode in [400, 401]:
-                self.logger.error('Error creating session. Status code "{} {}". Check supplied username and password.'
+                self.logger.error('Session Error: Status code "{} {}". Check supplied username and password.'
                                   .format(statusCode, responses[statusCode]))
                 raise ValueError('Bad Username or Password')
             else:
-                self.logger.error('Error creating session. Status code "{} {}".'
+                self.logger.error('Session Error: Error creating session. Status code "{} {}".'
                                   .format(statusCode, responses[statusCode]))
                 raise ValueError('Bad response from service')
 
@@ -97,10 +97,10 @@ class rfSession:
 
     def getSessionKey(self):
         if not self.started:
-            self.logger.error('This session is not started')
+            self.logger.error('Session Warning: This session is not started')
             return None
         if self.isSessionOld():
-            self.logger.warning('This session is old')
+            self.logger.warning('Session Warning: This session is old')
         self.tick = datetime.now()
         return self.key
 
@@ -111,7 +111,7 @@ class rfSession:
             try:
                 requests.delete(self.loc, verify=self.chkCert, headers=headers, proxies=self.proxies)
             except Exception as e:
-                self.logger.warning('Error deleting current session: {}'.format(e))
+                self.logger.warning('Session Warning: Error deleting current session: {}'.format(e))
         self.started = False
         return True
 

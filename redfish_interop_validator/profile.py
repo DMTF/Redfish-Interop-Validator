@@ -13,7 +13,7 @@ import logging
 from urllib.request import urlopen
 from collections.abc import Mapping
 
-from redfish_interop_validator.redfish import splitVersionString, versionpattern
+from redfish_interop_validator.helper import splitVersionString, versionpattern
 
 my_logger = logging.getLogger()
 my_logger.setLevel(logging.DEBUG)
@@ -141,9 +141,9 @@ def parseProfileInclude(target_name, target_profile_info, directories, online):
                     if my_version == max_version or data is None:
                         data = my_profile
             if min_version > max_version:
-                my_logger.warning('File version smaller than target MinVersion')
+                my_logger.warning('RequiredProfile Version Warning: File version smaller than target MinVersion')
         else:
-            my_logger.error('Could not acquire this profile {} {}'.format(target_name, repo))
+            my_logger.error('RequiredProfile Import Error: Could not acquire this profile from local source or online {} {}'.format(target_name, repo))
             data = None
 
     profile_cache[target_file] = data
@@ -158,7 +158,7 @@ def getProfiles(profile, directories, chain=None, online=False):
     if chain is None:
         chain = []
     if profile_name in chain:
-        my_logger.error('Suspected duplicate/cyclical import error: {} {}'.format(chain, profile_name))
+        my_logger.error('RequiredProfiles Import Error: Suspected duplicate/cyclical import error: {} {}'.format(chain, profile_name))
         return [], []
     chain.append(profile_name)
 
@@ -197,6 +197,6 @@ def getProfiles(profile, directories, chain=None, online=False):
                         dict_merge(inner_object, target_resources[resource_name])
                         required_by_resource.append(profile_data)
                     else:
-                        my_logger.error('Import {} does not have Resource {}'.format(target_name, resource_name))
+                        my_logger.error('RequiredProfiles Import Error: Import {} does not have Resource {}'.format(target_name, resource_name))
 
     return profile_includes, required_by_resource
