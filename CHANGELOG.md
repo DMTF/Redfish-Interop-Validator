@@ -1,5 +1,9 @@
 # Change Log
 
+## [2.3.2] - 2025-08-29
+- Cleaned up error and warning reporting
+- Added test results summary to the top of the results file
+
 ## [2.3.1] - 2025-05-23
 - Updated reporting of AllOf and AnyOf tests to not penalize resources for not contributing to passing criteria
 
