@@ -584,6 +584,8 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
         msg, requirement_success = validateRequirement(requirement_entry, redfish_value, parent_object_tuple=redfish_parent_payload)
         msgs.append(msg)
         msg.name = item_name + '.' + msg.name
+        if not requirement_success:
+            my_logger.error("Read Requirement Error: Property '{}' not found.".format(item_name))
 
         if "WriteRequirement" in profile_entry:
             headers = propResourceObj.headers
@@ -591,7 +593,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msgs.append(msg)
             msg.name = item_name + '.' + msg.name
             if not success:
-                my_logger.error("WriteRequirement Error")
+                my_logger.error("Write Requirement Error: Property '{}' not writable.".format(item_name))
 
         if "MinSupportValues" in profile_entry:
             msg, success = validateSupportedValues(
@@ -600,7 +602,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
             msgs.append(msg)
             msg.name = item_name + '.' + msg.name
             if not success:
-                my_logger.error("MinSupportValues Error")
+                my_logger.error("Supported Values Error: Property '{}' does not support all required values.".format(item_name))
 
         if "Values" in profile_entry:
             # Default to AnyOf
