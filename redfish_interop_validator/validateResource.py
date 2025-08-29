@@ -4,50 +4,16 @@
 
 import logging
 import re
-from collections import Counter
 from io import StringIO
 
 import redfish_interop_validator.traverseInterop as traverseInterop
 import redfish_interop_validator.interop as interop
-from redfish_interop_validator.redfish import getType
+from redfish_interop_validator.helper import getType
 from redfish_interop_validator.interop import REDFISH_ABSENT
+from redfish_interop_validator.logger import record_capture, Level
 
-my_logger = logging.getLogger()
+my_logger = logging.getLogger('rsv')
 my_logger.setLevel(logging.DEBUG)
-
-
-class WarnFilter(logging.Filter):
-    def filter(self, rec):
-        return rec.levelno == logging.WARN
-
-
-fmt = logging.Formatter('%(levelname)s - %(message)s')
-
-def create_logging_capture(this_logger):
-    errorMessages = StringIO()
-    warnMessages = StringIO()
-
-    errh = logging.StreamHandler(errorMessages)
-    errh.setLevel(logging.ERROR)
-    errh.setFormatter(fmt)
-
-    warnh = logging.StreamHandler(warnMessages)
-    warnh.setLevel(logging.WARN)
-    warnh.addFilter(WarnFilter())
-    warnh.setFormatter(fmt)
-
-    this_logger.addHandler(errh)
-    this_logger.addHandler(warnh)
-
-    return errh, warnh
-
-
-def get_my_capture(this_logger, handler):
-    this_logger.removeHandler(handler)
-    strings = handler.stream.getvalue()
-    handler.stream.close()
-    return strings
-
 
 def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchema=None, expectedJson=None, parent=None):
     """
@@ -55,17 +21,14 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
     """
     # rs-assertion: 9.4.1
     # Initial startup here
-    counts = Counter()
     results, messages = {}, []
 
-    ehandler, whandler = create_logging_capture(my_logger)
+    record_capture.flush()
 
     results[uriName] = {'uri': URI,
                         'success': False,
-                        'counts': counts,
                         'messages': messages,
-                        'errors': '',
-                        'warns': '',
+                        'records': [],
                         'rtime': 'n/a',
                         'context': '',
                         'fulltype': '',
@@ -84,7 +47,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         else:
             parentURI = 'MissingParent'
         URI = parentURI + '/Missing URI Link'
-        my_logger.warning('Tool appears to be missing vital URI information, replacing URI w/: {}'.format(URI))
+        my_logger.warning('Missing URI Warning: Tool appears to be missing vital URI information, replacing URI w/: {}'.format(URI))
     # Generate dictionary of property info
     try:
         resource_obj, return_status = traverseInterop.createResourceObject(
@@ -93,11 +56,10 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         results[uriName]['rcode'] = return_status
 
         if not resource_obj:
-            counts['inaccessibleResource'] += 1
-            my_logger.warning('{}:  This resource is inaccessible and cannot be validated or traversed for links.'.format(URI))
-            results[uriName]['warns'] = get_my_capture(my_logger, whandler)
+            my_logger.warning('Bad Resource Error: This {} is inaccessible and cannot be validated or traversed for links.'.format(URI))
+            results[uriName]['records'] = record_capture.flush()
             results[uriName]['payload'] = {}
-            return False, counts, results, None, None
+            return False, results, None, None
         else:
             results[uriName]['payload'] = resource_obj.jsondata
 
@@ -105,13 +67,10 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         raise  # re-raise exception
     except Exception as e:
         my_logger.debug('Exception caught while creating ResourceObj', exc_info=1)
-        my_logger.error('Unable to gather property info for URI {}: {}'
-                        .format(URI, repr(e)))
-        counts['exceptionResource'] += 1
-        results[uriName]['warns'], results[uriName]['errors'] = get_my_capture(my_logger, whandler), get_my_capture(my_logger, ehandler)
-        return False, counts, results, None, None
+        my_logger.error('Exception Resource Error: Unable to gather property info for URI {}: {}'.format(URI, repr(e)))
+        results[uriName]['records'] = record_capture.flush()
+        return False, results, None, None
 
-    counts['passGet'] += 1
     results[uriName]['success'] = True
 
     # Verify odata type
@@ -129,7 +88,7 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         my_logger.verbose1('Visited {}, type {}'.format(URI, SchemaType))
         # Get all links available
         links, limited_links = getURIsInProperty(jsondata, uriName, oemcheck, collection_limit)
-        return True, counts, results, (links, limited_links), resource_obj
+        return True, results, (links, limited_links), resource_obj
     
     if '_count' not in profile_resources[SchemaType]:
         profile_resources[SchemaType]['_count'] = 0
@@ -141,11 +100,9 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
         if parent is not None:
             payload_resolve = traverseInterop.navigateJsonFragment(parent.jsondata, URI)
             if payload_resolve is None:
-                my_logger.error('@odata.id of ReferenceableMember does not contain a valid JSON pointer for this payload: {}'.format(odata_id))
-                counts['badOdataIdResolution'] += 1
+                my_logger.error('Referenceable Member Error: @odata.id of ReferenceableMember does not contain a valid JSON pointer for this payload: {}'.format(odata_id))
             elif payload_resolve != resource_obj.jsondata:
-                my_logger.error('@odata.id of ReferenceableMember does not point to the correct object: {}'.format(odata_id))
-                counts['badOdataIdResolution'] += 1
+                my_logger.error('Referenceable Member Error: @odata.id of ReferenceableMember does not point to the correct object: {}'.format(odata_id))
         else:
             my_logger.warning('No parent found with which to test @odata.id of ReferenceableMember')
 
@@ -167,36 +124,24 @@ def validateSingleURI(URI, profile, uriName='', expectedType=None, expectedSchem
 
     profile_resources = profile_resources.get(SchemaType)
     try:
-        propMessages, propCounts = interop.validateInteropResource(resource_obj, profile_resources, jsondata)
+        propMessages = interop.validateInteropResource(resource_obj, profile_resources, jsondata)
         messages.extend(propMessages)
-        counts.update(propCounts)
-        my_logger.info('{} of {} tests passed.'.format(counts['pass'] + counts['warn'], counts['totaltests']))
     except Exception:
         my_logger.exception("Something went wrong")
-        my_logger.error(
-            'Could not finish validation check on this payload')
-        counts['exceptionProfilePayload'] += 1
-    my_logger.info('%s, %s\n', SchemaFullType, counts)
+        my_logger.error('Exception Error: Could not finish validation check on this payload')
+    my_logger.info('%s \n', SchemaFullType)
 
     # Get all links available
     links, limited_links = getURIsInProperty(resource_obj.jsondata, uriName, oemcheck, collection_limit)
 
-    results[uriName]['warns'], results[uriName]['errors'] = get_my_capture(my_logger, whandler), get_my_capture(my_logger, ehandler)
+    results[uriName]['records'] = record_capture.flush()
 
-    pass_val = len(results[uriName]['errors']) == 0
-    for key in counts:
-        if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
-            pass_val = False
-            break
+    my_errors = [x for x in results[uriName]['records'] if x.levelno == Level.ERROR]
+
+    pass_val = len(my_errors) == 0
     my_logger.info("\t {}".format('PASS' if pass_val else ' FAIL...'))
 
-    for msg in results[uriName]['messages']:
-        msg.parent_results = results
-        if msg.success == interop.testResultEnum.NOT_TESTED:
-            counts['notTested'] += 1
-
-
-    return True, counts, results, (links, limited_links), resource_obj
+    return True, results, (links, limited_links), resource_obj
 
 
 urlCheck = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
@@ -254,13 +199,11 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     refLinks = list()
 
     # Resource level validation
-    message_counts = Counter()
-    error_messages = StringIO()
     message_list = []
     resource_stats = {}
 
     # Validate top URI
-    validateSuccess, counts, results, links, resource_obj = \
+    validateSuccess, results, links, resource_obj = \
         validateSingleURI(URI, profile, uriName, expectedType, expectedSchema, expectedJson)
     
     links, limited_links = links if links else ({}, {})
@@ -306,7 +249,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
 
                 # NOTE: unable to determine autoexpanded resources without Schema
                 else:
-                    linkSuccess, linkCounts, linkResults, inner_links, linkobj = \
+                    linkSuccess, linkResults, inner_links, linkobj = \
                         validateSingleURI(link, profile, linkName, parent=parent)
 
                 allLinks.add(link.rstrip('/'))
@@ -419,7 +362,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     # warn user if Conditional has no appropriate conditions to use
                     else:
                         does_resource_exist = resource_exists
-                        my_logger.warn('This resource {} has no valid Conditional in ConditionalRequirements'.format(resource_type))
+                        my_logger.warning('Missing Conditional Warning: This resource {} has no valid Conditional in ConditionalRequirements'.format(resource_type))
 
                     # if we have a ReadRequirement...
                     expected_requirement = condition.get("ReadRequirement")
@@ -453,19 +396,9 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     # interop service level checks
     finalResults = {}
 
-    for item in message_list:
-        if item.success == interop.testResultEnum.WARN:
-            message_counts['warn'] += 1
-        elif item.success == interop.testResultEnum.PASS:
-            message_counts['pass'] += 1
-        elif item.success == interop.testResultEnum.FAIL:
-            message_counts['fail.{}'.format(item.name)] += 1
-
-    finalResults['n/a'] = {'uri': "Service Level Requirements", 'success': message_counts.get('fail', 0) == 0,
-                           'counts': message_counts,
-                           'messages': message_list, 'errors': error_messages.getvalue(), 'warns': '',
+    finalResults['n/a'] = {'uri': "Service Level Requirements", 'success': False, # FIX
+                           'messages': message_list, 'records': [], 'rcode': None,
                            'rtime': None, 'context': '', 'fulltype': ''}
     finalResults.update(results)
-    error_messages.close()
 
-    return validateSuccess, counts, finalResults, refLinks, resource_obj
+    return validateSuccess, finalResults, refLinks, resource_obj

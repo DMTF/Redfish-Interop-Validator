@@ -16,36 +16,10 @@ from collections import Counter
 import redfish_interop_validator.traverseInterop as traverseInterop
 from redfish_interop_validator.profile import getProfiles, checkProfileAgainstSchema, hashProfile
 from redfish_interop_validator.validateResource import validateSingleURI, validateURITree
+from redfish_interop_validator.interop import testResultEnum
+from redfish_interop_validator import logger
 
 tool_version = '2.3.1'
-
-# Set up the custom debug levels
-VERBOSE1 = logging.INFO - 1
-VERBOSE2 = logging.INFO - 2
-
-logging.addLevelName(VERBOSE1, "VERBOSE1")
-logging.addLevelName(VERBOSE2, "VERBOSE2")
-
-def verbose1(self, msg, *args, **kwargs):
-    if self.isEnabledFor(VERBOSE1):
-        self._log(VERBOSE1, msg, args, **kwargs)
-
-def verbose2(self, msg, *args, **kwargs):
-    if self.isEnabledFor(VERBOSE2):
-        self._log(VERBOSE2, msg, args, **kwargs)
-
-logging.Logger.verbose1 = verbose1
-logging.Logger.verbose2 = verbose2
-
-my_logger = logging.getLogger()
-my_logger.setLevel(logging.DEBUG)
-standard_out = logging.StreamHandler(sys.stdout)
-standard_out.setLevel(logging.INFO)
-my_logger.addHandler(standard_out)
-
-#####################################################
-#          Script starts here              ##########
-#####################################################
 
 def main(argslist=None, configfile=None):
     """Main command
@@ -93,25 +67,27 @@ def main(argslist=None, configfile=None):
     start_tick = datetime.now()
 
     # Set logging file
-    standard_out.setLevel(logging.INFO - args.verbose if args.verbose < 3 else logging.DEBUG)
+    logger.set_standard_out(logger.Level.INFO - args.verbose if args.verbose < 3 else logger.Level.DEBUG)
 
     logpath = args.logdir
 
     if not os.path.isdir(logpath):
         os.makedirs(logpath)
 
-    fmt = logging.Formatter('%(levelname)s - %(message)s')
-    file_handler = logging.FileHandler(datetime.strftime(start_tick, os.path.join(logpath, "InteropLog_%m_%d_%Y_%H%M%S.txt")))
-    file_handler.setLevel(min(logging.INFO if not args.debugging else logging.DEBUG, standard_out.level))
-    file_handler.setFormatter(fmt)
-    my_logger.addHandler(file_handler)
+    log_level = logger.Level.INFO if not args.debugging else logger.Level.DEBUG
+    file_name = datetime.strftime(start_tick, os.path.join(logpath, "ConformanceLog_%m_%d_%Y_%H%M%S.txt"))
+
+    logger.create_logging_file_handler(log_level, file_name)
+
+    my_logger = logging.getLogger('rsv')
+    my_logger.setLevel(logging.DEBUG)
 
     # Begin of log
     my_logger.info("Redfish Interop Validator, version {}".format(tool_version))
     my_logger.info("")
 
     if args.ip is None and configfile is None:
-        my_logger.error('No IP or Config Specified')
+        my_logger.error('Configuration Error: No IP or Config Specified')
         argget.print_help()
         return 1, None, 'Configuration Incomplete'
 
@@ -129,15 +105,15 @@ def main(argslist=None, configfile=None):
     # Check if our URL is consistent
     scheme, netloc, _, _, _, _ = urlparse(args.ip)
     if scheme not in ['http', 'https']:
-        my_logger.error('IP is missing http or https')
+        my_logger.error('Configuration Error: IP is missing http or https')
         return 1, None, 'IP Incomplete'
 
     if netloc == '':
-        my_logger.error('IP is missing ip/host')
+        my_logger.error('Configuration Error: IP is missing ip/host')
         return 1, None, 'IP Incomplete'
 
     if len(args.collectionlimit) % 2 != 0:
-        my_logger.error('Collection Limit requires two arguments per entry (ResourceType Count)')
+        my_logger.error('Configuration Error: Collection Limit requires two arguments per entry (ResourceType Count)')
         return 1, None, 'Collection Limit Incomplete'
     
     # Start printing config details, remove redundant/private info from print
@@ -152,7 +128,7 @@ def main(argslist=None, configfile=None):
         currentService = traverseInterop.startService(vars(args))
     except Exception as ex:
         my_logger.debug('Exception caught while creating Service', exc_info=1)
-        my_logger.error("Service could not be started: {}".format(ex))
+        my_logger.error("Service Exception Error: Service could not be started: {}".format(ex))
         return 1, None, 'Service Exception'
 
     # Create a description of our service if there is none given
@@ -203,7 +179,7 @@ def main(argslist=None, configfile=None):
 
     if pmode not in ['tree', 'single', 'singlefile', 'treefile', 'default']:
         pmode = 'Default'
-        my_logger.warning('PayloadMode or path invalid, using Default behavior')
+        my_logger.warning('Configuration Warning: PayloadMode or path invalid, using Default behavior')
     if 'file' in pmode:
         if ppath is not None and os.path.isfile(ppath):
             with open(ppath) as f:
@@ -242,14 +218,14 @@ def main(argslist=None, configfile=None):
                 if processing_profile_name not in processed_profiles:
                     processed_profiles.add(profile_name)
                 else:
-                    my_logger.warn("Profile {} already processed".format({}))
+                    my_logger.warning("Import Warning: Profile {} already processed".format({}))
 
                 if 'single' in pmode:
-                    success, _, new_results, _, _ = validateSingleURI(ppath, profile_to_process, 'Target', expectedJson=jsonData)
+                    success, new_results, _, _ = validateSingleURI(ppath, profile_to_process, 'Target', expectedJson=jsonData)
                 elif 'tree' in pmode:
-                    success, _, new_results, _, _ = validateURITree(ppath, profile_to_process, 'Target', expectedJson=jsonData)
+                    success, new_results, _, _ = validateURITree(ppath, profile_to_process, 'Target', expectedJson=jsonData)
                 else:
-                    success, _, new_results, _, _ = validateURITree('/redfish/v1/', profile_to_process, 'ServiceRoot', expectedJson=jsonData)
+                    success, new_results, _, _ = validateURITree('/redfish/v1/', profile_to_process, 'ServiceRoot', expectedJson=jsonData)
                 if results is None:
                     results = new_results
                 else:
@@ -257,8 +233,6 @@ def main(argslist=None, configfile=None):
                         for x in item['messages']:
                             x.name = profile_name + ' -- ' + x.name
                         if item_name in results:
-                            inner_counts = results[item_name]['counts']
-                            inner_counts.update(item['counts'])
                             results[item_name]['messages'].extend(item['messages'])
                         else:
                             results[item_name] = item
@@ -273,63 +247,65 @@ def main(argslist=None, configfile=None):
     try:
         currentService.close()
     except Exception as e:
-        my_logger.error('Failed to log out of service; session may still be active ({})'.format(e))
+        my_logger.error('Service Closure Error: Failed to log out of service; session may still be active ({})'.format(e))
 
-    final_counts = Counter()
     now_tick = datetime.now()
     my_logger.info('Elapsed time: {}'.format(str(now_tick - start_tick).rsplit('.', 1)[0]))
 
-    for item in results:
-        inner_counts = results[item]['counts']
+    final_counts = Counter()
 
-        # detect if there are error messages for this resource, but no failure counts; if so, add one to the innerCounts
-        counters_all_pass = True
-        for count_type in sorted(inner_counts.keys()):
-            if inner_counts.get(count_type) == 0:
-                continue
-            if any(x in count_type for x in ['problem', 'fail', 'bad', 'exception']):
-                counters_all_pass = False
-            if 'fail' in count_type or 'exception' in count_type:
-                my_logger.error('{} {} errors in {}'.format(inner_counts[count_type], count_type, results[item]['uri']))
-            inner_counts[count_type] += 0
-        error_messages_present = False
-        if results[item]['errors'] is not None and len(results[item]['errors']) > 0:
-            error_messages_present = True
-        if results[item]['warns'] is not None and len(results[item]['warns']) > 0:
-            inner_counts['warningPresent'] = 1
-        if counters_all_pass and error_messages_present:
-            inner_counts['failErrorPresent'] = 1
+    my_logger.info('\nListing any warnings and errors: ')
 
-        final_counts.update(results[item]['counts'])
+    for k, my_result in results.items():
+
+        for msg in my_result['messages']:
+            if msg.result in [testResultEnum.PASS]:
+                final_counts['pass'] += 1
+            if msg.result in [testResultEnum.NOT_TESTED]:
+                final_counts['not_tested'] += 1
+
+        warns = [x for x in my_result['records'] if x.levelno == logger.Level.WARN]
+        errors = [x for x in my_result['records'] if x.levelno == logger.Level.ERROR]
+        if len(warns + errors):
+            my_logger.info(" ")
+            my_logger.info(my_result['uri'])
+
+            if len(warns):
+                my_logger.info("Warnings")
+                for record in warns:
+                    final_counts[record.levelname.lower()] += 1
+                    my_logger.log(record.levelno, ", ".join([x for x in [record.msg, record.result] if x])) 
+
+            if len(errors):
+                my_logger.info("Errors")
+                for record in errors:
+                    final_counts[record.levelname.lower()] += 1
+                    my_logger.log(record.levelno, ", ".join([x for x in [record.msg, record.result] if x])) 
 
     import redfish_interop_validator.tohtml as tohtml
 
-    fails = 0
-    for key in [key for key in final_counts.keys()]:
-        if final_counts[key] == 0:
-            del final_counts[key]
-            continue
-        if any(x in key for x in ['problem', 'fail', 'bad', 'exception']):
-            fails += final_counts[key]
-
-    html_str = tohtml.renderHtml(results, final_counts, tool_version, start_tick, now_tick, currentService.config)
+    html_str = tohtml.renderHtml(results, tool_version, start_tick, now_tick, currentService)
 
     lastResultsPage = datetime.strftime(start_tick, os.path.join(logpath, "InteropHtmlLog_%m_%d_%Y_%H%M%S.html"))
 
     tohtml.writeHtml(html_str, lastResultsPage)
 
-    success = success and not (fails > 0)
-    my_logger.info("\n".join('{}: {}   '.format(x, y) for x, y in sorted(final_counts.items())))
+    my_logger.info("\nResults Summary:")
+    my_logger.info(", ".join([
+        'Pass: {}'.format(final_counts['pass']),
+        'Fail: {}'.format(final_counts['error']),
+        'Warning: {}'.format(final_counts['warning']),
+        'Not Tested: {}'.format(final_counts['nottested']),
+        ]))
 
-    # dump cache info to debug log
-    my_logger.debug('callResourceURI() -> {}'.format(currentService.callResourceURI.cache_info()))
+    success = final_counts['error'] == 0
 
     if not success:
-        my_logger.error("Validation has failed: {} problems found".format(fails))
+        my_logger.error("Validation has failed: {} problems found".format(final_counts['error']))
     else:
         my_logger.info("Validation has succeeded.")
         status_code = 0
-
+    
     return status_code, lastResultsPage, 'Validation done'
 
 
