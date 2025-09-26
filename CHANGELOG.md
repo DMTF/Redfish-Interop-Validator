@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.3.3] - 2025-09-26
+- Fixed internal logging usage to avoid exceptions on newer versions of Python
+
 ## [2.3.2] - 2025-08-29
 - Cleaned up error and warning reporting
 - Added test results summary to the top of the results file

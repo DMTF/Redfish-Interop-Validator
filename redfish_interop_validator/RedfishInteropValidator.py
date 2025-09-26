@@ -19,7 +19,7 @@ from redfish_interop_validator.validateResource import validateSingleURI, valida
 from redfish_interop_validator.interop import testResultEnum
 from redfish_interop_validator import logger
 
-tool_version = '2.3.2'
+tool_version = '2.3.3'
 
 def main(argslist=None, configfile=None):
     """Main command
