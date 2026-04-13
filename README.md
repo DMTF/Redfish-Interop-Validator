@@ -1,4 +1,4 @@
-Copyright 2017-2025 DMTF. All rights reserved.
+Copyright 2017-2026 DMTF. All rights reserved.
 
 # Redfish Interop Validator
 

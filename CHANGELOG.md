@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.3.4] - 2026-04-13
+- Fixed bug with logging action test results
+
 ## [2.3.3] - 2025-09-26
 - Fixed internal logging usage to avoid exceptions on newer versions of Python
 

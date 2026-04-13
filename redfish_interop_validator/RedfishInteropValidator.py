@@ -1,6 +1,6 @@
 
 # Copyright Notice:
-# Copyright 2017-2025 DMTF. All rights reserved.
+# Copyright 2017-2026 DMTF. All rights reserved.
 # License: BSD 3-Clause License. For full text see link: https://github.com/DMTF/Redfish-Interop-Validator/blob/master/LICENSE.md
 
 import os
@@ -19,7 +19,7 @@ from redfish_interop_validator.validateResource import validateSingleURI, valida
 from redfish_interop_validator.interop import testResultEnum
 from redfish_interop_validator import logger
 
-tool_version = '2.3.3'
+tool_version = '2.3.4'
 
 def main(argslist=None, configfile=None):
     """Main command
