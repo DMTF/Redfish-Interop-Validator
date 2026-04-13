@@ -103,4 +103,4 @@ class ValidatorTest(TestCase):
                 }]
         boolist = [riv.testResultEnum.PASS, riv.testResultEnum.FAIL, riv.testResultEnum.PASS, riv.testResultEnum.PASS, riv.testResultEnum.PASS]
         for e, v, b in zip(entries, vals, boolist):
-            self.assertTrue(riv.validateActionRequirement(e, (v, None), '#Chassis.Reset')[0][0].success == b,"Failed on {}".format((e, v, b)))
+            self.assertTrue(riv.validateActionRequirement(e, (v, None), '#Chassis.Reset')[0].result == b,"Failed on {}".format((e, v, b)))
