@@ -5,6 +5,8 @@
 import logging
 import re
 from io import StringIO
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 import redfish_interop_validator.traverseInterop as traverseInterop
 import redfish_interop_validator.interop as interop
@@ -208,7 +210,7 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
     
     links, limited_links = links if links else ({}, {})
     for skipped_link in limited_links:
-        allLinks.add(limited_links[skipped_link])
+        allLinks.add(limited_links[skipped_link].rstrip('/'))
 
     if resource_obj:
         SchemaType = getType(resource_obj.jsondata.get('@odata.type', 'NoType'))
@@ -231,14 +233,20 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
             message_list.append(msg)
 
         currentLinks = [(link, links[link], resource_obj) for link in links]
+        # Get max_workers from config with default of 100
+        max_workers = traverseInterop.config.get('max_workers', 50)
+        results_lock = threading.Lock()
+
         # todo : churning a lot of links, causing possible slowdown even with set checks
         while len(currentLinks) > 0:
             newLinks = list()
-            for linkName, link, parent in currentLinks:
 
+            # Filter links to process (skip already visited, fragments, etc.)
+            links_to_process = []
+            for linkName, link, parent in currentLinks:
                 if link is None or link.rstrip('/') in allLinks:
                     continue
-            
+
                 if '#' in link:
                     # NOTE: Skips referenced Links (using pound signs), this program currently only works with direct links
                     continue
@@ -247,51 +255,97 @@ def validateURITree(URI, profile, uriName, expectedType=None, expectedSchema=Non
                     refLinks.append((linkName, link, parent))
                     continue
 
-                # NOTE: unable to determine autoexpanded resources without Schema
-                else:
-                    linkSuccess, linkResults, inner_links, linkobj = \
-                        validateSingleURI(link, profile, linkName, parent=parent)
-
                 allLinks.add(link.rstrip('/'))
+                links_to_process.append((linkName, link, parent))
 
-                results.update(linkResults)
-            
-                if not linkSuccess:
-                    continue
-
-                inner_links, inner_limited_links = inner_links
-
-                for skipped_link in inner_limited_links:
-                    allLinks.add(inner_limited_links[skipped_link])
-
-                innerLinksTuple = [(link, inner_links[link], linkobj) for link in inner_links]
-                newLinks.extend(innerLinksTuple)
-                SchemaType = getType(linkobj.jsondata.get('@odata.type', 'NoType'))
-
-                subordinate_tree = []
-
-                current_parent = linkobj.parent
-                while current_parent:
-                    parentType = getType(current_parent.jsondata.get('@odata.type', 'NoType'))
-                    subordinate_tree.append(parentType)
-                    current_parent = current_parent.parent
-
-                # Search for UseCase.USECASENAME
-                usecases_found = [msg.name.split('.')[-1] for msg in linkResults[linkName]['messages'] if 'UseCase' == msg.name.split('.')[0]]
-
-                if resource_stats.get(SchemaType) is None:
-                    resource_stats[SchemaType] = {
-                        "Exists": True,
-                        "Writeable": False,
-                        "URIsFound": [link.rstrip('/')],
-                        "SubordinateTo": set([tuple(reversed(subordinate_tree))]),
-                        "UseCasesFound": set(usecases_found),
-                    }
+            # Skip parallel processing if no links to process
+            if not links_to_process:
+                if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
+                    currentLinks = refLinks
                 else:
-                    resource_stats[SchemaType]['Exists'] = True
-                    resource_stats[SchemaType]['URIsFound'].append(link.rstrip('/'))
-                    resource_stats[SchemaType]['SubordinateTo'].add(tuple(reversed(subordinate_tree)))
-                    resource_stats[SchemaType]['UseCasesFound'] = resource_stats[SchemaType]['UseCasesFound'].union(usecases_found)
+                    currentLinks = newLinks
+                continue
+
+            # Process links in parallel using ThreadPoolExecutor
+            try:
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    # Submit all validation tasks
+                    future_to_link = {
+                        executor.submit(validateSingleURI, link, profile, linkName, parent=parent): (linkName, link, parent)
+                        for linkName, link, parent in links_to_process
+                    }
+
+                    # Process results as they complete
+                    for future in as_completed(future_to_link):
+                        linkName, link, parent = future_to_link[future]
+
+                        try:
+                            linkSuccess, linkResults, inner_links, linkobj = future.result()
+                        except KeyboardInterrupt:
+                            # Re-raise keyboard interrupt for graceful shutdown
+                            raise
+                        except traverseInterop.AuthenticationError as e:
+                            my_logger.warning(f'Authentication error for {link}: {repr(e)}')
+                            # Mark link as visited even on failure to avoid retry loops
+                            with results_lock:
+                                allLinks.add(link.rstrip('/'))
+                            continue
+                        except Exception as e:
+                            my_logger.error(f'Exception during parallel validation of {link}: {repr(e)}')
+                            # Mark link as visited even on failure to avoid retry loops
+                            with results_lock:
+                                allLinks.add(link.rstrip('/'))
+                            continue
+
+                        # Thread-safe updates to shared state
+                        with results_lock:
+                            allLinks.add(link.rstrip('/'))
+                            results.update(linkResults)
+
+                        if not linkSuccess:
+                            continue
+
+                        inner_links, inner_limited_links = inner_links
+
+                        with results_lock:
+                            for skipped_link in inner_limited_links:
+                                allLinks.add(inner_limited_links[skipped_link].rstrip('/'))
+
+                        innerLinksTuple = [(link, inner_links[link], linkobj) for link in inner_links]
+
+                        # Thread-safe update to newLinks
+                        with results_lock:
+                            newLinks.extend(innerLinksTuple)
+
+                        SchemaType = getType(linkobj.jsondata.get('@odata.type', 'NoType'))
+
+                        subordinate_tree = []
+
+                        current_parent = linkobj.parent
+                        while current_parent:
+                            parentType = getType(current_parent.jsondata.get('@odata.type', 'NoType'))
+                            subordinate_tree.append(parentType)
+                            current_parent = current_parent.parent
+
+                        usecases_found = [msg.name.split('.')[-1] for msg in linkResults[linkName]['messages'] if 'UseCase' == msg.name.split('.')[0]]
+
+                        with results_lock:
+                            if resource_stats.get(SchemaType) is None:
+                                resource_stats[SchemaType] = {
+                                    "Exists": True,
+                                    "Writeable": False,
+                                    "URIsFound": [link.rstrip('/')],
+                                    "SubordinateTo": set([tuple(reversed(subordinate_tree))]),
+                                    "UseCasesFound": set(usecases_found),
+                                }
+                            else:
+                                resource_stats[SchemaType]['Exists'] = True
+                                resource_stats[SchemaType]['URIsFound'].append(link.rstrip('/'))
+                                resource_stats[SchemaType]['SubordinateTo'].add(tuple(reversed(subordinate_tree)))
+                                resource_stats[SchemaType]['UseCasesFound'] = resource_stats[SchemaType]['UseCasesFound'].union(usecases_found)
+            except KeyboardInterrupt:
+                # Re-raise keyboard interrupt for graceful shutdown
+                raise
 
             if refLinks is not currentLinks and len(newLinks) == 0 and len(refLinks) > 0:
                 currentLinks = refLinks

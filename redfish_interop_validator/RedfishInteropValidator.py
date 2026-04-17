@@ -284,7 +284,7 @@ def main(argslist=None, configfile=None):
 
     import redfish_interop_validator.tohtml as tohtml
 
-    html_str = tohtml.renderHtml(results, tool_version, start_tick, now_tick, currentService)
+    html_str = tohtml.renderHtml(results, final_counts, tool_version, start_tick, now_tick, currentService)
 
     lastResultsPage = datetime.strftime(start_tick, os.path.join(logpath, "InteropHtmlLog_%m_%d_%Y_%H%M%S.html"))
 
@@ -295,7 +295,7 @@ def main(argslist=None, configfile=None):
         'Pass: {}'.format(final_counts['pass']),
         'Fail: {}'.format(final_counts['error']),
         'Warning: {}'.format(final_counts['warning']),
-        'Not Tested: {}'.format(final_counts['nottested']),
+        'Not Tested: {}'.format(final_counts['not_tested']),
         ]))
 
     success = final_counts['error'] == 0

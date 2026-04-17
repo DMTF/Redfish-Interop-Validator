@@ -152,7 +152,7 @@ def parseProfileInclude(target_name, target_profile_info, directories, online):
 
 def getProfiles(profile, directories, chain=None, online=False):
     profile_includes, required_by_resource = [], []
-    
+
     # Prevent cyclical imports when possible
     profile_name = profile.get('ProfileName')
     if chain is None:
@@ -174,12 +174,11 @@ def getProfiles(profile, directories, chain=None, online=False):
             inner_includes, inner_reqs = getProfiles(profile_data, directories, chain)
             profile_includes.extend(inner_includes)
             required_by_resource.extend(inner_reqs)
-        
+
     # Process all RequiredResourceProfile by modifying profiles
     profile_resources = profile.get('Resources', {})
-    
     for resource_name, resource in profile_resources.items():
-        # Modify just the resource or its UseCases.  Should not have concurrent UseCases and RequiredResourceProfile in Resource
+        # Modify just the resource or its UseCases. Should not have concurrent UseCases and RequiredResourceProfile in Resource
         if 'UseCases' not in resource:
             modifying_objects = [resource]
         else:
