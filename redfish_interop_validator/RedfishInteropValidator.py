@@ -76,6 +76,7 @@ def main(argslist=None, configfile=None):
 
     log_level = logger.Level.INFO if not args.debugging else logger.Level.DEBUG
     file_name = datetime.strftime(start_tick, os.path.join(logpath, "ConformanceLog_%m_%d_%Y_%H%M%S.txt"))
+    text_log_file = file_name
 
     logger.create_logging_file_handler(log_level, file_name)
 
@@ -290,22 +291,52 @@ def main(argslist=None, configfile=None):
 
     tohtml.writeHtml(html_str, lastResultsPage)
 
-    my_logger.info("\nResults Summary:")
-    my_logger.info(", ".join([
-        'Pass: {}'.format(final_counts['pass']),
-        'Fail: {}'.format(final_counts['error']),
-        'Warning: {}'.format(final_counts['warning']),
-        'Not Tested: {}'.format(final_counts['nottested']),
-        ]))
-
     success = final_counts['error'] == 0
 
+    # Results Summary table
+    summary_rows = [
+        ('Pass',       final_counts['pass']),
+        ('Fail',       final_counts['error']),
+        ('Warning',    final_counts['warning']),
+        ('Not Tested', final_counts['not_tested']),
+    ]
+    col1_w = max(len(r[0]) for r in summary_rows)
+    col2_w = max(len(str(r[1])) for r in summary_rows)
+    col1_w = max(col1_w, len('Result'))
+    col2_w = max(col2_w, len('Count'))
+    sep = '+{}+{}+'.format('-' * (col1_w + 2), '-' * (col2_w + 2))
+    header = '| {:<{}} | {:>{}} |'.format('Result', col1_w, 'Count', col2_w)
+    summary_lines = [
+        '',
+        'Results Summary:',
+        '',
+        sep,
+        header,
+        sep,
+    ]
+    for label, count in summary_rows:
+        summary_lines.append('| {:<{}} | {:>{}} |'.format(label, col1_w, count, col2_w))
+    summary_lines += [sep, '']
+
     if not success:
-        my_logger.error("Validation has failed: {} problems found".format(final_counts['error']))
+        summary_lines.append('Validation has FAILED: {} problems found'.format(final_counts['error']))
     else:
-        my_logger.info("Validation has succeeded.")
+        summary_lines.append('Validation has SUCCEEDED.')
         status_code = 0
-    
+
+    summary_lines += [
+        '',
+        'Log Files:',
+        '',
+        '  Text report : {}'.format(text_log_file),
+        '',
+        '  HTML report : {}'.format(lastResultsPage),
+        '',
+    ]
+
+    summary_text = '\n'.join(summary_lines)
+    print(summary_text)
+
     return status_code, lastResultsPage, 'Validation done'
 
 
