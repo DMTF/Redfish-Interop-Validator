@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.3.5] - 2026-05-22
+- Updated console output to show tabulated summary
+
 ## [2.3.4] - 2026-04-13
 - Fixed bug with logging action test results
 
