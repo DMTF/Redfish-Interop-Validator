@@ -587,7 +587,7 @@ def validatePropertyRequirement(propResourceObj, profile_entry, rf_payload_tuple
         if not requirement_success:
             my_logger.error("Read Requirement Error: Property '{}' not found.".format(item_name))
 
-        if "WriteRequirement" in profile_entry:
+        if "WriteRequirement" in profile_entry and requirement_success is True:
             headers = propResourceObj.headers
             msg, success = validateWriteRequirement(profile_entry.get('WriteRequirement', 'Mandatory'), redfish_parent_payload, headers, item_name)
             msgs.append(msg)
