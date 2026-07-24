@@ -1,5 +1,8 @@
 # Change Log
 
+## [2.3.6] - 2026-07-24
+- Fixed write requirement validation to check for successful read requirement
+
 ## [2.3.5] - 2026-05-22
 - Updated console output to show tabulated summary
 
