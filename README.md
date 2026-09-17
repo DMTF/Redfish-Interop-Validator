@@ -1,14 +1,18 @@
-Copyright 2017-2026 DMTF. All rights reserved.
-
 # Redfish Interop Validator
+
+Copyright 2017-2026 DMTF.  All rights reserved.
+
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/DMTF/Redfish-Interop-Validator/blob/main/LICENSE.md)
+[![PyPI](https://img.shields.io/pypi/v/redfish-interop-validator)](https://pypi.org/project/redfish-interop-validator/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=flat)](https://github.com/psf/black)
+[![GitHub stars](https://img.shields.io/github/stars/DMTF/Redfish-Interop-Validator.svg?style=flat-square&label=github%20stars)](https://github.com/DMTF/Redfish-Interop-Validator)
+[![GitHub Contributors](https://img.shields.io/github/contributors/DMTF/Redfish-Interop-Validator.svg?style=flat-square)](https://github.com/DMTF/Redfish-Interop-Validator/graphs/contributors)
 
 ## About
 
-The Redfish Interop Validator is a python3 tool that will validate a service based on an Interoperability profile given to the tool.  The purpose of the tool is to guarantee that a specific service is compatible with vendor systems or system tools based on a vendor's specification in a profile.
-
-## Introduction
-
-This tool is designed to accept a profile conformant to the schematics specified by the DMTF Redfish Profile schema, and run against any valid Redfish service for a given device.  It is not biased to any specific hardware, only dependent on the current Redfish specification.
+The Redfish Interop Validator is a Python3 tool for checking conformance of any Redfish service against Redfish interoperability profiles.
+The tool is designed to be implementation-agnostic and is driven based on the Redfish specifications and profiles.
+The scope of this tool is to only perform `GET` requests and verify their respective responses.
 
 ## Installation
 
@@ -25,121 +29,189 @@ From GitHub:
 
 ## Requirements
 
-External modules:
+The Redfish Interop Validator requires Python3.
 
-* beautifulsoup4  - https://pypi.python.org/pypi/beautifulsoup4
-* requests  - https://github.com/kennethreitz/requests (Documentation is available at http://docs.python-requests.org/)
-* lxml - https://pypi.python.org/pypi/lxml
-* jsonschema - https://pypi.org/project/jsonschema
+Required external packages:
 
-You may install the prerequisites by running:
+```
+jsonschema
+redfish>=3.1.5
+redfish_utilities>=3.4.8
+requests
+colorama
+```
 
-    pip3 install -r requirements.txt
+If installing from GitHub, you may install the external packages by running:
 
-If you have a previous beautifulsoup4 installation, use the following command:
+    pip install -r requirements.txt
 
-    pip3 install beautifulsoup4 --upgrade
+## Usage
 
-There is no dependency based on Windows or Linux OS.
-The result logs are generated in HTML format and an appropriate browser, such as Chrome, Firefox, or Edge, is required to view the logs on the client system.
+```
+usage: RedfishInteropValidator.py [-h] --user USER --password PASSWORD --rhost
+                                  RHOST [--authtype {Basic,Session}]
+                                  [--serv_http_proxy SERV_HTTP_PROXY]
+                                  [--serv_https_proxy SERV_HTTPS_PROXY]
+                                  [--logdir LOGDIR]
+                                  [--payload PAYLOAD PAYLOAD]
+                                  [--mockup MOCKUP]
+                                  [--collectionlimit COLLECTIONLIMIT [COLLECTIONLIMIT ...]]
+                                  [--nooemcheck] [--timeout TIMEOUT]
+                                  [--debugging]
+                                  profile
 
-## Execution Steps
+Validate Redfish services against profiles
 
-The Redfish Interop Validator is designed to execute as a purely command line interface tool with no intermediate inputs expected during tool execution.  Below are the step by step instructions on setting up the tool for execution on any identified Redfish device for conformance test:
+positional arguments:
+  profile               The Redfish profile to use to verify the service
 
-Modify the config\example.ini file to enter the system details under below section
+options:
+  -h, --help            show this help message and exit
+  --user USER, -u USER, -user USER, --username USER
+                        The username for authentication
+  --password PASSWORD, -p PASSWORD
+                        The password for authentication
+  --rhost RHOST, -r RHOST, --ip RHOST, -i RHOST
+                        The address of the Redfish service (with scheme)
+  --authtype {Basic,Session}
+                        The authorization type
+  --serv_http_proxy SERV_HTTP_PROXY
+                        The URL of the HTTP proxy for accessing the Redfish
+                        service
+  --serv_https_proxy SERV_HTTPS_PROXY
+                        The URL of the HTTPS proxy for accessing the Redfish
+                        service
+  --logdir LOGDIR, --report-dir LOGDIR
+                        The directory for generated report files; default:
+                        'logs'
+  --payload PAYLOAD PAYLOAD
+                        Controls how much of the data model to test; option is
+                        followed by the URI of the resource from which to
+                        start
+  --mockup MOCKUP       Path to directory containing mockups to override
+                        responses from the service
+  --collectionlimit COLLECTIONLIMIT [COLLECTIONLIMIT ...]
+                        Applies a limit to testing resources in collections;
+                        format: RESOURCE1 COUNT1 RESOURCE2 COUNT2 ...
+  --nooemcheck          Don't check OEM items
+  --timeout TIMEOUT, -timeout TIMEOUT
+                        The timeout, in seconds, for the service to respond to
+                        HTTP requests
+  --debugging           Controls the verbosity of the debugging output; if not
+                        specified only INFO and higher are logged
+```
 
-### [Tool]
+Example:
 
-| Variable   | CLI Argument  | Type    | Definition |
-| :---       | :---          | :---    | :---       |
-| `verbose`  | `-v`          | integer | Verbosity of tool in stdout; 0 to 3, 3 being the greatest level of verbosity. |
+    rf_interop_validator -r https://192.168.1.100 -u USERNAME -p PASSWORD MyProfile.v1_0_0.json
 
-### [Interop]
+The Redfish Interop Validator can be configured using either command-line arguments or a configuration file (config.ini).
 
-Note: These arguments are only supplied via the CLI to the tool and are not specified in the configuration file.
+### Payload Option
 
-| CLI Argument  | Type   | Definition |
-| :---          | :---   | :---       |
-| `profile`     | string | The name of the testing profile (mandatory). |
-| `--schema`    | string | The filepath and name of the schema file to verify the format of the profile. |
+The `payload` option controls how much of the data model to test.
+It takes two parameters as strings.
 
-### [Host]
+The first parameter specifies the scope for testing the service.
+`Single` will test a specified resource.
+`Tree` will test a specified resource and every subordinate URI discovered from it.
 
-| Variable           | CLI Argument         | Type    | Definition |
-| :---               | :---                 | :---    | :---       |
-| `ip`               | `-r`                 | string  | The address of the Redfish service (with scheme); example: 'https://123.45.6.7:8000'. |
-| `username`         | `-u`                 | string  | The username for authentication. |
-| `password`         | `-p`                 | string  | The password for authentication. |
-| `description`      | `--description`      | string  | The description of the system for identifying logs; if none is given, a value is produced from information in the service root. |
-| `forceauth`        | `--forceauth`        | boolean | Force authentication on unsecure connections; 'True' or 'False'. |
-| `authtype`         | `--authtype`         | string  | Authorization type; 'None', 'Basic', 'Session', or 'Token'. |
-| `token`            | `--token`            | string  | Token when 'authtype' is 'Token'. |
+The second parameter specifies the URI of a resource to test.
 
-### [Validator]
+Example: test `/redfish/v1/AccountService` and no other resources.
 
-| Variable                | CLI Argument              | Type    | Definition |
-| :---                    | :---                      | :---    | :---       |
-| `payload`               | `--payload`               | string  | The mode to validate payloads ('Tree', 'Single', 'SingleFile', or 'TreeFile') followed by resource/filepath; see below. |
-| `logdir`                | `--logdir`                | string  | The directory for generated report files; default: 'logs'. |
-| `oemcheck`              | `--nooemcheck`            | boolean | Whether to check OEM items on service; 'True' or 'False'. |
-| `online_profiles`       | `--no_online_profiles`    | boolean | Whether to download online profiles; 'True' or 'False'. |
-| `debugging`             | `--debugging`             | boolean | Output debug statements to text log, otherwise it only uses INFO; 'True' or 'False'. |
-| `required_profiles_dir` | `--required_profiles_dir` | string  | Option to set the root folder of required profiles |
-| `collectionlimit`       | `--collectionlimit`       | string  | Sets a limit to links gathered from collections by type (schema name).<br/>Example 1: `ComputerSystem 20` limits ComputerSystemCollection to 20 links.<br/>Example 2: `ComputerSystem 20 LogEntry 10` limits ComputerSystemCollection to 20 links and LogEntryCollection to 10 links. |
+    `--payload Single /redfish/v1/AccountService`
 
-### Payload options
+Example: test `/redfish/v1/Systems/1` and all subordinate resources.
 
-The payload option takes two parameters as "option uri"
+    `--payload Tree /redfish/v1/Systems/1`
 
-(Single, SingleFile, Tree, TreeFile)
-How to test the payload URI given.  Single tests will only give a report on a single resource, while Tree will report on every link from that resource
+### Mockup Option
 
-([Filename], [uri])
+The `mockup` option allows a tester to override responses from the service with a local mockup.
+This allows a tester to debug and provide local fixes to resources without needing to rebuild the service under test.
 
-URI of the target payload, or filename of a local file.
+This option takes a single string parameter.
+The parameter specifies a local directory path to the `ServiceRoot` resource of a Redfish mockup tree.
 
-### HTML Log
+The mockup files follow the Redfish mockup style, with the directory tree matching the URI segments under `/redfish/v1`, and with a single `index.json` file in each subdirectory as desired.
+For examples of full mockups, see the Redfish Mockups Bundle (DSP2043) at https://www.dmtf.org/dsp/DSP2043.
 
-To convert a previous HTML log into a csv file, use the following command:
+Populate the mockup directory tree with `index.json` files wherever problematic resources need to be replaced.
+Any replaced resource will report a warning in the report to indicate a workaround was used.
 
-`python3 tohtml.py htmllogfile`
+### Collection Limit Option
 
-## Execution flow
+The `collectionlimit` option allows a tester to limit the number of collection members to test.
+This is useful for large collections where testing every member does not provide enough additional test coverage to warrant the increased test time.
 
-* 1.	Redfish Interop Validator starts with the Service root Resource Schema by querying the service with the service root URI and getting all the device information, the resources supported and their links. Once the response of the Service root query is verified against a given profile (given the profile contains specifications for ServiceRoot), the tool traverses through all the collections and Navigation properties returned by the service.
-* 2.	For each navigation property/Collection of resource returned, it does following operations:
-** i.	Reads all the Navigation/collection of resources.
-** ii.	Queries the service with the individual resource uri and validates all Resource returned by the service that are included in the profile specified to the tool.
-* 3.	Step 2 repeats till all the URIs and resources are covered.
+This option takes pairs of arguments where the first argument is the resource type to limit and the second argument is the maximum number of members to test.
+Whenever a resource collection for the specified resource type is encountered during testing, the validator will only test up to the specified number of members.
 
-Upon validation of a resource, the following types of tests may occur:
+If this option is not specified, the validator defaults to applying a limit of 20 members to LogEntry resources.
 
-* **Unlike** the Service Validator, the program will not necessarily list and warn problematic Resources, it will expect those problems to be found with the Service Validator and are ignored in the process here.
-* When a Resource is found, check if this resource exists in the Profile provided, otherwise ignore it and move on to the next available resources via its Links.
-* With the Resource initiated, begin to validate itself and the Properties that exist in the Profile given to the program with the following possible tests:
-  * MinVersion - Test the @odata.type/version of the Resource which is being tested, which must be GREATER than the given MinVersion in the profile
-  * MinCount - Test based on the @odata.count annotation, determine the size of the a given Collection or List, which must be GREATER than this given MinCount in the profile
-  * ReadRequirement - Test the existence of a Property or Resource, depending on whether it is Recommended or Mandatory (others unimplemented) in the profile
-  * Members - Test a Resource's "Members" property, which includes MinCount test
-  * MinSupportedValues - Test the enumerations of a particular Property, based on the annotation @odata.SupportedValues and the given in the profile
-  * Writeable/WriteRequirement - Test if the Property is ReadWrite capable, depending on if it is required in the profile
-  * Comparison - Test between an Enum Property's value and values in the Profile, with a particular set of comparisons available:
-    * AnyOf, AllOf = compare if any or all of the given values exist in a List or single Enum
-    * GreaterThan, LessThan, Equal, ... = compare based on common comparisons Less, Greater or Equal
-    * Absent, Present =  compare if a property exist or does not
-  * ConditionalRequirements - Perform some of the above tests above if one of the specified requirements are True:
-    * Subordinate - Test if this Resource is a child/link of the type tree listed 
-    * Comparison - Test if a Comparison is True to a certain value
-  * ActionRequirements - Perform tests based on what Actions require, such as ReadRequirement, AllowableValues
-  * Check whether a Property is at first able to be nulled or is mandatory, and pass based on its Requirement or Nullability
-  * For collections, validate each property inside of itself, and expects a list rather than a single Property, otherwise validate normally:
- 
-## Conformance Logs - Summary and Detailed Conformance Report
+Example: do not test more than 10 `Sensor` resources and 20 `LogEntry` resources in a given collection
 
-The Redfish Interop Validator generates reports in the "logs" folder: a text version named "InteropLog_MM_DD_YYYY_HHMMSS.txt" and an html version named "InteropHtmlLog_MM_DD_YYYY_HHMMSS.html". The reports give the detailed view of the individual properties checked, with the Pass/Fail/Skip/Warning status for each resource checked for conformance.
+    `--collectionlimit Sensor 10 LogEntry 20`
 
-There is a verbose log file that may be referenced to diagnose tool problems when the stdout print out is insufficient, located in logs/ConformanceLog_MM_DD_YYYY_HHMMSS.html
+## Test Results: Types of Errors and Warnings
+
+This section details the various types of error or warning messages that the tool can produce as a result of the testing process.
+
+### Required Resource Error
+
+Indicates a resource that is required by the profile is not found in the service.
+
+### Resource Capabilities Error
+
+Indicates a resource does not support the required HTTP operations.
+For example, if the profile requires a resource to support `POST`, but the resource does not support `POST`, this error will be reported.
+
+### Read Requirement Error
+
+Indicates a property from a resource does not meet the read requirement specified in the profile.
+If the profile lists the property as mandatory, check if the service supports the property.
+
+### Write Requirement Error
+
+Indicates a property from a resource does not meet the write requirement specified in the profile.
+If the profile lists the property as mandatory, check if the service supports the property.
+
+### Supported Values Error
+
+Indicates a property from a resource does not meet the minimum set of supported values specified in the profile for write operations.
+
+### Min Count Error
+
+Indicates a property from a resource does not meet the minimum array length specified in the profile.
+
+### Comparison Error
+
+Indicates a property from a resource does not meet the comparison requirement specified in the profile.
+For example, if the profile requires a property to be equal to a specific value.
+
+### Required Action Error
+
+Indicates an action that is required by the profile is not found in the service.
+
+### Required Action Info Error
+
+Indicates an action that is required by the profile is found in the service, but does not contain an action info annotation.
+
+### Mockup Used Warning
+
+Indicates the resource that was tested used response data from a mockup that was provided by the `--mockup` argument.
+
+### Resource Capabilities Warnings
+
+Indicates a resource does not provide the HTTP `Allow` header in its response.
+
+### Property Requirements Warning
+
+Indicates a property from a resource is not a JSON object, but the profile is expecting it to be an object.
+Check that the property is defined as a JSON object in schema.
+If it is defined as a JSON object, the service's implementation of the property needs to be corrected.
+If it is not defined as a JSON object, the profile is not defined properly for the property.
 
 ## Release Process
 

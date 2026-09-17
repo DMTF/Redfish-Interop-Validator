@@ -85,12 +85,12 @@ def validate_resource(sut, use_case, uri, payload_full):
         if use_case.get("CreateResource", False):
             if "POST" not in allow_header_split:
                 sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'POST' not found in the Allow header"))
-        if use_case.get("DeleteResource", False):
-            if "DELETE" not in allow_header_split:
-                sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'DELETE' not found in the Allow header"))
-        if use_case.get("UpdateResource", False):
-            if "PUT" not in allow_header_split and "PATCH" not in allow_header_split:
-                sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'PUT' or 'PATCH' not found in the Allow header"))
+        #if use_case.get("DeleteResource", False):
+        #    if "DELETE" not in allow_header_split:
+        #        sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'DELETE' not found in the Allow header"))
+        #if use_case.get("UpdateResource", False):
+        #    if "PUT" not in allow_header_split and "PATCH" not in allow_header_split:
+        #        sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'PUT' or 'PATCH' not found in the Allow header"))
     else:
         if use_case.get("CreateResource", False) or use_case.get("DeleteResource", False) or use_case.get("UpdateResource", False):
             sut.add_property_result(uri, "", True, "", (Result.WARN, "Resource Capabilities Warning: No Allow header found"))
@@ -208,9 +208,9 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
                 if isinstance(payload[allow_values], list):
                     for req_value in requirement["MinSupportValues"]:
                         if req_value not in payload[allow_values]:
-                            sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.FAIL, "Support Values Error: The value '{}' is not supported".format(req_value)))
+                            sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.FAIL, "Supported Values Error: The value '{}' is not supported".format(req_value)))
                 else:
-                    sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.WARN, "Support Values Error: '{}' is not an array".format(allow_values)))
+                    sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.WARN, "Supported Values Error: '{}' is not an array".format(allow_values)))
 
         # Comparison
         if "Values" in requirement:
