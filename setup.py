@@ -11,7 +11,7 @@ with open("README.md", "r", "utf-8") as f:
 
 setup(
     name="redfish_interop_validator",
-    version="2.3.6",
+    version="3.0.0",
     description="Redfish Interop Validator",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -28,13 +28,8 @@ setup(
     packages=["redfish_interop_validator"],
     entry_points={
         'console_scripts': [
-            'rf_interop_validator=redfish_interop_validator.RedfishInteropValidator:main'
+            'rf_interop_validator=redfish_interop_validator.console_scripts:main'
         ]
     },
-    install_requires=[
-      "requests",
-      "beautifulsoup4>=4.6.0",
-      "lxml",
-      "jsonschema"
-    ]
+    install_requires=["jsonschema", "redfish>=3.1.5", "redfish_utilities>=3.4.8", "requests", "colorama"],
 )
