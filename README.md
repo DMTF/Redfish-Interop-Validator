@@ -34,11 +34,12 @@ The Redfish Interop Validator requires Python3.
 Required external packages:
 
 ```
-jsonschema
-redfish>=3.1.5
-redfish_utilities>=3.4.8
-requests
 colorama
+jsonschema
+openpyxl
+redfish>=3.1.5
+redfish_service_validator>=3.1.6
+redfish_utilities>=3.4.8
 ```
 
 If installing from GitHub, you may install the external packages by running:

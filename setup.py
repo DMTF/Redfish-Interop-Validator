@@ -31,5 +31,5 @@ setup(
             'rf_interop_validator=redfish_interop_validator.console_scripts:main'
         ]
     },
-    install_requires=["jsonschema", "redfish>=3.1.5", "redfish_utilities>=3.4.8", "requests", "colorama"],
+    install_requires=["colorama", "jsonschema", "openpyxl", "redfish>=3.1.5", "redfish_service_validator>=3.1.6", "redfish_utilities>=3.4.8"],
 )
