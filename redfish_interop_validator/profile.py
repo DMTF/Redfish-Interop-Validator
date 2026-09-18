@@ -238,8 +238,13 @@ def load_profile(profile_dir, profile_filename):
         logger.critical("Could not load profile '{}': {}".format(profile_path, err))
         raise
 
-    profile_validator = jsonschema.Draft7Validator(profile_schema.profile_schema)
-    profile_errors = sorted(profile_validator.iter_errors(json.loads(profile_content)), key=str)
+    try:
+        profile_validator = jsonschema.Draft7Validator(profile_schema.profile_schema)
+        profile_errors = sorted(profile_validator.iter_errors(json.loads(profile_content)), key=str)
+    except Exception as err:
+        logger.critical("Could not validate profile '{}': {}".format(profile_filename, err))
+        raise
+
     if profile_errors:
         logger.critical("{} does not conform to the Redfish Profile schema".format(profile_filename))
         for error in profile_errors:
