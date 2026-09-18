@@ -1,4 +1,6 @@
-beautifulsoup4>=4.6.0
-lxml
-requests
+colorama
 jsonschema
+openpyxl
+redfish>=3.1.5
+redfish_service_validator>=3.1.6
+redfish_utilities>=3.4.8
