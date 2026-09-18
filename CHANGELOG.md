@@ -1,5 +1,8 @@
 # Change Log
 
+## [3.0.0] - 2026-09-18
+- Major updates to improve test flow, tracing, and reports
+
 ## [2.3.6] - 2026-07-24
 - Fixed write requirement validation to check for successful read requirement
 

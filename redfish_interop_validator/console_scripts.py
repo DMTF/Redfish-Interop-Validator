@@ -26,7 +26,7 @@ from redfish_interop_validator import profile
 from redfish_interop_validator import report
 from redfish_interop_validator import validate
 
-tool_version = "3.0.0"
+tool_version = '3.0.0'
 
 
 def main():
