@@ -318,3 +318,15 @@ def get_all_use_cases():
         profile_use_cases = profile.get_all_use_cases()
         use_cases.extend(profile_use_cases)
     return use_cases
+
+def get_profile_name():
+    """
+    Get the name of the first loaded profile.
+    
+    Returns:
+        The name of the first loaded profile
+    """
+    try:
+        return _parsed_profiles[0].get_profile_name()
+    except:
+        return None

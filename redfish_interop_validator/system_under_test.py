@@ -332,6 +332,7 @@ class SystemUnderTest(object):
         Returns:
             A string containing the Allow header
         """
+        self.get_resource(uri)
         if uri not in self._resources:
             return None
         if self._resources[uri]["Response"] is None:
@@ -588,6 +589,9 @@ class SystemUnderTest(object):
         resource = self.get_resource(uri)
         if resource["Validated"]:
             # Already tested
+            return
+        if self.is_uri_from_annotation(uri):
+            # Skip annotation URIs
             return
         logger.log_print("Validating {}...".format(uri))
 
