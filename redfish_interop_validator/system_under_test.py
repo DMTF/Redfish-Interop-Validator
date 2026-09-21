@@ -394,6 +394,11 @@ class SystemUnderTest(object):
             if prop in self._resources[uri]["Results"]:
                 # Modify the existing results
 
+                # Property already flagged; don't grow with PASS/SKIP messages
+                if self._resources[uri]["Results"][prop]["Result"] in [validate.Result.WARN, validate.Result.FAIL]:
+                    if result[0] in [validate.Result.PASS, validate.Result.SKIP]:
+                        return
+
                 # If the current result is SKIP or PASS, replace the current message with the new message
                 if self._resources[uri]["Results"][prop]["Result"] in [validate.Result.SKIP, validate.Result.PASS]:
                     self._resources[uri]["Results"][prop]["Message"] = result[1]
