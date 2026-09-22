@@ -51,7 +51,6 @@ class RedfishProfile:
                 if "UseCases" not in self._raw["Resources"][resource]:
                     default_use_case = dict(self._raw["Resources"][resource])
                     default_use_case["UseCaseTitle"] = "Default"
-                    default_use_case["IsDefault"] = True
                     self._raw["Resources"][resource] = {}
                     self._raw["Resources"][resource]["UseCases"] = [default_use_case]
 
@@ -129,10 +128,10 @@ class RedfishProfile:
                 continue
 
             # Check if the use case is applicable based on its type
-            # Need to skip the "default" use case we insert since they always apply
-            is_default_use_case = use_case.get("IsDefault", False)
-            if not is_default_use_case:
-                use_case_type = use_case.get("UseCaseType", "Normal")
+            # With the exception of an absent resource use case, "values" always needs to be specified
+            # Use cases may not have use case parameters, such as when the use case is just for particular URIs
+            use_case_type = use_case.get("UseCaseType", "Normal")
+            if "UseCaseKeyValues" in use_case or use_case_type == "AbsentResource":
                 if use_case_type == "Normal":
                     # Perform comparison checks like with other profile elements
                     result = helper.evaluate_comparison(sut, "/" + use_case.get("UseCaseKeyProperty", ""), use_case.get("UseCaseComparison", "Equal"), use_case.get("UseCaseKeyValues", []), {}, payload)
