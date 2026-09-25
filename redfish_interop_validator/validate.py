@@ -71,29 +71,45 @@ def validate_resource(sut, use_case, uri, payload_full):
     # Min version check
     min_ver_req = ".v" + requirement.get("MinVersion", "1.0.0").replace(".", "_") + "."
     min_ver_str, min_ver = helper.get_version(min_ver_req)
-    _, resource_ver_str, resource_ver = sut.get_resource_type(uri)
+    resource_type, resource_ver_str, resource_ver = sut.get_resource_type(uri)
     if resource_ver is not None:
         if resource_ver < min_ver:
             sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Version Error: The resource version ({}) is lower than the minimum version required by the profile ({})".format(resource_ver_str, min_ver_str)))
 
     # Allow header check
-    allow_header = sut.get_allow_header(uri)
-    allow_header_split = None
-    if allow_header:
-        allow_header_split = [allow.strip().upper() for allow in allow_header.split(",")]
-    if allow_header_split is not None:
-        if use_case.get("CreateResource", False):
-            if "POST" not in allow_header_split:
-                sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'POST' not found in the Allow header"))
-        #if use_case.get("DeleteResource", False):
-        #    if "DELETE" not in allow_header_split:
-        #        sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'DELETE' not found in the Allow header"))
-        #if use_case.get("UpdateResource", False):
-        #    if "PUT" not in allow_header_split and "PATCH" not in allow_header_split:
-        #        sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'PUT' or 'PATCH' not found in the Allow header"))
-    else:
-        if use_case.get("CreateResource", False) or use_case.get("DeleteResource", False) or use_case.get("UpdateResource", False):
-            sut.add_property_result(uri, "", True, "", (Result.WARN, "Resource Capabilities Warning: No Allow header found"))
+    if use_case["Resource"].endswith("Collection"):
+        allow_header = sut.get_allow_header(uri)
+        allow_header_split = None
+        if allow_header:
+            allow_header_split = [allow.strip().upper() for allow in allow_header.split(",")]
+        if allow_header_split is not None:
+            if use_case.get("CreateResource", False):
+                if "POST" not in allow_header_split:
+                    sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'POST' not found in the Allow header"))
+        else:
+            if use_case.get("CreateResource", False):
+                sut.add_property_result(uri, "", True, "", (Result.WARN, "Resource Capabilities Warning: No Allow header found"))
+
+        # For other capabilities, we need to inspect the member's Allow header
+        try:
+            member_uri = payload_full["Members"][0]["@odata.id"]
+        except:
+            member_uri = None
+        if member_uri:
+            member_allow_header = sut.get_allow_header(member_uri)
+            member_allow_header_split = None
+            if member_allow_header:
+                member_allow_header_split = [allow.strip().upper() for allow in member_allow_header.split(",")]
+            if member_allow_header_split is not None:
+                if use_case.get("DeleteResource", False):
+                    if "DELETE" not in member_allow_header_split:
+                        sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'DELETE' not found in the member's Allow header"))
+                if use_case.get("UpdateResource", False):
+                    if "PUT" not in member_allow_header_split and "PATCH" not in member_allow_header_split:
+                        sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'PUT' or 'PATCH' not found in the member's Allow header"))
+            else:
+                if use_case.get("DeleteResource", False) or use_case.get("UpdateResource", False):
+                    sut.add_property_result(uri, "", True, "", (Result.WARN, "Resource Capabilities Warning: No Allow header found for the member resource"))
 
 def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
     """
@@ -121,10 +137,11 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
             if found:
                 continue
 
-        # Replaces; skip if the older property is present and the newer property is missing
+        # Replaces; log warning if the newer property is missing but the older property is present
         if "ReplacesProperty" in requirement and prop not in payload:
             found, _ = helper.find_property(requirement["ReplacesProperty"], payload, payload_full)
             if found:
+                sut.add_property_result(uri, cur_path, False, None, (Result.WARN, "Replaced Property Warning: The property '{}' is preferred, but only the older property '{}' is present".format(prop, requirement["ReplacesProperty"])))
                 continue
 
         # Initial read requirement testing

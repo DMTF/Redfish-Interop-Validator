@@ -332,6 +332,7 @@ class SystemUnderTest(object):
         Returns:
             A string containing the Allow header
         """
+        self.get_resource(uri)
         if uri not in self._resources:
             return None
         if self._resources[uri]["Response"] is None:
@@ -392,6 +393,11 @@ class SystemUnderTest(object):
         if uri in self._resources:
             if prop in self._resources[uri]["Results"]:
                 # Modify the existing results
+
+                # Property already flagged; don't grow with PASS/SKIP messages
+                if self._resources[uri]["Results"][prop]["Result"] in [validate.Result.WARN, validate.Result.FAIL]:
+                    if result[0] in [validate.Result.PASS, validate.Result.SKIP]:
+                        return
 
                 # If the current result is SKIP or PASS, replace the current message with the new message
                 if self._resources[uri]["Results"][prop]["Result"] in [validate.Result.SKIP, validate.Result.PASS]:
@@ -588,6 +594,9 @@ class SystemUnderTest(object):
         resource = self.get_resource(uri)
         if resource["Validated"]:
             # Already tested
+            return
+        if self.is_uri_from_annotation(uri):
+            # Skip annotation URIs
             return
         logger.log_print("Validating {}...".format(uri))
 

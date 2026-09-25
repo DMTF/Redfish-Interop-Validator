@@ -301,7 +301,7 @@ def build_error_tally(error_classes, panel_title=None):
     ).format(heading, rows)
 
 
-def html_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None):
+def html_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None, profile_name=None):
     """
     Creates the HTML report for the system under test
 
@@ -510,6 +510,7 @@ def html_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None)
             build_html_report(
                 page_title="Redfish Interop Validator \u2014 Test Report",
                 tool_title="Redfish Interop Validator",
+                tool_subtitle="Profile: {}".format(profile_name),
                 filter_placeholder="Filter by URI\u2026",
                 filter_count_label="resources",
                 tool_link="https://github.com/DMTF/Redfish-Interop-Validator",
@@ -538,7 +539,7 @@ def html_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None)
     return file
 
 
-def xlsx_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None):
+def xlsx_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None, profile_name=None):
     """
     Creates an XLSX report for the system under test alongside the HTML report.
 
@@ -608,6 +609,7 @@ def xlsx_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None)
     ws_summary.column_dimensions["B"].width = 45
 
     summary_rows = [
+        ("Profile", str(profile_name)),
         ("Tool Version", str(tool_version)),
         ("Generated", time.strftime("%c")),
         ("Host", str(sut.rhost)),
