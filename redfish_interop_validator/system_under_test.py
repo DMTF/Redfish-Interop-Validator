@@ -322,6 +322,26 @@ class SystemUnderTest(object):
             logger.critical("Could not access {}; {}".format(uri, err))
         return self._resources[uri]
 
+    def get_resource_data(self, uri):
+        """
+        Gets the JSON payload for a resource.
+
+        Args:
+            uri: The URI to get
+
+        Returns:
+            A dictionary containing the resource payload; an empty dictionary
+            if the resource could not be read or parsed
+        """
+        resource = self.get_resource(uri)
+        if resource["Response"] is None:
+            return {}
+
+        try:
+            return resource["Response"].dict
+        except Exception:
+            return {}
+
     def get_allow_header(self, uri):
         """
         Gets the Allow header for a resource
