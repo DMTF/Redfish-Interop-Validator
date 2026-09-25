@@ -136,13 +136,12 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
             found, _ = helper.find_property(requirement["ReplacedByProperty"], payload, payload_full)
             if found:
                 continue
-            if prop in payload:
-                sut.add_property_result(uri, cur_path, True, payload[prop], (Result.WARN, "Replaced Property Warning: The property '{}' is replaced by the newer property '{}'".format(prop, requirement["ReplacedByProperty"])))
 
-        # Replaces; skip if the older property is present and the newer property is missing
+        # Replaces; log warning if the newer property is missing but the older property is present
         if "ReplacesProperty" in requirement and prop not in payload:
             found, _ = helper.find_property(requirement["ReplacesProperty"], payload, payload_full)
             if found:
+                sut.add_property_result(uri, cur_path, False, None, (Result.WARN, "Replaced Property Warning: The property '{}' is preferred, but only the older property '{}' is present".format(prop, requirement["ReplacesProperty"])))
                 continue
 
         # Initial read requirement testing
