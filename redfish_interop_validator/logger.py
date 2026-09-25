@@ -59,7 +59,7 @@ def info(*args, **kwargs):
 def warning(*args, **kwargs):
     """
     Adds a WARNING entry to the debug log
-    
+
     Args:
         args: Positional arguments
         kwargs: Keyword arguments
@@ -71,7 +71,7 @@ def warning(*args, **kwargs):
 def error(*args, **kwargs):
     """
     Adds an ERROR entry to the debug log
-    
+
     Args:
         args: Positional arguments
         kwargs: Keyword arguments
@@ -83,7 +83,7 @@ def error(*args, **kwargs):
 def critical(*args, **kwargs):
     """
     Prints to the console and adds a CRITICAL entry to the debug log
-    
+
     Args:
         args: Positional arguments
         kwargs: Keyword arguments

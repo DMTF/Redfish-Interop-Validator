@@ -1,5 +1,12 @@
 # Change Log
 
+## [3.0.1] - 2026-09-25
+- Crash fix when traversing parent resources to find matching use cases
+- Added the profile name to test reports
+- Added logic to test resource capabilities for members of collections
+- Made change to skip URIs coming from payload annotations
+- Added warning condition when a replaced property is present, but the newer (preferred) property is absent
+
 ## [3.0.0] - 2026-09-18
 - Major updates to improve test flow, tracing, and reports
 

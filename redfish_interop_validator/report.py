@@ -168,9 +168,7 @@ _RSV_EXTRA_JS = r"""
 html_template = None
 
 
-def build_service_result_header(
-    service_summary, payload_id, results_id
-):
+def build_service_result_header(service_summary, payload_id, results_id):
     """Builds the enterprise-styled resource card header row."""
     return """
   <div class="resource-card">
@@ -267,7 +265,14 @@ def build_resource_detail(results_id, results_str, payload_id, payload_str, name
       <pre class="payload-panel" id="{pid}-inner">{payload}</pre>
     </div>
   </div>
-""".format(rid=results_id, rows=results_str, pid=payload_id, payload=html_mod.escape(payload_str), name_col=name_col, message_col=message_col)
+""".format(
+        rid=results_id,
+        rows=results_str,
+        pid=payload_id,
+        payload=html_mod.escape(payload_str),
+        name_col=name_col,
+        message_col=message_col,
+    )
 
 
 def build_not_tested_section(sut, uris):
@@ -327,9 +332,13 @@ def html_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None,
         combined_tally = ""
 
     # Build the service results
-    service_resources_summary = '<span class="badge badge-pass">&#10003; Pass: {}</span>'.format(sut._service_resource_results[validate.Result.PASS.name])
+    service_resources_summary = '<span class="badge badge-pass">&#10003; Pass: {}</span>'.format(
+        sut._service_resource_results[validate.Result.PASS.name]
+    )
     if sut._service_resource_results[validate.Result.WARN.name]:
-        service_resources_summary += ' <span class="badge badge-warn">&#9888; Warn: {}</span>'.format(sut._service_resource_results[validate.Result.WARN.name])
+        service_resources_summary += ' <span class="badge badge-warn">&#9888; Warn: {}</span>'.format(
+            sut._service_resource_results[validate.Result.WARN.name]
+        )
     if sut._service_resource_results[validate.Result.FAIL.name]:
         service_resources_summary += ' <span class="badge badge-fail">&#10007; Fail: {}</span>'.format(
             sut._service_resource_results[validate.Result.FAIL.name]
@@ -368,7 +377,9 @@ def html_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None,
             resource, value_str, result_class, sut._service_resource_results["Results"][resource]["Result"].name
         )
     payload_str = ""
-    html += build_resource_detail(results_id, results_str, payload_id, payload_str, name_col="Resource", message_col="Messages")
+    html += build_resource_detail(
+        results_id, results_str, payload_id, payload_str, name_col="Resource", message_col="Messages"
+    )
 
     # Build the URI results
     uris = sorted(list(sut._resources.keys()), key=str.lower)
@@ -394,9 +405,13 @@ def html_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None,
             resource_type += ", " + resource_version
 
         # Build the results summary for the URI
-        uri_summary = '<span class="badge badge-pass">&#10003; Pass: {}</span>'.format(sut._resources[uri]["Counts"][validate.Result.PASS.name])
+        uri_summary = '<span class="badge badge-pass">&#10003; Pass: {}</span>'.format(
+            sut._resources[uri]["Counts"][validate.Result.PASS.name]
+        )
         if sut._resources[uri]["Counts"][validate.Result.WARN.name]:
-            uri_summary += ' <span class="badge badge-warn">&#9888; Warn: {}</span>'.format(sut._resources[uri]["Counts"][validate.Result.WARN.name])
+            uri_summary += ' <span class="badge badge-warn">&#9888; Warn: {}</span>'.format(
+                sut._resources[uri]["Counts"][validate.Result.WARN.name]
+            )
         if sut._resources[uri]["Counts"][validate.Result.FAIL.name]:
             uri_summary += ' <span class="badge badge-fail">&#10007; Fail: {}</span>'.format(
                 sut._resources[uri]["Counts"][validate.Result.FAIL.name]
@@ -782,7 +797,6 @@ def xlsx_report(sut: SystemUnderTest, report_dir, time, tool_version, args=None,
 
         serial_num += 1
         row_num += 1
-
 
     # ════════════════════════════════════════════════════════════════════
     # Sheet 3 — Detailed Results

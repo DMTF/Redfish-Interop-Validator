@@ -58,7 +58,12 @@ class SystemUnderTest(object):
         self._mockup_dir = mockup
         self._no_oem = no_oem
         self._service_root = self._redfish_obj.root_resp.dict
-        self._total_counts = {validate.Result.PASS.name: 0, validate.Result.WARN.name: 0, validate.Result.FAIL.name: 0, validate.Result.SKIP.name: 0}
+        self._total_counts = {
+            validate.Result.PASS.name: 0,
+            validate.Result.WARN.name: 0,
+            validate.Result.FAIL.name: 0,
+            validate.Result.SKIP.name: 0,
+        }
         self._error_classes = {}
         self._warning_classes = {}
         self._profile_under_test = None
@@ -86,7 +91,13 @@ class SystemUnderTest(object):
         self._resources = {}
         self._annotation_uris = []
         self._collection_capabilities_uris = []
-        self._service_resource_results = { "Results": {}, validate.Result.FAIL.name: 0, validate.Result.WARN.name: 0, validate.Result.PASS.name: 0, validate.Result.SKIP.name: 0 }
+        self._service_resource_results = {
+            "Results": {},
+            validate.Result.FAIL.name: 0,
+            validate.Result.WARN.name: 0,
+            validate.Result.PASS.name: 0,
+            validate.Result.SKIP.name: 0,
+        }
         self._global_value_checks = {}
 
         # Build collection limits
@@ -443,11 +454,18 @@ class SystemUnderTest(object):
 
             # Append the profile info that dictates the requirement
             if self._profile_under_test is not None and self._use_case_under_test is not None:
-                self._resources[uri]["Results"][prop]["Message"] += "; Profile: {}, Use Case: {}".format(self._profile_under_test, self._use_case_under_test)
+                self._resources[uri]["Results"][prop]["Message"] += "; Profile: {}, Use Case: {}".format(
+                    self._profile_under_test, self._use_case_under_test
+                )
 
             # Build up a test report-friendly value to uses
             if self._resources[uri]["Validated"]:
-                combined_msg = "{} - {} ({}): {}".format(self._resources[uri]["Results"][prop]["Result"].name, prop, self._resources[uri]["Results"][prop]["Value"], self._resources[uri]["Results"][prop]["Message"])
+                combined_msg = "{} - {} ({}): {}".format(
+                    self._resources[uri]["Results"][prop]["Result"].name,
+                    prop,
+                    self._resources[uri]["Results"][prop]["Value"],
+                    self._resources[uri]["Results"][prop]["Message"],
+                )
             else:
                 if prop != "":
                     if present:
@@ -506,7 +524,14 @@ class SystemUnderTest(object):
         # The property path needs any numeric segments in the path cleaned since array numbers are not the same
         test_name = "{}_{}_{}".format(self._use_case_id_under_test, re.sub(r"\/\d+", "", prop), comparison)
         if test_name not in self._global_value_checks:
-            self._global_value_checks[test_name] = { "Profile": self._profile_under_test, "UseCase": self._use_case_under_test, "Comparison": comparison, "ExpectedValues": expected_values, "FoundValues": [], "Properties": [] }
+            self._global_value_checks[test_name] = {
+                "Profile": self._profile_under_test,
+                "UseCase": self._use_case_under_test,
+                "Comparison": comparison,
+                "ExpectedValues": expected_values,
+                "FoundValues": [],
+                "Properties": [],
+            }
         # Cache the test data to follow-up on later
         self._global_value_checks[test_name]["Properties"].append({"URI": uri, "Property": prop})
         if not isinstance(value, list):
@@ -532,7 +557,11 @@ class SystemUnderTest(object):
             # Mark a warning if the resource was populated from a mockup file and has results
             if mockup and len(self._resources[uri]["Results"]) != 0:
                 self.add_property_result(
-                    uri, "", False, None, (validate.Result.WARN, "Mockup Used Warning: Response was populated from a mockup file.")
+                    uri,
+                    "",
+                    False,
+                    None,
+                    (validate.Result.WARN, "Mockup Used Warning: Response was populated from a mockup file."),
                 )
                 self._total_counts[validate.Result.WARN.name] += 1
                 self._resources[uri]["Counts"][validate.Result.WARN.name] += 1
@@ -711,11 +740,14 @@ class SystemUnderTest(object):
             # Build the result entry
             if resource not in self._service_resource_results["Results"]:
                 # New result for the resource
-                self._service_resource_results["Results"][resource] = { "Result": result[0], "Message": result[1] }
+                self._service_resource_results["Results"][resource] = {"Result": result[0], "Message": result[1]}
             else:
                 # Existing result to update
                 # If the current result is SKIP or PASS, replace the current message with the new message
-                if self._service_resource_results["Results"][resource]["Result"] in [validate.Result.SKIP, validate.Result.PASS]:
+                if self._service_resource_results["Results"][resource]["Result"] in [
+                    validate.Result.SKIP,
+                    validate.Result.PASS,
+                ]:
                     self._service_resource_results["Results"][resource]["Message"] = result[1]
                 else:
                     # Append the result message to the existing list
@@ -726,7 +758,9 @@ class SystemUnderTest(object):
                     self._service_resource_results["Results"][resource]["Result"] = result[0]
 
             # Append the profile info that dictates the requirement
-            self._service_resource_results["Results"][resource]["Message"] += "; Profile: {}, Use Case: {}".format(use_case["ProfileName"], use_case["UseCaseTitle"])
+            self._service_resource_results["Results"][resource]["Message"] += "; Profile: {}, Use Case: {}".format(
+                use_case["ProfileName"], use_case["UseCaseTitle"]
+            )
 
             # Update the error category counts
             if result[0] == validate.Result.FAIL or result[0] == validate.Result.WARN:
@@ -757,13 +791,17 @@ class SystemUnderTest(object):
                         match_found = True
                         break
                 if not match_found:
-                    result = "Comparison Error: The property, across all instances in the service, does not contain one of the required values: {}".format(", ".join(test["ExpectedValues"]))
+                    result = "Comparison Error: The property, across all instances in the service, does not contain one of the required values: {}".format(
+                        ", ".join(test["ExpectedValues"])
+                    )
                     pass
             elif test["Comparison"] == "AllOf":
                 # All values must be found
                 for value in test["ExpectedValues"]:
                     if value not in test["FoundValues"]:
-                        result = "Comparison Error: The property, across all instances in the service, does not contain all of the required values: {}".format(", ".join(test["ExpectedValues"]))
+                        result = "Comparison Error: The property, across all instances in the service, does not contain all of the required values: {}".format(
+                            ", ".join(test["ExpectedValues"])
+                        )
                         break
             elif test["Comparison"] == "ReadSupport":
                 # At least one instance of the resource must have the property

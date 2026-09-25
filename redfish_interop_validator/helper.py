@@ -46,14 +46,15 @@ def get_version(in_string):
 
     return version_str, version
 
+
 def uri_check(expected_uris, uri):
     """
     Check if a URI matches any of the expected URIs in a profile.
-    
+
     Args:
         expected_uris: List of expected URIs from the profile
         uri: The URI to check
-        
+
     Returns:
         True if the URI matches any of the expected URIs, False otherwise
     """
@@ -65,6 +66,7 @@ def uri_check(expected_uris, uri):
     pattern = "^{}$".format("|".join(expected_uris))
     pattern = re.sub(_URI_ID_PATTERN, _VALID_ID_PATTERN, pattern)
     return re.fullmatch(pattern, uri) is not None
+
 
 def find_property(property_name, payload, payload_full):
     """
@@ -112,6 +114,7 @@ def find_property(property_name, payload, payload_full):
         else:
             return False, None
 
+
 def evaluate_comparison(sut, compare_property, compare_type, compare_values, payload, payload_full):
     """
     Evaluates a comparison condition
@@ -134,7 +137,11 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
     # Log message to console if values is empty
     if compare_type != "Absent" and compare_type != "Present":
         if len(compare_values) == 0:
-            logger.critical("Comparison values is empty for the property {} with comparison type {}".format(compare_property, compare_type))
+            logger.critical(
+                "Comparison values is empty for the property {} with comparison type {}".format(
+                    compare_property, compare_type
+                )
+            )
 
     if found:
         # Convert a singleton value to an array to leverage existing array validation logic
@@ -153,10 +160,18 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
 
                 # Set up failure strings
                 fail_strings = {
-                    "AnyOf": "Comparison Error: The property does not contain one of the expected values: {}".format(", ".join(compare_values)),
-                    "Equal": "Comparison Error: The property does not contain one of the expected values: {}".format(", ".join(compare_values)),
-                    "LinkToResource": "Comparison Error: The property does not link to a resource of the expected types: {}".format(", ".join(compare_values)),
-                    "Pattern": "Comparison Error: The property does not match one of the expected patterns: {}".format(", ".join(compare_values)),
+                    "AnyOf": "Comparison Error: The property does not contain one of the expected values: {}".format(
+                        ", ".join(compare_values)
+                    ),
+                    "Equal": "Comparison Error: The property does not contain one of the expected values: {}".format(
+                        ", ".join(compare_values)
+                    ),
+                    "LinkToResource": "Comparison Error: The property does not link to a resource of the expected types: {}".format(
+                        ", ".join(compare_values)
+                    ),
+                    "Pattern": "Comparison Error: The property does not match one of the expected patterns: {}".format(
+                        ", ".join(compare_values)
+                    ),
                 }
 
                 # Need to find at least one match in the comparison list
@@ -169,13 +184,15 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
                     elif compare_type == "LinkToResource":
                         # Need to ensure the value is a proper reference object; we also skip external references since we do not have credentials to access them
                         if "@odata.id" in value_under_test:
-                            if isinstance(value_under_test["@odata.id"], str) and value_under_test["@odata.id"].startswith("/"):
+                            if isinstance(value_under_test["@odata.id"], str) and value_under_test[
+                                "@odata.id"
+                            ].startswith("/"):
                                 linked_type, _, _ = sut.get_resource_type(value_under_test["@odata.id"])
                                 if linked_type is not None and linked_type in compare_values:
                                     match = True
                                     break
                             else:
-                               result = "Comparison Error: The property does not contain a valid URI"
+                                result = "Comparison Error: The property does not contain a valid URI"
                         else:
                             result = "Comparison Error: The property does not contain a valid reference object"
                     elif compare_type == "Pattern":
@@ -185,7 +202,9 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
                 if match:
                     result = None
                 else:
-                    result = fail_strings.get(compare_type, "Comparison Error: The property does not meet the comparison requirements")
+                    result = fail_strings.get(
+                        compare_type, "Comparison Error: The property does not meet the comparison requirements"
+                    )
 
             elif compare_type in ["NotEqual", "GreaterThan", "GreaterThanOrEqual", "LessThan", "LessThanOrEqual"]:
                 # For these comparisons, the value needs to match all of the requirements
@@ -194,19 +213,33 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
                 for compare_val in compare_values:
                     if compare_type == "NotEqual":
                         if compare_val == value_under_test:
-                            result = "Comparison Error: The property contains '{}', but is not allowed".format(compare_val)
+                            result = "Comparison Error: The property contains '{}', but is not allowed".format(
+                                compare_val
+                            )
                     elif compare_type == "GreaterThan":
                         if value_under_test <= compare_val:
-                            result = "Comparison Error: The property value '{}' is not greater than '{}'".format(value_under_test, compare_val)
+                            result = "Comparison Error: The property value '{}' is not greater than '{}'".format(
+                                value_under_test, compare_val
+                            )
                     elif compare_type == "GreaterThanOrEqual":
                         if value_under_test < compare_val:
-                            result = "Comparison Error: The property value '{}' is not greater than or equal to '{}'".format(value_under_test, compare_val)
+                            result = (
+                                "Comparison Error: The property value '{}' is not greater than or equal to '{}'".format(
+                                    value_under_test, compare_val
+                                )
+                            )
                     elif compare_type == "LessThan":
                         if value_under_test >= compare_val:
-                            result = "Comparison Error: The property value '{}' is not less than '{}'".format(value_under_test, compare_val)
+                            result = "Comparison Error: The property value '{}' is not less than '{}'".format(
+                                value_under_test, compare_val
+                            )
                     elif compare_type == "LessThanOrEqual":
                         if value_under_test > compare_val:
-                            result = "Comparison Error: The property value '{}' is not less than or equal to '{}'".format(value_under_test, compare_val)
+                            result = (
+                                "Comparison Error: The property value '{}' is not less than or equal to '{}'".format(
+                                    value_under_test, compare_val
+                                )
+                            )
 
             elif compare_type in ["Range"]:
                 # Need to check each value meets the range requirements
@@ -227,11 +260,15 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
 
                 if range_req[0] != None:
                     if value_under_test < range_req[0]:
-                        result = "Comparison Error: The property value '{}' is below the minimum allowed value '{}'{}".format(value_under_test, range_req[0], nominal_val_str)
+                        result = "Comparison Error: The property value '{}' is below the minimum allowed value '{}'{}".format(
+                            value_under_test, range_req[0], nominal_val_str
+                        )
 
                 if range_req[1] != None:
                     if value_under_test > range_req[1]:
-                        result = "Comparison Error: The property value '{}' is above the maximum allowed value '{}'{}".format(value_under_test, range_req[1], nominal_val_str)
+                        result = "Comparison Error: The property value '{}' is above the maximum allowed value '{}'{}".format(
+                            value_under_test, range_req[1], nominal_val_str
+                        )
     else:
         if compare_type == "Absent":
             # Absence of the property is the only check

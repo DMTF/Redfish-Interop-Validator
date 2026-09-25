@@ -67,14 +67,25 @@ def validate_resource(sut, use_case, uri, payload_full):
     """
     # Apply conditional checks to the requirement
     requirement = evaluate_conditional(sut, use_case, uri, payload_full, payload_full)
-    
+
     # Min version check
     min_ver_req = ".v" + requirement.get("MinVersion", "1.0.0").replace(".", "_") + "."
     min_ver_str, min_ver = helper.get_version(min_ver_req)
     resource_type, resource_ver_str, resource_ver = sut.get_resource_type(uri)
     if resource_ver is not None:
         if resource_ver < min_ver:
-            sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Version Error: The resource version ({}) is lower than the minimum version required by the profile ({})".format(resource_ver_str, min_ver_str)))
+            sut.add_property_result(
+                uri,
+                "",
+                True,
+                "",
+                (
+                    Result.FAIL,
+                    "Resource Version Error: The resource version ({}) is lower than the minimum version required by the profile ({})".format(
+                        resource_ver_str, min_ver_str
+                    ),
+                ),
+            )
 
     # Allow header check
     if use_case["Resource"].endswith("Collection"):
@@ -85,10 +96,18 @@ def validate_resource(sut, use_case, uri, payload_full):
         if allow_header_split is not None:
             if use_case.get("CreateResource", False):
                 if "POST" not in allow_header_split:
-                    sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'POST' not found in the Allow header"))
+                    sut.add_property_result(
+                        uri,
+                        "",
+                        True,
+                        "",
+                        (Result.FAIL, "Resource Capabilities Error: 'POST' not found in the Allow header"),
+                    )
         else:
             if use_case.get("CreateResource", False):
-                sut.add_property_result(uri, "", True, "", (Result.WARN, "Resource Capabilities Warning: No Allow header found"))
+                sut.add_property_result(
+                    uri, "", True, "", (Result.WARN, "Resource Capabilities Warning: No Allow header found")
+                )
 
         # For other capabilities, we need to inspect the member's Allow header
         try:
@@ -103,13 +122,38 @@ def validate_resource(sut, use_case, uri, payload_full):
             if member_allow_header_split is not None:
                 if use_case.get("DeleteResource", False):
                     if "DELETE" not in member_allow_header_split:
-                        sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'DELETE' not found in the member's Allow header"))
+                        sut.add_property_result(
+                            uri,
+                            "",
+                            True,
+                            "",
+                            (
+                                Result.FAIL,
+                                "Resource Capabilities Error: 'DELETE' not found in the member's Allow header",
+                            ),
+                        )
                 if use_case.get("UpdateResource", False):
                     if "PUT" not in member_allow_header_split and "PATCH" not in member_allow_header_split:
-                        sut.add_property_result(uri, "", True, "", (Result.FAIL, "Resource Capabilities Error: 'PUT' or 'PATCH' not found in the member's Allow header"))
+                        sut.add_property_result(
+                            uri,
+                            "",
+                            True,
+                            "",
+                            (
+                                Result.FAIL,
+                                "Resource Capabilities Error: 'PUT' or 'PATCH' not found in the member's Allow header",
+                            ),
+                        )
             else:
                 if use_case.get("DeleteResource", False) or use_case.get("UpdateResource", False):
-                    sut.add_property_result(uri, "", True, "", (Result.WARN, "Resource Capabilities Warning: No Allow header found for the member resource"))
+                    sut.add_property_result(
+                        uri,
+                        "",
+                        True,
+                        "",
+                        (Result.WARN, "Resource Capabilities Warning: No Allow header found for the member resource"),
+                    )
+
 
 def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
     """
@@ -141,7 +185,18 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
         if "ReplacesProperty" in requirement and prop not in payload:
             found, _ = helper.find_property(requirement["ReplacesProperty"], payload, payload_full)
             if found:
-                sut.add_property_result(uri, cur_path, False, None, (Result.WARN, "Replaced Property Warning: The property '{}' is preferred, but only the older property '{}' is present".format(prop, requirement["ReplacesProperty"])))
+                sut.add_property_result(
+                    uri,
+                    cur_path,
+                    False,
+                    None,
+                    (
+                        Result.WARN,
+                        "Replaced Property Warning: The property '{}' is preferred, but only the older property '{}' is present".format(
+                            prop, requirement["ReplacesProperty"]
+                        ),
+                    ),
+                )
                 continue
 
         # Initial read requirement testing
@@ -156,7 +211,13 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
             continue
         elif read_requirement == "Excluded" and prop in payload:
             # Not allowed
-            sut.add_property_result(uri, cur_path, False, None, (Result.FAIL, "Read Requirement Error: The property '{}' is not allowed".format(prop)))
+            sut.add_property_result(
+                uri,
+                cur_path,
+                False,
+                None,
+                (Result.FAIL, "Read Requirement Error: The property '{}' is not allowed".format(prop)),
+            )
         elif read_requirement in ["Recommended", "IfImplemented"] and prop not in payload:
             sut.add_property_result(uri, cur_path, False, None, (Result.SKIP, "Skip: The property is not present"))
         elif read_requirement == "Supported":
@@ -165,7 +226,13 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
             sut.add_global_value_check(uri, cur_path, prop in payload, "ReadSupport", [True])
         elif prop not in payload:
             # Mandatory but not present
-            sut.add_property_result(uri, cur_path, False, None, (Result.FAIL, "Read Requirement Error: The property '{}' is not present".format(prop)))
+            sut.add_property_result(
+                uri,
+                cur_path,
+                False,
+                None,
+                (Result.FAIL, "Read Requirement Error: The property '{}' is not present".format(prop)),
+            )
 
         if prop not in payload:
             continue
@@ -185,9 +252,17 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
             if resource_writable is False:
                 # Allow header is present and does not support PUT or PATCH
                 if write_requirement == "Mandatory":
-                    sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.FAIL, "Write Requirement Error: The resource is not writable"))
+                    sut.add_property_result(
+                        uri,
+                        cur_path_wr,
+                        True,
+                        payload[prop],
+                        (Result.FAIL, "Write Requirement Error: The resource is not writable"),
+                    )
                 else:
-                    sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.SKIP, "Skip: The resource is not writable"))
+                    sut.add_property_result(
+                        uri, cur_path_wr, True, payload[prop], (Result.SKIP, "Skip: The resource is not writable")
+                    )
                     if write_requirement == "Supported":
                         sut.add_global_value_check(uri, cur_path_wr, False, "WriteSupport", [True])
             elif "@Redfish.WriteableProperties" in payload:
@@ -195,13 +270,23 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
                 # Yes, 'writeable' is not the correct spelling, but this is how it's called out in the spec
                 if prop not in payload["@Redfish.WriteableProperties"]:
                     if write_requirement == "Mandatory":
-                        sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.FAIL, "Write Requirement Error: The property is not writable"))
+                        sut.add_property_result(
+                            uri,
+                            cur_path_wr,
+                            True,
+                            payload[prop],
+                            (Result.FAIL, "Write Requirement Error: The property is not writable"),
+                        )
                     else:
-                        sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.SKIP, "Skip: The property is not writable"))
+                        sut.add_property_result(
+                            uri, cur_path_wr, True, payload[prop], (Result.SKIP, "Skip: The property is not writable")
+                        )
                         if write_requirement == "Supported":
                             sut.add_global_value_check(uri, cur_path_wr, False, "WriteSupport", [True])
                 else:
-                    sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.PASS, "Pass: The property is writable"))
+                    sut.add_property_result(
+                        uri, cur_path_wr, True, payload[prop], (Result.PASS, "Pass: The property is writable")
+                    )
                     if write_requirement == "Supported":
                         sut.add_global_value_check(uri, cur_path_wr, True, "WriteSupport", [True])
             else:
@@ -213,9 +298,26 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
         if "MinCount" in requirement:
             if isinstance(payload[prop], list):
                 if len(payload[prop]) < requirement["MinCount"]:
-                    sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.FAIL, "Min Count Error: The array contains {} elements, but requires at least {}".format(len(payload[prop]), requirement["MinCount"])))
+                    sut.add_property_result(
+                        uri,
+                        cur_path_wr,
+                        True,
+                        payload[prop],
+                        (
+                            Result.FAIL,
+                            "Min Count Error: The array contains {} elements, but requires at least {}".format(
+                                len(payload[prop]), requirement["MinCount"]
+                            ),
+                        ),
+                    )
             else:
-                sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.WARN, "Min Count Error: The property is not an array"))
+                sut.add_property_result(
+                    uri,
+                    cur_path_wr,
+                    True,
+                    payload[prop],
+                    (Result.WARN, "Min Count Error: The property is not an array"),
+                )
 
         # Supported values; check the @Redfish.AllowableValues property to see what's supported
         if "MinSupportValues" in requirement:
@@ -225,9 +327,24 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
                 if isinstance(payload[allow_values], list):
                     for req_value in requirement["MinSupportValues"]:
                         if req_value not in payload[allow_values]:
-                            sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.FAIL, "Supported Values Error: The value '{}' is not supported".format(req_value)))
+                            sut.add_property_result(
+                                uri,
+                                cur_path_wr,
+                                True,
+                                payload[prop],
+                                (
+                                    Result.FAIL,
+                                    "Supported Values Error: The value '{}' is not supported".format(req_value),
+                                ),
+                            )
                 else:
-                    sut.add_property_result(uri, cur_path_wr, True, payload[prop], (Result.WARN, "Supported Values Error: '{}' is not an array".format(allow_values)))
+                    sut.add_property_result(
+                        uri,
+                        cur_path_wr,
+                        True,
+                        payload[prop],
+                        (Result.WARN, "Supported Values Error: '{}' is not an array".format(allow_values)),
+                    )
 
         # Comparison
         if "Values" in requirement:
@@ -236,7 +353,9 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
                 sut.add_global_value_check(uri, cur_path, payload[prop], comparison, requirement["Values"])
             else:
                 # Other comparisons are evaluated now
-                result = helper.evaluate_comparison(sut, cur_path, comparison, requirement["Values"], payload, payload_full)
+                result = helper.evaluate_comparison(
+                    sut, cur_path, comparison, requirement["Values"], payload, payload_full
+                )
                 if result is not None:
                     sut.add_property_result(uri, cur_path, True, payload[prop], (Result.FAIL, result))
 
@@ -247,29 +366,46 @@ def validate_properties(sut, use_case, uri, payload, payload_full, prop_path):
                 for i, array_value in enumerate(payload[prop]):
                     curr_array_path = cur_path + "/" + str(i)
                     if isinstance(array_value, dict):
-                        validate_properties(sut, requirement["PropertyRequirements"], uri, array_value, payload_full, curr_array_path)
+                        validate_properties(
+                            sut, requirement["PropertyRequirements"], uri, array_value, payload_full, curr_array_path
+                        )
                     elif array_value is not None:
                         # Log warning; possibly bad profile, possibly bad service (supposed to be an object or array of objects)
-                        sut.add_property_result(uri, cur_path, True, payload[prop], (Result.WARN, "Property Requirements Warning: Unexpected non-object value in array"))
+                        sut.add_property_result(
+                            uri,
+                            cur_path,
+                            True,
+                            payload[prop],
+                            (Result.WARN, "Property Requirements Warning: Unexpected non-object value in array"),
+                        )
             elif isinstance(payload[prop], dict):
-                validate_properties(sut, requirement["PropertyRequirements"], uri, payload[prop], payload_full, cur_path)
+                validate_properties(
+                    sut, requirement["PropertyRequirements"], uri, payload[prop], payload_full, cur_path
+                )
             else:
                 # Log warning; possibly bad profile, possibly bad service (supposed to be an object or array of objects)
-                sut.add_property_result(uri, cur_path, True, payload[prop], (Result.WARN, "Property Requirements Warning: Unexpected non-object value"))
+                sut.add_property_result(
+                    uri,
+                    cur_path,
+                    True,
+                    payload[prop],
+                    (Result.WARN, "Property Requirements Warning: Unexpected non-object value"),
+                )
 
     return
+
 
 def evaluate_conditional(sut, requirement, uri, payload, payload_full):
     """
     Evaluates a conditional requirement
-    
+
     Args:
         sut: The system under test
         requirement: The conditional requirement to evaluate
         uri: The URI under test
         payload: The local JSON object making the property reference
         payload_full: The entire payload to search if required
-    
+
     Returns:
         A property requirement structure post conditional evaluation
     """
@@ -307,7 +443,14 @@ def evaluate_conditional(sut, requirement, uri, payload, payload_full):
 
         # Check if there is a property match
         if "CompareProperty" in condition and "CompareType" in condition:
-            result = helper.evaluate_comparison(sut, condition["CompareProperty"], condition["CompareType"], condition.get("CompareValues", []), payload, payload_full)
+            result = helper.evaluate_comparison(
+                sut,
+                condition["CompareProperty"],
+                condition["CompareType"],
+                condition.get("CompareValues", []),
+                payload,
+                payload_full,
+            )
             if result is not None:
                 # Property value doesn't match, skip this condition
                 continue
@@ -322,8 +465,9 @@ def evaluate_conditional(sut, requirement, uri, payload, payload_full):
                 updated_requirement[req_prop] = condition[req_prop]
         return updated_requirement
 
-    # No matches; just use the existing requirement    
+    # No matches; just use the existing requirement
     return requirement
+
 
 def validate_actions(sut, use_case, uri, resource_type, payload_full):
     """
@@ -353,7 +497,13 @@ def validate_actions(sut, use_case, uri, resource_type, payload_full):
         if not action_found:
             # Action not found
             if read_requirement == "Mandatory":
-                sut.add_property_result(uri, action_path, False, None, (Result.FAIL, "Required Action Error: The action '{}' is mandatory".format(action)))
+                sut.add_property_result(
+                    uri,
+                    action_path,
+                    False,
+                    None,
+                    (Result.FAIL, "Required Action Error: The action '{}' is mandatory".format(action)),
+                )
             elif read_requirement == "Recommended":
                 sut.add_property_result(uri, action_path, False, None, (Result.SKIP, "Skip: The action is not present"))
         else:
@@ -366,8 +516,22 @@ def validate_actions(sut, use_case, uri, resource_type, payload_full):
                 action_info_found, action_info_val = helper.find_property(action_info_path, {}, payload_full)
                 if not action_info_found:
                     if action_info_requirement == "Mandatory":
-                        sut.add_property_result(uri, action_info_path_results, False, None, (Result.FAIL, "Required Action Info Error: The action info is mandatory"))
+                        sut.add_property_result(
+                            uri,
+                            action_info_path_results,
+                            False,
+                            None,
+                            (Result.FAIL, "Required Action Info Error: The action info is mandatory"),
+                        )
                     else:
-                        sut.add_property_result(uri, action_info_path_results, False, None, (Result.SKIP, "Skip: The action info is not present"))
+                        sut.add_property_result(
+                            uri,
+                            action_info_path_results,
+                            False,
+                            None,
+                            (Result.SKIP, "Skip: The action info is not present"),
+                        )
                 else:
-                    sut.add_property_result(uri, action_info_path_results, True, action_info_val, (Result.PASS, "Action info present"))
+                    sut.add_property_result(
+                        uri, action_info_path_results, True, action_info_val, (Result.PASS, "Action info present")
+                    )

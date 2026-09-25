@@ -11,25 +11,28 @@ with open("README.md", "r", "utf-8") as f:
 
 setup(
     name="redfish_interop_validator",
-    version="3.0.0",
+    version="3.0.1",
     description="Redfish Interop Validator",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="DMTF, https://www.dmtf.org/standards/feedback",
-    license="BSD 3-clause \"New\" or \"Revised License\"",
+    license='BSD 3-clause "New" or "Revised License"',
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: BSD License",
         "Programming Language :: Python",
-        "Topic :: Communications"
+        "Topic :: Communications",
     ],
     keywords="Redfish",
     url="https://github.com/DMTF/Redfish-Interop-Validator",
     packages=["redfish_interop_validator"],
-    entry_points={
-        'console_scripts': [
-            'rf_interop_validator=redfish_interop_validator.console_scripts:main'
-        ]
-    },
-    install_requires=["colorama", "jsonschema", "openpyxl", "redfish>=3.1.5", "redfish_service_validator>=3.1.6", "redfish_utilities>=3.4.8"],
+    entry_points={"console_scripts": ["rf_interop_validator=redfish_interop_validator.console_scripts:main"]},
+    install_requires=[
+        "colorama",
+        "jsonschema",
+        "openpyxl",
+        "redfish>=3.1.5",
+        "redfish_service_validator>=3.1.6",
+        "redfish_utilities>=3.4.8",
+    ],
 )

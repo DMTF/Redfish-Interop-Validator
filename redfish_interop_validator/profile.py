@@ -57,7 +57,7 @@ class RedfishProfile:
                 # Build up records to track service-level requirements for all resources
                 for i, use_case in enumerate(self._raw["Resources"][resource]["UseCases"]):
                     if "UseCaseTitle" not in use_case:
-                        use_case["UseCaseTitle"] = "Use Case {}".format(i+1)
+                        use_case["UseCaseTitle"] = "Use Case {}".format(i + 1)
                     if "ReadRequirement" not in use_case:
                         use_case["ReadRequirement"] = "Mandatory"
                     use_case["Resource"] = resource
@@ -69,50 +69,48 @@ class RedfishProfile:
         # Build up required profile info
         if "RequiredProfiles" in self._raw:
             for profile in self._raw["RequiredProfiles"]:
-                version = ".v" + self._raw["RequiredProfiles"][profile].get("MinVersion", "0.0.0").replace(".", "_") + "."
+                version = (
+                    ".v" + self._raw["RequiredProfiles"][profile].get("MinVersion", "0.0.0").replace(".", "_") + "."
+                )
                 self._required_profiles.append((profile, version))
-
 
     def get_filename(self):
         """
         Gets the filename of the profile
-        
+
         Returns:
             The filename of the profile
         """
         return self._filename
 
-
     def get_required_profiles(self):
         """
         Gets the list of required profiles
-        
+
         Returns:
             The list of tuples containing required profiles with min versions
         """
         return self._required_profiles
 
-
     def get_profile_name(self):
         """
         Gets the name of the profile
-        
+
         Returns:
             The name of the profile
         """
         return self._profile_name
 
-
     def get_resource_requirements(self, sut, resource_type, uri, payload):
         """
         Gets the resource requirements for a specific resource type and URI
-        
+
         Args:
             sut: The system under test
             resource_type: The type of resource
             uri: The URI of the resource
             payload: The payload of the resource
-            
+
         Returns:
             The list of resource requirements
         """
@@ -134,7 +132,14 @@ class RedfishProfile:
             if "UseCaseKeyValues" in use_case or use_case_type == "AbsentResource":
                 if use_case_type == "Normal":
                     # Perform comparison checks like with other profile elements
-                    result = helper.evaluate_comparison(sut, "/" + use_case.get("UseCaseKeyProperty", ""), use_case.get("UseCaseComparison", "Equal"), use_case.get("UseCaseKeyValues", []), {}, payload)
+                    result = helper.evaluate_comparison(
+                        sut,
+                        "/" + use_case.get("UseCaseKeyProperty", ""),
+                        use_case.get("UseCaseComparison", "Equal"),
+                        use_case.get("UseCaseKeyValues", []),
+                        {},
+                        payload,
+                    )
                     if result:
                         # Use case doesn't apply, skip it
                         continue
@@ -184,7 +189,14 @@ class RedfishProfile:
 
                     # Get the parent resource and check its property value
                     parent_payload = sut.get_resource_data(parent_uri)
-                    result = helper.evaluate_comparison(sut, parent_prop, use_case.get("UseCaseComparison", "Equal"), use_case.get("UseCaseKeyValues", []), {}, parent_payload)
+                    result = helper.evaluate_comparison(
+                        sut,
+                        parent_prop,
+                        use_case.get("UseCaseComparison", "Equal"),
+                        use_case.get("UseCaseKeyValues", []),
+                        {},
+                        parent_payload,
+                    )
                     if result:
                         # Use case doesn't apply, skip it
                         continue
@@ -199,7 +211,7 @@ class RedfishProfile:
     def get_all_use_cases(self):
         """
         Gets all use cases for this profile
-        
+
         Returns:
             The list of all use cases
         """
@@ -288,13 +300,13 @@ def load_profile(profile_dir, profile_filename):
 def get_requirements(sut, resource_type, uri, payload):
     """
     Get the requirements for a specific resource type and URI from all loaded profiles.
-    
+
     Args:
         sut: The system under test
         resource_type: The type of resource
         uri: The URI of the resource
         payload: The payload of the resource
-        
+
     Returns:
         The list of resource requirements
     """
@@ -308,7 +320,7 @@ def get_requirements(sut, resource_type, uri, payload):
 def get_all_use_cases():
     """
     Get all use cases from all loaded profiles.
-    
+
     Returns:
         The list of all use cases
     """
@@ -318,10 +330,11 @@ def get_all_use_cases():
         use_cases.extend(profile_use_cases)
     return use_cases
 
+
 def get_profile_name():
     """
     Get the name of the first loaded profile.
-    
+
     Returns:
         The name of the first loaded profile
     """

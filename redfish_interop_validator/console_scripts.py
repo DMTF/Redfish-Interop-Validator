@@ -26,7 +26,7 @@ from redfish_interop_validator import profile
 from redfish_interop_validator import report
 from redfish_interop_validator import validate
 
-tool_version = '3.0.0'
+tool_version = "3.0.1"
 
 
 def main():
@@ -87,7 +87,9 @@ def main():
         action="store_true",
         help="Controls the verbosity of the debugging output; if not specified only INFO and higher are logged",
     )
-    argget.add_argument("profile", type=str, default="sample.json", help="The Redfish profile to use to verify the service")
+    argget.add_argument(
+        "profile", type=str, default="sample.json", help="The Redfish profile to use to verify the service"
+    )
     args = argget.parse_args()
     code, file = run_validator(vars(args))
     if code != 0:
