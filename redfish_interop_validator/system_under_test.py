@@ -750,7 +750,9 @@ class SystemUnderTest(object):
                 ]:
                     self._service_resource_results["Results"][resource]["Message"] = result[1]
                 else:
-                    # Append the result message to the existing list
+                    # Append the result message to the existing list; don't grow with PASS/SKIP messages
+                    if result[0] in [validate.Result.PASS, validate.Result.SKIP]:
+                        continue
                     self._service_resource_results["Results"][resource]["Message"] += "\n" + result[1]
 
                 # Update the result if it's more severe than the current result

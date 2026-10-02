@@ -153,19 +153,19 @@ class RedfishProfile:
                     # Loop on parent URIs until a match is found
                     if use_case_type == "ChassisType":
                         parent_resource = "Chassis"
-                        parent_prop = "ChassisType"
+                        parent_prop = "/ChassisType"
                     elif use_case_type == "DriveProtocol":
                         parent_resource = "Drive"
-                        parent_prop = "Protocol"
+                        parent_prop = "/Protocol"
                     elif use_case_type == "MemoryType":
                         parent_resource = "Memory"
-                        parent_prop = "MemoryType"
+                        parent_prop = "/MemoryType"
                     elif use_case_type == "PortProtocol":
                         parent_resource = "Port"
-                        parent_prop = "Protocol"
+                        parent_prop = "/Protocol"
                     elif use_case_type == "ProcessorType":
                         parent_resource = "Processor"
-                        parent_prop = "ProcessorType"
+                        parent_prop = "/ProcessorType"
                     else:
                         logger.critical("Unknown use case type: {}".format(use_case_type))
                         continue
