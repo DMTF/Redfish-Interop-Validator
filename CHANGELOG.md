@@ -1,5 +1,8 @@
 # Change Log
 
+## [3.0.2] - 2026-10-03
+- Corrected use case type property references when evaluating if a resource matches a use case- #259
+
 ## [3.0.1] - 2026-09-25
 - Crash fix when traversing parent resources to find matching use cases
 - Added the profile name to test reports
