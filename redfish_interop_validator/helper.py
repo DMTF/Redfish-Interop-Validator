@@ -161,16 +161,16 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
                 # Set up failure strings
                 fail_strings = {
                     "AnyOf": "Comparison Error: The property does not contain one of the expected values: {}".format(
-                        ", ".join(compare_values)
+                        ", ".join(str(v) for v in compare_values)
                     ),
                     "Equal": "Comparison Error: The property does not contain one of the expected values: {}".format(
-                        ", ".join(compare_values)
+                        ", ".join(str(v) for v in compare_values)
                     ),
                     "LinkToResource": "Comparison Error: The property does not link to a resource of the expected types: {}".format(
-                        ", ".join(compare_values)
+                        ", ".join(str(v) for v in compare_values)
                     ),
                     "Pattern": "Comparison Error: The property does not match one of the expected patterns: {}".format(
-                        ", ".join(compare_values)
+                        ", ".join(str(v) for v in compare_values)
                     ),
                 }
 

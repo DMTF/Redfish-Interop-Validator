@@ -794,7 +794,7 @@ class SystemUnderTest(object):
                         break
                 if not match_found:
                     result = "Comparison Error: The property, across all instances in the service, does not contain one of the required values: {}".format(
-                        ", ".join(test["ExpectedValues"])
+                        ", ".join(str(v) for v in test["ExpectedValues"])
                     )
                     pass
             elif test["Comparison"] == "AllOf":
@@ -802,7 +802,7 @@ class SystemUnderTest(object):
                 for value in test["ExpectedValues"]:
                     if value not in test["FoundValues"]:
                         result = "Comparison Error: The property, across all instances in the service, does not contain all of the required values: {}".format(
-                            ", ".join(test["ExpectedValues"])
+                            ", ".join(str(v) for v in test["ExpectedValues"])
                         )
                         break
             elif test["Comparison"] == "ReadSupport":
