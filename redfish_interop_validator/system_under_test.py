@@ -11,6 +11,7 @@ Brief : This file contains the definitions for tracking data for the test
         system.
 """
 
+import json
 import re
 import time
 import redfish
@@ -785,6 +786,8 @@ class SystemUnderTest(object):
         # Check property value requirements that span all resources
         for test in self._global_value_checks.values():
             result = None
+            # Joining the expected values directly raises TypeError when a profile lists a boolean or number
+            dumped_values = ", ".join(json.dumps(expected_val) for expected_val in test["ExpectedValues"])
             if test["Comparison"] == "AnyOf":
                 # Just needs one value found
                 match_found = False
@@ -794,7 +797,7 @@ class SystemUnderTest(object):
                         break
                 if not match_found:
                     result = "Comparison Error: The property, across all instances in the service, does not contain one of the required values: {}".format(
-                        ", ".join(test["ExpectedValues"])
+                        dumped_values
                     )
                     pass
             elif test["Comparison"] == "AllOf":
@@ -802,7 +805,7 @@ class SystemUnderTest(object):
                 for value in test["ExpectedValues"]:
                     if value not in test["FoundValues"]:
                         result = "Comparison Error: The property, across all instances in the service, does not contain all of the required values: {}".format(
-                            ", ".join(test["ExpectedValues"])
+                            dumped_values
                         )
                         break
             elif test["Comparison"] == "ReadSupport":

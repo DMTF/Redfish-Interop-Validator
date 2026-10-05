@@ -10,6 +10,7 @@ File : helper.py
 Brief : This file contains common helper functions.
 """
 
+import json
 import re
 
 from redfish_interop_validator import logger
@@ -158,19 +159,20 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
             if compare_type in ["AnyOf", "Equal", "Pattern", "LinkToResource"]:
                 # For these comparisons, the value needs to match at least one of the expected values
 
-                # Set up failure strings
+                # Joining compare_values directly raises TypeError when a profile lists a boolean or number
+                dumped_values = ", ".join(json.dumps(compare_val) for compare_val in compare_values)
                 fail_strings = {
                     "AnyOf": "Comparison Error: The property does not contain one of the expected values: {}".format(
-                        ", ".join(compare_values)
+                        dumped_values
                     ),
                     "Equal": "Comparison Error: The property does not contain one of the expected values: {}".format(
-                        ", ".join(compare_values)
+                        dumped_values
                     ),
                     "LinkToResource": "Comparison Error: The property does not link to a resource of the expected types: {}".format(
-                        ", ".join(compare_values)
+                        dumped_values
                     ),
                     "Pattern": "Comparison Error: The property does not match one of the expected patterns: {}".format(
-                        ", ".join(compare_values)
+                        dumped_values
                     ),
                 }
 
