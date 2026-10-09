@@ -1,5 +1,8 @@
 # Change Log
 
+## [3.0.3] - 2026-10-09
+- Corrected error message construction when expected values in the profile are non-strings
+
 ## [3.0.2] - 2026-10-03
 - Corrected use case type property references when evaluating if a resource matches a use case
 
