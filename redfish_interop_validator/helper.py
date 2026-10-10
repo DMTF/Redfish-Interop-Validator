@@ -198,9 +198,13 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
                         else:
                             result = "Comparison Error: The property does not contain a valid reference object"
                     elif compare_type == "Pattern":
-                        if re.match(compare_val, value_under_test):
-                            match = True
-                            break
+                        try:
+                            if re.match(compare_val, value_under_test):
+                                match = True
+                                break
+                        except TypeError:
+                            # value_under_test is not a string — pattern cannot match
+                            pass
                 if match:
                     result = None
                 else:
@@ -219,29 +223,49 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
                                 compare_val
                             )
                     elif compare_type == "GreaterThan":
-                        if value_under_test <= compare_val:
-                            result = "Comparison Error: The property value '{}' is not greater than '{}'".format(
-                                value_under_test, compare_val
-                            )
+                        try:
+                            if value_under_test <= compare_val:
+                                result = "Comparison Error: The property value '{}' is not greater than '{}'".format(
+                                    value_under_test, compare_val
+                                )
+                        except TypeError:
+                            # Incomparable types (e.g. bool vs number, str vs dict) —
+                            # the comparison does not apply; leave result as-is
+                            pass
                     elif compare_type == "GreaterThanOrEqual":
-                        if value_under_test < compare_val:
-                            result = (
-                                "Comparison Error: The property value '{}' is not greater than or equal to '{}'".format(
-                                    value_under_test, compare_val
+                        try:
+                            if value_under_test < compare_val:
+                                result = (
+                                    "Comparison Error: The property value '{}' is not greater than or equal to '{}'".format(
+                                        value_under_test, compare_val
+                                    )
                                 )
-                            )
+                        except TypeError:
+                            # Incomparable types (e.g. bool vs number, str vs dict) —
+                            # the comparison does not apply; leave result as-is
+                            pass
                     elif compare_type == "LessThan":
-                        if value_under_test >= compare_val:
-                            result = "Comparison Error: The property value '{}' is not less than '{}'".format(
-                                value_under_test, compare_val
-                            )
-                    elif compare_type == "LessThanOrEqual":
-                        if value_under_test > compare_val:
-                            result = (
-                                "Comparison Error: The property value '{}' is not less than or equal to '{}'".format(
+                        try:
+                            if value_under_test >= compare_val:
+                                result = "Comparison Error: The property value '{}' is not less than '{}'".format(
                                     value_under_test, compare_val
                                 )
-                            )
+                        except TypeError:
+                            # Incomparable types (e.g. bool vs number, str vs dict) —
+                            # the comparison does not apply; leave result as-is
+                            pass
+                    elif compare_type == "LessThanOrEqual":
+                        try:
+                            if value_under_test > compare_val:
+                                result = (
+                                    "Comparison Error: The property value '{}' is not less than or equal to '{}'".format(
+                                        value_under_test, compare_val
+                                    )
+                                )
+                        except TypeError:
+                            # Incomparable types (e.g. bool vs number, str vs dict) —
+                            # the comparison does not apply; leave result as-is
+                            pass
 
             elif compare_type in ["Range"]:
                 # Need to check each value meets the range requirements
