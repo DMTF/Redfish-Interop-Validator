@@ -235,10 +235,8 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
                     elif compare_type == "GreaterThanOrEqual":
                         try:
                             if value_under_test < compare_val:
-                                result = (
-                                    "Comparison Error: The property value '{}' is not greater than or equal to '{}'".format(
-                                        value_under_test, compare_val
-                                    )
+                                result = "Comparison Error: The property value '{}' is not greater than or equal to '{}'".format(
+                                    value_under_test, compare_val
                                 )
                         except TypeError:
                             # Incomparable types (e.g. bool vs number, str vs dict) —
@@ -257,10 +255,8 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
                     elif compare_type == "LessThanOrEqual":
                         try:
                             if value_under_test > compare_val:
-                                result = (
-                                    "Comparison Error: The property value '{}' is not less than or equal to '{}'".format(
-                                        value_under_test, compare_val
-                                    )
+                                result = "Comparison Error: The property value '{}' is not less than or equal to '{}'".format(
+                                    value_under_test, compare_val
                                 )
                         except TypeError:
                             # Incomparable types (e.g. bool vs number, str vs dict) —

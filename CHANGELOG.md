@@ -1,5 +1,8 @@
 # Change Log
 
+## [3.0.4] - 2026-10-23
+- Improved type error exception handling for numeric and regex comparison types
+
 ## [3.0.3] - 2026-10-09
 - Corrected error message construction when expected values in the profile are non-strings
 
