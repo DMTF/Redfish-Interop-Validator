@@ -1,5 +1,8 @@
 # Change Log
 
+## [3.0.5] - 2026-11-06
+- Updated comparison checks for use cases to allow 'AnyOf' when mistakenly used by profiles
+
 ## [3.0.4] - 2026-10-23
 - Improved type error exception handling for numeric and regex comparison types
 
