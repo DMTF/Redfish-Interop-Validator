@@ -159,6 +159,10 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
             if compare_type in ["AnyOf", "Equal", "Pattern", "LinkToResource"]:
                 # For these comparisons, the value needs to match at least one of the expected values
 
+                # NOTE: AnyOf (and AllOf) are typically handled at a higher-level since they're used in service-wide checks.  However, a
+                # common mistake made by profile writers for use cases is to use AnyOf instead of Equal.  While this is outside the scope
+                # of the Redfish Interop Profile Spec, we'll allow for this to let folks test their services.
+
                 # Joining compare_values directly raises TypeError when a profile lists a boolean or number
                 dumped_values = ", ".join(json.dumps(compare_val) for compare_val in compare_values)
                 fail_strings = {
@@ -179,7 +183,7 @@ def evaluate_comparison(sut, compare_property, compare_type, compare_values, pay
                 # Need to find at least one match in the comparison list
                 match = False
                 for compare_val in compare_values:
-                    if compare_type == "Equal":
+                    if compare_type in ["AnyOf", "Equal"]:
                         if compare_val == value_under_test:
                             match = True
                             break
